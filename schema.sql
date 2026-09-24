@@ -224,3 +224,73 @@ CREATE TABLE IF NOT EXISTS count_lines (
     qty        NUMERIC(12,3) NOT NULL DEFAULT 0,
     unit_cost  NUMERIC(12,2) NOT NULL DEFAULT 0
 );
+
+
+-- ============================================================================
+-- v3: CLIENTS, RESELLER PRICING, RECEIVABLES, RECONCILIATION, LIABILITIES
+-- ============================================================================
+
+-- Customers (retail) and resellers (wholesale / stockists) in one list.
+CREATE TABLE IF NOT EXISTS customers (
+    id          SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    phone       TEXT NOT NULL DEFAULT '',
+    address     TEXT NOT NULL DEFAULT '',
+    notes       TEXT NOT NULL DEFAULT '',
+    tier        TEXT NOT NULL DEFAULT 'Retail' CHECK (tier IN ('Retail', 'Reseller')),
+    active      BOOLEAN NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_v3_customers_name ON customers (lower(name));
+
+-- A reseller's own price for a product (anything not listed = normal price).
+CREATE TABLE IF NOT EXISTS customer_prices (
+    customer_id  INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    item_id      INT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    price        NUMERIC(12,2) NOT NULL CHECK (price >= 0),
+    PRIMARY KEY (customer_id, item_id)
+);
+
+-- Orders: who bought, and whether it's paid now or on credit (a receivable).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id INT REFERENCES customers(id) ON DELETE SET NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'paid';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'GCash';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_payment_status_chk') THEN
+    ALTER TABLE orders ADD CONSTRAINT orders_payment_status_chk CHECK (payment_status IN ('paid', 'credit'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_payment_method_chk') THEN
+    ALTER TABLE orders ADD CONSTRAINT orders_payment_method_chk CHECK (payment_method IN ('Cash', 'GCash', 'Bank'));
+  END IF;
+END $$;
+
+-- Payments received against credit orders.
+CREATE TABLE IF NOT EXISTS receivable_payments (
+    id          SERIAL PRIMARY KEY,
+    order_id    INT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    amount      NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+    method      TEXT NOT NULL CHECK (method IN ('Cash', 'GCash', 'Bank')),
+    paid_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    notes       TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_v3_payments_order ON receivable_payments (order_id);
+
+-- Daily reconciliation: what the system expected vs. what actually landed.
+-- Once locked, that day's sales and payments can't be changed.
+CREATE TABLE IF NOT EXISTS reconciliations (
+    recon_date  DATE PRIMARY KEY,
+    expected    JSONB NOT NULL DEFAULT '{}',
+    actual      JSONB NOT NULL DEFAULT '{}',
+    notes       TEXT NOT NULL DEFAULT '',
+    locked      BOOLEAN NOT NULL DEFAULT false,
+    locked_at   TIMESTAMPTZ,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Liabilities: purchases/expenses paid by Gino or Credit Card stay UNPAID
+-- until reimbursed/settled.
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS settled_at TIMESTAMPTZ;
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS settled_method TEXT;
+ALTER TABLE expenses  ADD COLUMN IF NOT EXISTS settled_at TIMESTAMPTZ;
+ALTER TABLE expenses  ADD COLUMN IF NOT EXISTS settled_method TEXT;

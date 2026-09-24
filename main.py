@@ -8,6 +8,8 @@ Lean, single-operator design:
   • Production log (record only)
   • Monthly inventory count → periodic COGS:
         COGS = Beginning Inventory + Purchases − Ending Inventory
+  • Customers / resellers (custom price lists), receivables for credit
+    sales, daily reconciliation with day locking, liabilities (Gino / card)
 
 Everything except the health checks and login needs a logged-in session.
 """
@@ -41,7 +43,10 @@ SESSION_DAYS = 90
 SCHEMA_FILE = Path(__file__).with_name("schema.sql")
 
 CATEGORIES = ("Gelato", "Raw Material", "Packaging")
-PAYMENT_METHODS = ("Cash", "GCash", "Gino", "Credit Card", "Check")
+PAYMENT_METHODS = ("Cash", "GCash", "Gino", "Credit Card", "Check")   # purchases / expenses
+LIABILITY_METHODS = ("Gino", "Credit Card")                            # paid with money the business owes back
+SALE_METHODS = ("Cash", "GCash", "Bank")                               # where customer money lands
+TIERS = ("Retail", "Reseller")
 MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024
 LOCAL_DAY = "(({col}) AT TIME ZONE 'Asia/Manila')::date"   # timestamp → Manila calendar day
 
@@ -267,6 +272,41 @@ def as_payment(v):
     return v
 
 
+def as_sale_method(v):
+    v = as_text(v)
+    if v not in SALE_METHODS:
+        raise HTTPException(400, "Must be Cash, GCash, or Bank.")
+    return v
+
+
+def as_pay_status(v):
+    if v not in ("paid", "credit"):
+        raise HTTPException(400, "Payment status must be paid or credit.")
+    return v
+
+
+def as_tier(v):
+    if v not in TIERS:
+        raise HTTPException(400, "Type must be Retail or Reseller.")
+    return v
+
+
+def manila_day(ts) -> Optional[date]:
+    return ts.astimezone(MANILA_TZ).date() if ts else None
+
+
+def day_locked(cur, d: Optional[date]) -> bool:
+    if d is None:
+        return False
+    cur.execute("SELECT 1 FROM reconciliations WHERE recon_date = %s AND locked;", (d,))
+    return bool(cur.fetchone())
+
+
+def assert_unlocked(cur, d: Optional[date], what: str = "this"):
+    if day_locked(cur, d):
+        raise HTTPException(423, f"{d:%b %d, %Y} is already reconciled and locked — unlock it in Reconciliation to change {what}.")
+
+
 def as_timestamp(v):
     if isinstance(v, datetime):
         return v
@@ -375,17 +415,37 @@ ORDER_SELECT = """
                         'qty', oi.qty, 'unit_price', oi.unit_price, 'amount', oi.qty * oi.unit_price)
                         ORDER BY oi.id)
                      FROM order_items oi WHERE oi.order_id = o.id), '[]') AS items,
-           COALESCE((SELECT SUM(oi.qty * oi.unit_price) FROM order_items oi WHERE oi.order_id = o.id), 0) AS subtotal
+           COALESCE((SELECT SUM(oi.qty * oi.unit_price) FROM order_items oi WHERE oi.order_id = o.id), 0) AS subtotal,
+           COALESCE((SELECT SUM(p.amount) FROM receivable_payments p WHERE p.order_id = o.id), 0) AS amount_paid,
+           (SELECT c.tier FROM customers c WHERE c.id = o.customer_id) AS customer_tier
     FROM orders o
 """
 ORDER_FIELDS = {"customer_name": as_text, "phone": as_text, "address": as_text, "delivery_fee": as_money,
-                "rider_name": as_text, "notes": as_text, "completed_at": as_timestamp}
+                "rider_name": as_text, "notes": as_text, "completed_at": as_timestamp,
+                "payment_status": as_pay_status, "payment_method": as_sale_method}
 
 
 def order_out(r):
     r = {k: clean(v) for k, v in r.items()}
     r["total"] = round(r["subtotal"] + r["delivery_fee"], 2)
+    if r["payment_status"] == "credit":
+        r["balance"] = round(r["total"] - r["amount_paid"], 2)
+        r["receivable_status"] = ("cancelled" if r["status"] == "voided" else
+                                  "settled" if r["balance"] <= 0 else "partial" if r["amount_paid"] > 0 else "unpaid")
+    else:
+        r["balance"] = 0
+        r["receivable_status"] = None
     return r
+
+
+def price_for(cur, customer_id: Optional[int], item_id: int):
+    """A reseller's custom price if one is set, otherwise the normal price."""
+    cur.execute("""
+        SELECT i.name, i.variant, COALESCE(cp.price, i.selling_price) AS price
+        FROM items i LEFT JOIN customer_prices cp ON cp.item_id = i.id AND cp.customer_id = %s
+        WHERE i.id = %s;
+    """, (customer_id, item_id))
+    return cur.fetchone()
 
 
 def fetch_order(cur, order_id: int):
@@ -431,6 +491,7 @@ def order_history(date_from: Optional[date] = None, date_to: Optional[date] = No
             "items_subtotal": round(sum(o["subtotal"] for o in done), 2),
             "delivery_fees": round(sum(o["delivery_fee"] for o in done), 2),
             "grand_total": round(sum(o["total"] for o in done), 2),
+            "on_credit": round(sum(o["total"] for o in done if o["payment_status"] == "credit"), 2),
             "voided": len(out) - len(done),
         },
     }
@@ -457,6 +518,12 @@ def patch_order(order_id: int, changes: dict = Body(...)):
             raise HTTPException(400, "This order is voided and can't be edited.")
         if "completed_at" in changes and o["status"] != "completed":
             raise HTTPException(400, "Only a finished order has a completed date.")
+        if o["status"] == "completed":
+            assert_unlocked(cur, manila_day(o["completed_at"]), "this order")
+            if "completed_at" in changes:
+                assert_unlocked(cur, manila_day(as_timestamp(changes["completed_at"])), "orders on that day")
+            if changes.get("payment_status") == "paid" and o["amount_paid"] > 0:
+                raise HTTPException(400, "Payments were already logged against this credit sale — remove them in Receivables first.")
         apply_patch(cur, "orders", order_id, changes, ORDER_FIELDS, ", updated_at = now()")
         return fetch_order(cur, order_id)
 
@@ -471,17 +538,71 @@ def set_order_item(order_id: int, item_id: int, p: OrderLineQty):
         if p.qty == 0:
             cur.execute("DELETE FROM order_items WHERE order_id = %s AND item_id = %s;", (order_id, item_id))
         else:
-            cur.execute("SELECT name, variant, selling_price FROM items WHERE id = %s;", (item_id,))
-            item = cur.fetchone()
+            item = price_for(cur, o["customer_id"], item_id)
             if not item:
                 raise HTTPException(404, "Product not found.")
             cur.execute("""
                 INSERT INTO order_items (order_id, item_id, name, variant, qty, unit_price)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (order_id, item_id) DO UPDATE SET qty = EXCLUDED.qty;
-            """, (order_id, item_id, item["name"], item["variant"], p.qty, item["selling_price"]))
+            """, (order_id, item_id, item["name"], item["variant"], p.qty, item["price"]))
         cur.execute("UPDATE orders SET updated_at = now() WHERE id = %s;", (order_id,))
         return fetch_order(cur, order_id)
+
+
+class OrderCustomerIn(BaseModel):
+    customer_id: Optional[int] = None
+
+
+@api.put("/orders/{order_id}/customer")
+def set_order_customer(order_id: int, p: OrderCustomerIn):
+    """Links (or unlinks) a saved customer: copies their details onto the
+    order and re-prices the items with their price list."""
+    with db() as conn, conn.cursor() as cur:
+        o = fetch_order(cur, order_id)
+        if o["status"] != "open":
+            raise HTTPException(400, "The customer can only be changed while the order is open.")
+        if p.customer_id is None:
+            cur.execute("UPDATE orders SET customer_id = NULL, updated_at = now() WHERE id = %s;", (order_id,))
+        else:
+            cur.execute("SELECT * FROM customers WHERE id = %s;", (p.customer_id,))
+            c = cur.fetchone()
+            if not c:
+                raise HTTPException(404, "Customer not found.")
+            cur.execute("""UPDATE orders SET customer_id=%s, customer_name=%s, phone=%s, address=%s, notes=%s,
+                                  payment_status = CASE WHEN %s = 'Reseller' THEN 'credit' ELSE payment_status END,
+                                  updated_at=now() WHERE id=%s;""",
+                        (c["id"], c["name"], c["phone"], c["address"], c["notes"], c["tier"], order_id))
+        cur.execute("SELECT item_id FROM order_items WHERE order_id = %s AND item_id IS NOT NULL;", (order_id,))
+        for r in cur.fetchall():
+            item = price_for(cur, p.customer_id, r["item_id"])
+            cur.execute("UPDATE order_items SET unit_price = %s WHERE order_id = %s AND item_id = %s;",
+                        (item["price"], order_id, r["item_id"]))
+        return fetch_order(cur, order_id)
+
+
+def remember_customer(cur, o):
+    """New names typed on an order become saved customers when the order is
+    finished. Saved customers get blank details filled in from the order."""
+    if o["customer_id"]:
+        cur.execute("""UPDATE customers SET
+                         phone   = CASE WHEN phone = ''   THEN %s ELSE phone END,
+                         address = CASE WHEN address = '' THEN %s ELSE address END
+                       WHERE id = %s;""", (o["phone"], o["address"], o["customer_id"]))
+        return
+    name = o["customer_name"].strip()
+    if not name:
+        return
+    cur.execute("""SELECT id FROM customers WHERE lower(name) = lower(%s)
+                   AND (phone = %s OR phone = '' OR %s = '') ORDER BY id LIMIT 1;""", (name, o["phone"], o["phone"]))
+    found = cur.fetchone()
+    if found:
+        cid = found["id"]
+    else:
+        cur.execute("INSERT INTO customers (name, phone, address) VALUES (%s, %s, %s) RETURNING id;",
+                    (name, o["phone"], o["address"]))
+        cid = cur.fetchone()["id"]
+    cur.execute("UPDATE orders SET customer_id = %s WHERE id = %s;", (cid, o["id"]))
 
 
 @api.post("/orders/{order_id}/finish")
@@ -492,8 +613,12 @@ def finish_order(order_id: int):
             raise HTTPException(400, f"This order is already {o['status']}.")
         if not o["items"]:
             raise HTTPException(400, "Add at least one item before finishing the order.")
+        if o["payment_status"] == "credit" and not o["customer_name"].strip():
+            raise HTTPException(400, "A credit sale needs a customer name so it can be collected later.")
+        assert_unlocked(cur, today_manila(), "sales for today")
         cur.execute("UPDATE orders SET status='completed', completed_at=now(), updated_at=now() WHERE id=%s;",
                     (order_id,))
+        remember_customer(cur, o)
         return fetch_order(cur, order_id)
 
 
@@ -503,6 +628,8 @@ def void_order(order_id: int, p: VoidPayload):
         o = fetch_order(cur, order_id)
         if o["status"] == "voided":
             raise HTTPException(400, "This order is already voided.")
+        if o["status"] == "completed":
+            assert_unlocked(cur, manila_day(o["completed_at"]), "this order")
         cur.execute("""UPDATE orders SET status='voided', voided_at=now(), void_reason=%s, updated_at=now()
                        WHERE id=%s;""", (p.reason.strip() or None, order_id))
         return fetch_order(cur, order_id)
@@ -1017,15 +1144,423 @@ def report_periods():
 
 
 @api.get("/dashboard")
-def dashboard():
+def dashboard(date_from: Optional[date] = None, date_to: Optional[date] = None):
+    """Gross sales and OpEx for any range. COGS and net profit only exist per
+    count period (periodic inventory), so they're filled in when the range
+    matches a count period exactly."""
     t = today_manila()
+    start, end = (date_from or t), (date_to or t)
     with db() as conn, conn.cursor() as cur:
-        today = period_numbers(cur, t - timedelta(days=1), t)
+        n = period_numbers(cur, start - timedelta(days=1), end)
+        rep = build_periods(cur)
+        match = next((p for p in rep["periods"]
+                      if not p.get("opening") and p["period_start"] + timedelta(days=1) == start and p["period_end"] == end), None)
         cur.execute("SELECT COUNT(*) AS n FROM orders WHERE status = 'open';")
         open_n = cur.fetchone()["n"]
-        rep = build_periods(cur)
-    return {"today": t, "today_numbers": today, "open_orders": open_n,
-            "current_period": rep["current"], "last_period": rep["periods"][0] if rep["periods"] else None}
+        receivables = outstanding_receivables(cur)
+        cur.execute(f"""
+            SELECT COALESCE(SUM(l.amount), 0) AS total FROM (
+              SELECT (SELECT SUM(amount) FROM purchase_lines WHERE purchase_id = p.id) AS amount
+                FROM purchases p WHERE p.payment_method IN ('Gino', 'Credit Card') AND p.settled_at IS NULL
+              UNION ALL
+              SELECT (SELECT SUM(amount) FROM expense_lines WHERE expense_id = e.id)
+                FROM expenses e WHERE e.payment_method IN ('Gino', 'Credit Card') AND e.settled_at IS NULL) l;
+        """)
+        liabilities = one(cur)["total"]
+        cur.execute(f"""
+            SELECT COUNT(DISTINCT d) AS n FROM (
+              SELECT {LOCAL_DAY.format(col='completed_at')} AS d FROM orders
+               WHERE status = 'completed' AND payment_status = 'paid'
+              UNION SELECT {LOCAL_DAY.format(col='paid_at')} FROM receivable_payments) x
+            WHERE d < %s AND d NOT IN (SELECT recon_date FROM reconciliations WHERE locked);
+        """, (t,))
+        unreconciled = cur.fetchone()["n"]
+    return {
+        "date_from": start, "date_to": end, "today": t,
+        "gross_sales": n["sales"], "delivery_fees": n["delivery_fees"], "opex": n["expenses"],
+        "purchases": n["purchases"], "orders": n["orders"], "units_produced": n["units_produced"],
+        "cogs": match["cogs"] if match else None,
+        "net_profit": match["net_profit"] if match else None,
+        "gross_profit": match["gross_profit"] if match else None,
+        "matched_period": match,
+        "open_orders": open_n, "receivables_outstanding": receivables, "liabilities_unpaid": liabilities,
+        "unreconciled_days": unreconciled,
+        "periods": rep["periods"], "current_period": rep["current"],
+    }
+
+
+# ----------------------------------------------------------------------------
+# Customers & resellers
+# ----------------------------------------------------------------------------
+
+class CustomerIn(BaseModel):
+    name: str
+    phone: str = ""
+    address: str = ""
+    notes: str = ""
+    tier: str = "Retail"
+
+
+CUSTOMER_FIELDS = {"name": as_text, "phone": as_text, "address": as_text, "notes": as_text,
+                   "tier": as_tier, "active": as_bool}
+CUSTOMER_STATS = """
+    SELECT c.*,
+           (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status = 'completed') AS order_count,
+           (SELECT COALESCE(SUM(oi.qty * oi.unit_price), 0)
+              FROM orders o JOIN order_items oi ON oi.order_id = o.id
+             WHERE o.customer_id = c.id AND o.status = 'completed') AS items_total,
+           (SELECT MAX(o.completed_at) FROM orders o WHERE o.customer_id = c.id AND o.status = 'completed') AS last_order_at,
+           (SELECT COUNT(*) FROM customer_prices cp WHERE cp.customer_id = c.id) AS custom_prices
+    FROM customers c
+"""
+
+
+def customer_balance(cur, customer_id: int) -> float:
+    cur.execute("""
+        SELECT COALESCE(SUM(
+          (SELECT COALESCE(SUM(oi.qty * oi.unit_price), 0) FROM order_items oi WHERE oi.order_id = o.id) + o.delivery_fee
+          - (SELECT COALESCE(SUM(p.amount), 0) FROM receivable_payments p WHERE p.order_id = o.id)), 0) AS bal
+        FROM orders o WHERE o.customer_id = %s AND o.status = 'completed' AND o.payment_status = 'credit';
+    """, (customer_id,))
+    return round(float(cur.fetchone()["bal"]), 2)
+
+
+@api.get("/customers")
+def list_customers(tier: Optional[str] = None, include_inactive: bool = False):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute(CUSTOMER_STATS + " WHERE (%s::text IS NULL OR c.tier = %s) AND (c.active OR %s) ORDER BY lower(c.name);",
+                    (tier, tier, include_inactive))
+        out = rows(cur)
+        for c in out:
+            c["balance"] = customer_balance(cur, c["id"])
+        return out
+
+
+@api.post("/customers")
+def create_customer(p: CustomerIn):
+    if not p.name.strip():
+        raise HTTPException(400, "Name is required.")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO customers (name, phone, address, notes, tier) VALUES (%s,%s,%s,%s,%s) RETURNING *;""",
+                    (p.name.strip(), p.phone.strip(), p.address.strip(), p.notes.strip(), as_tier(p.tier)))
+        return one(cur)
+
+
+@api.get("/customers/{customer_id}")
+def get_customer(customer_id: int):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute(CUSTOMER_STATS + " WHERE c.id = %s;", (customer_id,))
+        c = one(cur)
+        if not c:
+            raise HTTPException(404, "Customer not found.")
+        c["balance"] = customer_balance(cur, customer_id)
+        cur.execute(ORDER_SELECT + " WHERE o.customer_id = %s AND o.status <> 'open' ORDER BY COALESCE(o.completed_at, o.voided_at) DESC LIMIT 200;",
+                    (customer_id,))
+        c["orders"] = [order_out(r) for r in cur.fetchall()]
+        cur.execute("""
+            SELECT i.id AS item_id, i.name, i.variant, i.selling_price, cp.price AS custom_price
+            FROM items i LEFT JOIN customer_prices cp ON cp.item_id = i.id AND cp.customer_id = %s
+            WHERE i.category = 'Gelato' AND (i.active OR cp.price IS NOT NULL)
+            ORDER BY i.sort_order, i.name, i.variant;
+        """, (customer_id,))
+        c["prices"] = rows(cur)
+        return c
+
+
+@api.patch("/customers/{customer_id}")
+def patch_customer(customer_id: int, changes: dict = Body(...)):
+    if "name" in changes and not as_text(changes["name"]):
+        raise HTTPException(400, "Name can't be blank.")
+    with db() as conn, conn.cursor() as cur:
+        apply_patch(cur, "customers", customer_id, changes, CUSTOMER_FIELDS)
+        cur.execute(CUSTOMER_STATS + " WHERE c.id = %s;", (customer_id,))
+        return one(cur)
+
+
+@api.delete("/customers/{customer_id}")
+def delete_customer(customer_id: int):
+    """Past orders keep the name/phone/address typed on them."""
+    with db() as conn, conn.cursor() as cur:
+        if customer_balance(cur, customer_id) > 0:
+            raise HTTPException(400, "This client still owes money — settle it in Receivables first.")
+        cur.execute("DELETE FROM customers WHERE id = %s RETURNING id;", (customer_id,))
+        if not cur.fetchone():
+            raise HTTPException(404, "Customer not found.")
+    return {"ok": True}
+
+
+class PriceIn(BaseModel):
+    price: Optional[float] = None   # null = remove custom price
+
+
+@api.put("/customers/{customer_id}/prices/{item_id}")
+def set_customer_price(customer_id: int, item_id: int, p: PriceIn):
+    with db() as conn, conn.cursor() as cur:
+        if p.price is None:
+            cur.execute("DELETE FROM customer_prices WHERE customer_id = %s AND item_id = %s;", (customer_id, item_id))
+        else:
+            cur.execute("""INSERT INTO customer_prices (customer_id, item_id, price) VALUES (%s, %s, %s)
+                           ON CONFLICT (customer_id, item_id) DO UPDATE SET price = EXCLUDED.price;""",
+                        (customer_id, item_id, as_money(p.price)))
+    return {"ok": True}
+
+
+@api.get("/customers-prices")
+def all_custom_prices():
+    """Every reseller price, so the phone can show the right price on the POS grid."""
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT customer_id, item_id, price FROM customer_prices;")
+        return rows(cur)
+
+
+# ----------------------------------------------------------------------------
+# Receivables (credit sales)
+# ----------------------------------------------------------------------------
+
+def outstanding_receivables(cur) -> float:
+    cur.execute("""
+        SELECT COALESCE(SUM(
+          (SELECT COALESCE(SUM(oi.qty * oi.unit_price), 0) FROM order_items oi WHERE oi.order_id = o.id) + o.delivery_fee
+          - (SELECT COALESCE(SUM(p.amount), 0) FROM receivable_payments p WHERE p.order_id = o.id)), 0) AS bal
+        FROM orders o WHERE o.status = 'completed' AND o.payment_status = 'credit';
+    """)
+    return round(float(cur.fetchone()["bal"]), 2)
+
+
+class PaymentIn(BaseModel):
+    amount: float = Field(gt=0)
+    method: str = "GCash"
+    paid_at: Optional[datetime] = None
+    notes: str = ""
+
+
+@api.get("/receivables")
+def list_receivables(show: str = "open"):
+    """Credit sales with what's been paid. show=open (still owed) or all."""
+    with db() as conn, conn.cursor() as cur:
+        cur.execute(ORDER_SELECT + """ WHERE o.payment_status = 'credit' AND o.completed_at IS NOT NULL
+                                       AND o.status IN ('completed', 'voided')
+                                       ORDER BY o.completed_at DESC NULLS LAST, o.id DESC;""")
+        out = [order_out(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM receivable_payments ORDER BY paid_at, id;")
+        pays = {}
+        for pmt in rows(cur):
+            pays.setdefault(pmt["order_id"], []).append(pmt)
+    for o in out:
+        o["payments"] = pays.get(o["id"], [])
+    if show == "open":
+        out = [o for o in out if o["receivable_status"] in ("unpaid", "partial")]
+    by_client = {}
+    for o in out:
+        if o["receivable_status"] in ("unpaid", "partial"):
+            key = o["customer_name"] or "(no name)"
+            by_client[key] = round(by_client.get(key, 0) + o["balance"], 2)
+    return {"entries": out, "outstanding": round(sum(by_client.values()), 2),
+            "by_client": [{"customer": k, "balance": v} for k, v in sorted(by_client.items(), key=lambda x: -x[1])]}
+
+
+@api.post("/orders/{order_id}/payments")
+def log_payment(order_id: int, p: PaymentIn):
+    with db() as conn, conn.cursor() as cur:
+        o = fetch_order(cur, order_id)
+        if o["payment_status"] != "credit" or o["status"] != "completed":
+            raise HTTPException(400, "Payments can only be logged against a finished credit sale.")
+        amount = as_money(p.amount)
+        if amount > o["balance"] + 0.001:
+            raise HTTPException(400, f"That's more than the {o['balance']:,.2f} still owed.")
+        paid_at = p.paid_at or datetime.now(MANILA_TZ)
+        assert_unlocked(cur, manila_day(paid_at), "payments on that day")
+        cur.execute("INSERT INTO receivable_payments (order_id, amount, method, paid_at, notes) VALUES (%s,%s,%s,%s,%s);",
+                    (order_id, amount, as_sale_method(p.method), paid_at, p.notes.strip()))
+        return fetch_order(cur, order_id)
+
+
+@api.delete("/payments/{payment_id}")
+def delete_payment(payment_id: int):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM receivable_payments WHERE id = %s;", (payment_id,))
+        pmt = cur.fetchone()
+        if not pmt:
+            raise HTTPException(404, "Payment not found.")
+        assert_unlocked(cur, manila_day(pmt["paid_at"]), "payments on that day")
+        cur.execute("DELETE FROM receivable_payments WHERE id = %s;", (payment_id,))
+    return {"ok": True}
+
+
+# ----------------------------------------------------------------------------
+# Liabilities (paid by Gino or credit card → owed back until settled)
+# ----------------------------------------------------------------------------
+
+class SettleIn(BaseModel):
+    method: str = "GCash"
+    settled_at: Optional[datetime] = None
+
+
+@api.get("/liabilities")
+def list_liabilities(show: str = "unpaid"):
+    out = []
+    with db() as conn, conn.cursor() as cur:
+        for kind in ("purchase", "expense"):
+            L = LEDGERS[kind]
+            cur.execute(ledger_select(kind) + f"""
+                WHERE h.payment_method IN ('Gino', 'Credit Card') AND (%s = 'all' OR h.settled_at IS NULL)
+                ORDER BY h.{L['when']};
+            """, (show,))
+            for r in rows(cur):
+                r["kind"] = kind
+                r["when"] = r[L["when"]]
+                r["description"] = ", ".join(l.get("item_name") or l.get("particulars") for l in r["lines"])
+                out.append(r)
+    out.sort(key=lambda r: r["when"], reverse=True)
+    unpaid = [r for r in out if not r["settled_at"]]
+    return {"entries": out,
+            "unpaid_total": round(sum(r["total"] for r in unpaid), 2),
+            "unpaid_by_method": {m: round(sum(r["total"] for r in unpaid if r["payment_method"] == m), 2) for m in LIABILITY_METHODS}}
+
+
+def register_liability_routes(kind: str):
+    L = LEDGERS[kind]
+
+    def settle(row_id: int, p: SettleIn):
+        with db() as conn, conn.cursor() as cur:
+            x = fetch_ledger(cur, kind, row_id)
+            if x["payment_method"] not in LIABILITY_METHODS:
+                raise HTTPException(400, "Only entries paid by Gino or Credit Card are liabilities.")
+            if x["settled_at"]:
+                raise HTTPException(400, "Already settled.")
+            cur.execute(f"UPDATE {L['table']} SET settled_at = COALESCE(%s, now()), settled_method = %s WHERE id = %s;",
+                        (p.settled_at, as_sale_method(p.method), row_id))
+            return fetch_ledger(cur, kind, row_id)
+
+    def unsettle(row_id: int):
+        with db() as conn, conn.cursor() as cur:
+            fetch_ledger(cur, kind, row_id)
+            cur.execute(f"UPDATE {L['table']} SET settled_at = NULL, settled_method = NULL WHERE id = %s;", (row_id,))
+            return fetch_ledger(cur, kind, row_id)
+
+    api.add_api_route(f"/liabilities/{kind}/{{row_id}}/reimburse", settle, methods=["POST"])
+    api.add_api_route(f"/liabilities/{kind}/{{row_id}}/unsettle", unsettle, methods=["POST"])
+
+
+register_liability_routes("purchase")
+register_liability_routes("expense")
+
+
+# ----------------------------------------------------------------------------
+# Daily reconciliation
+# ----------------------------------------------------------------------------
+
+class ReconIn(BaseModel):
+    actual: dict = {}
+    notes: str = ""
+
+
+def expected_for(cur, d: date):
+    """What should have landed in each account on day d: paid sales finished
+    that day + credit payments received that day (voided orders excluded)."""
+    day = lambda col: LOCAL_DAY.format(col=col)
+    cur.execute(ORDER_SELECT + f""" WHERE o.status = 'completed' AND o.payment_status = 'paid'
+                                   AND {day('o.completed_at')} = %s ORDER BY o.completed_at;""", (d,))
+    sales = [order_out(r) for r in cur.fetchall()]
+    cur.execute(f"""
+        SELECT p.*, o.customer_name, o.status AS order_status FROM receivable_payments p JOIN orders o ON o.id = p.order_id
+        WHERE {day('p.paid_at')} = %s ORDER BY p.paid_at;
+    """, (d,))
+    pays = rows(cur)
+    expected = {m: 0.0 for m in SALE_METHODS}
+    lines = []
+    for o in sales:
+        expected[o["payment_method"]] += o["total"]
+        lines.append({"type": "sale", "ref": o["id"], "time": o["completed_at"], "who": o["customer_name"],
+                      "method": o["payment_method"], "amount": o["total"]})
+    for p in pays:
+        expected[p["method"]] += p["amount"]
+        lines.append({"type": "payment", "ref": p["order_id"], "time": p["paid_at"], "who": p["customer_name"],
+                      "method": p["method"], "amount": p["amount"]})
+    return {m: round(v, 2) for m, v in expected.items()}, lines
+
+
+@api.get("/reconciliation/{d}")
+def get_reconciliation(d: date):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM reconciliations WHERE recon_date = %s;", (d,))
+        rec = one(cur)
+        live, lines = expected_for(cur, d)
+    expected = rec["expected"] if rec and rec["locked"] else live
+    actual = (rec or {}).get("actual") or {}
+    variance = {m: round(float(actual.get(m) or 0) - expected.get(m, 0), 2) for m in SALE_METHODS if m in actual}
+    return {"date": d, "methods": list(SALE_METHODS), "expected": expected, "actual": actual, "variance": variance,
+            "total_expected": round(sum(expected.values()), 2),
+            "total_actual": round(sum(float(v or 0) for v in actual.values()), 2) if actual else None,
+            "notes": (rec or {}).get("notes", ""), "locked": bool(rec and rec["locked"]),
+            "locked_at": (rec or {}).get("locked_at"), "lines": lines,
+            "changed_since_lock": bool(rec and rec["locked"] and live != rec["expected"])}
+
+
+@api.put("/reconciliation/{d}")
+def save_reconciliation(d: date, p: ReconIn):
+    actual = {m: as_money(p.actual[m]) for m in SALE_METHODS if p.actual.get(m) not in (None, "")}
+    with db() as conn, conn.cursor() as cur:
+        if day_locked(cur, d):
+            raise HTTPException(423, "This day is locked. Unlock it first.")
+        cur.execute("""INSERT INTO reconciliations (recon_date, actual, notes) VALUES (%s, %s::jsonb, %s)
+                       ON CONFLICT (recon_date) DO UPDATE SET actual = EXCLUDED.actual, notes = EXCLUDED.notes, updated_at = now();""",
+                    (d, json_dumps(actual), p.notes.strip()))
+    return get_reconciliation(d)
+
+
+@api.post("/reconciliation/{d}/lock")
+def lock_reconciliation(d: date, p: ReconIn):
+    if d > today_manila():
+        raise HTTPException(400, "You can't lock a day that hasn't happened yet.")
+    actual = {m: as_money(p.actual.get(m) or 0) for m in SALE_METHODS}
+    with db() as conn, conn.cursor() as cur:
+        if day_locked(cur, d):
+            raise HTTPException(400, "Already locked.")
+        expected, _ = expected_for(cur, d)
+        cur.execute("""INSERT INTO reconciliations (recon_date, expected, actual, notes, locked, locked_at)
+                       VALUES (%s, %s::jsonb, %s::jsonb, %s, true, now())
+                       ON CONFLICT (recon_date) DO UPDATE SET expected = EXCLUDED.expected, actual = EXCLUDED.actual,
+                         notes = EXCLUDED.notes, locked = true, locked_at = now(), updated_at = now();""",
+                    (d, json_dumps(expected), json_dumps(actual), p.notes.strip()))
+    return get_reconciliation(d)
+
+
+@api.post("/reconciliation/{d}/unlock")
+def unlock_reconciliation(d: date):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE reconciliations SET locked = false, locked_at = NULL, updated_at = now() WHERE recon_date = %s RETURNING recon_date;", (d,))
+        if not cur.fetchone():
+            raise HTTPException(404, "Nothing to unlock.")
+    return get_reconciliation(d)
+
+
+@api.get("/reconciliation-days")
+def reconciliation_days(days: int = 21):
+    """The recent days that had money coming in, with their status."""
+    t = today_manila()
+    out = []
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM reconciliations WHERE recon_date >= %s;", (t - timedelta(days=days),))
+        recs = {r["recon_date"]: r for r in rows(cur)}
+        for i in range(days):
+            d = t - timedelta(days=i)
+            rec = recs.get(d)
+            expected = rec["expected"] if rec and rec["locked"] else expected_for(cur, d)[0]
+            total = round(sum(expected.values()), 2)
+            if total == 0 and not rec:
+                continue
+            actual = (rec or {}).get("actual") or {}
+            out.append({"date": d, "expected": total,
+                        "actual": round(sum(float(v or 0) for v in actual.values()), 2) if actual else None,
+                        "variance": round(sum(float(v or 0) for v in actual.values()) - total, 2) if actual else None,
+                        "locked": bool(rec and rec["locked"])})
+    return out
+
+
+def json_dumps(v):
+    import json
+    return json.dumps(v)
 
 
 # ----------------------------------------------------------------------------
