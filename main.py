@@ -15,6 +15,7 @@ import time
 import hashlib
 import secrets
 import smtplib
+import threading
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -25,7 +26,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import psycopg
-import requests
 from psycopg.rows import dict_row
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,17 +42,16 @@ DATABASE_URL = os.environ["DATABASE_URL"]
 # Secret shared with the scheduled job that triggers the daily alert email.
 CRON_SECRET = os.environ.get("CRON_SECRET", "")
 
-# Email — option A: Gmail with an App Password (needs a PAID Render
-# instance; Render's free tier blocks outgoing SMTP).
+# Email is sent through Gmail using an App Password. This needs a PAID
+# Render instance (Starter or above) — Render's free tier blocks
+# outgoing email. SMTP_USER is the Gmail address, SMTP_PASSWORD the
+# 16-letter App Password.
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
-# Email — option B: Brevo's web API (works on Render's free tier).
-BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
-
-# The "From" address on alert emails.
+# The "From" address on alert emails (defaults to the Gmail address).
 ALERT_FROM_EMAIL = os.environ.get("ALERT_FROM_EMAIL", "") or SMTP_USER
 
 MANILA_TZ = timezone(timedelta(hours=8))
@@ -114,11 +113,33 @@ def date_range(date_from: Optional[date], date_to: Optional[date]):
 # App setup — the schema runs automatically on every start (safe to repeat)
 # ----------------------------------------------------------------------------
 
+def alert_scheduler():
+    """Runs inside the backend for as long as it is up. Every 10 minutes
+    it checks: is it past the alert hour (Manila time)? If so, and today's
+    alert hasn't gone out yet, send it. The alert log makes sure only one
+    email goes out per day, even across restarts and redeploys."""
+    time.sleep(60)   # let the server finish starting first
+    while True:
+        try:
+            with db() as conn, conn.cursor() as cur:
+                hour = int(read_settings(cur).get("alert_hour") or 7)
+            if datetime.now(MANILA_TZ).hour >= hour:
+                result = run_alerts()
+                if result.get("sent"):
+                    print(f"[alerts] sent: {result['subject']}", flush=True)
+        except Exception as error:
+            detail = getattr(error, "detail", error)
+            print(f"[alerts] not sent: {detail}", flush=True)
+        time.sleep(600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         conn.execute(SCHEMA_FILE.read_text())
         conn.execute("DELETE FROM sessions WHERE expires_at < now();")
+    if os.environ.get("DISABLE_ALERT_SCHEDULER") != "1":
+        threading.Thread(target=alert_scheduler, daemon=True).start()
     yield
 
 
@@ -1372,6 +1393,7 @@ class SettingsPayload(BaseModel):
     alert_emails: Optional[str] = None
     order_alert_days: Optional[int] = None
     alerts_enabled: Optional[bool] = None
+    alert_hour: Optional[int] = None
 
 
 def read_settings(cur):
@@ -1401,6 +1423,10 @@ def update_settings(p: SettingsPayload):
         if not 0 <= p.order_alert_days <= 30:
             raise HTTPException(400, "Order alert days must be between 0 and 30.")
         updates["order_alert_days"] = str(p.order_alert_days)
+    if p.alert_hour is not None:
+        if not 0 <= p.alert_hour <= 23:
+            raise HTTPException(400, "Alert hour must be 0–23 (Manila time).")
+        updates["alert_hour"] = str(p.alert_hour)
     if p.alerts_enabled is not None:
         updates["alerts_enabled"] = "true" if p.alerts_enabled else "false"
     with db() as conn, conn.cursor() as cur:
@@ -1417,8 +1443,6 @@ def update_settings(p: SettingsPayload):
 # ----------------------------------------------------------------------------
 
 def email_method():
-    if BREVO_API_KEY and ALERT_FROM_EMAIL:
-        return "brevo"
     if SMTP_USER and SMTP_PASSWORD:
         return "smtp"
     return None
@@ -1427,20 +1451,7 @@ def email_method():
 def send_email(to: List[str], subject: str, html: str, text: str):
     method = email_method()
     if method is None:
-        raise HTTPException(500, "Email isn't set up on the server yet (no email environment variables).")
-    if method == "brevo":
-        r = requests.post(
-            "https://api.brevo.com/v3/smtp/email",
-            headers={"api-key": BREVO_API_KEY, "accept": "application/json",
-                     "content-type": "application/json"},
-            json={"sender": {"name": "Rochar Gelato", "email": ALERT_FROM_EMAIL},
-                  "to": [{"email": e} for e in to],
-                  "subject": subject, "htmlContent": html, "textContent": text},
-            timeout=20,
-        )
-        if r.status_code >= 300:
-            raise HTTPException(502, f"Brevo refused the email: {r.status_code} {r.text[:300]}")
-        return
+        raise HTTPException(500, "Email isn't set up on the server yet (SMTP_USER / SMTP_PASSWORD missing).")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"Rochar Gelato <{ALERT_FROM_EMAIL}>"
@@ -1566,9 +1577,9 @@ def run_alerts(force: bool = False):
 @app.post("/alerts/run")
 def alerts_run(request: Request, force: bool = False,
                x_cron_secret: str = Header(default=""), authorization: str = Header(default="")):
-    """Called once a day by the scheduled job (with the CRON_SECRET header),
-    or manually from the admin app while logged in. Sends at most one
-    alert email per day unless force=true."""
+    """Sends today's alert now instead of waiting for the built-in
+    scheduler — from the admin app while logged in (or with the optional
+    CRON_SECRET header). At most one alert per day unless force=true."""
     if not (CRON_SECRET and secrets.compare_digest(x_cron_secret, CRON_SECRET)):
         require_login(authorization)
     return run_alerts(force=force)

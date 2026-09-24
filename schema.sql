@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS settings (
 INSERT INTO settings (key, value) VALUES
     ('alert_emails',          ''),     -- comma-separated list
     ('order_alert_days',      '2'),    -- warn when an order is due within N days
-    ('alerts_enabled',        'true')
+    ('alerts_enabled',        'true'),
+    ('alert_hour',            '7')     -- daily alert goes out from 7am Manila time
 ON CONFLICT (key) DO NOTHING;
 
 
