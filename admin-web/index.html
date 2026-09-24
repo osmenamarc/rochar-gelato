@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rochar Gelato — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f3ee;
+    --card: #ffffff;
+    --ink: #2a1d17;
+    --muted: #85766c;
+    --border: #eae2d9;
+    --accent: #3b2418;       /* dark chocolate */
+    --accent-2: #5a3a29;
+    --cream: #f1e6d6;
+    --red-bg: #fbe9e6; --red: #b3372a;
+    --amber-bg: #fcf1dc; --amber: #9a6208;
+    --green-bg: #e7f2ea; --green: #22733d;
+    --blue-bg: #e7eef8; --blue: #2c5a93;
+    --gray-bg: #efebe7; --gray: #6f655e;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 14px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  h1, h2, h3 { margin: 0; }
+  .serif { font-family: "Playfair Display", Georgia, serif; }
+
+  /* ---------- Login ---------- */
+  #login { position: fixed; inset: 0; background: var(--accent); display: flex; align-items: center;
+    justify-content: center; z-index: 100; padding: 16px; }
+  #login.hidden { display: none; }
+  .login-card { background: var(--card); border-radius: 18px; padding: 32px 28px; width: 340px; max-width: 100%; text-align: center; }
+  .login-card h1 { font-size: 26px; }
+  .login-card p { color: var(--muted); margin: 6px 0 20px; font-size: 13px; }
+  .pin { width: 100%; padding: 12px; font-size: 22px; letter-spacing: 8px; text-align: center;
+    border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; }
+  .login-error { color: var(--red); min-height: 18px; font-size: 13px; margin: 6px 0; }
+
+  /* ---------- Shell ---------- */
+  header.top { background: var(--accent); color: #fff; padding: 12px 16px; display: flex; align-items: center;
+    justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  header.top h1 { font-size: 20px; letter-spacing: .3px; }
+  header.top small { color: #d9c8b6; font-size: 12px; margin-left: 8px; font-family: Inter, sans-serif; }
+  nav.tabs { background: var(--card); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto;
+    position: sticky; top: 50px; z-index: 19; scrollbar-width: none; }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button { background: none; border: none; padding: 13px 14px; cursor: pointer; white-space: nowrap;
+    color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; }
+  nav.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 16px 80px; }
+
+  /* ---------- Building blocks ---------- */
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .spread { justify-content: space-between; }
+  .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
+  .section-title h2 { font-size: 22px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .card h3 { font-size: 15px; margin-bottom: 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .tile .label { color: var(--muted); font-size: 12px; }
+  .tile .value { font-size: 21px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .value.neg { color: var(--red); }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 9px; padding: 9px 14px; cursor: pointer; font-weight: 500; }
+  .btn:hover { background: var(--accent-2); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+  .btn.ghost:hover { background: var(--cream); }
+  .btn.danger { background: transparent; color: var(--red); border: 1px solid #efc9c3; }
+  .btn.danger:hover { background: var(--red-bg); }
+  .btn.sm { padding: 5px 10px; font-size: 12.5px; }
+  .btn.block { width: 100%; }
+  .link { background: none; border: none; color: var(--blue); cursor: pointer; padding: 0; text-decoration: underline; font-size: 12.5px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tfoot td { font-weight: 600; border-top: 1px solid var(--border); }
+  .empty { color: var(--muted); padding: 18px 4px; text-align: center; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+  .b-red { background: var(--red-bg); color: var(--red); }
+  .b-amber { background: var(--amber-bg); color: var(--amber); }
+  .b-green { background: var(--green-bg); color: var(--green); }
+  .b-blue { background: var(--blue-bg); color: var(--blue); }
+  .b-gray { background: var(--gray-bg); color: var(--gray); }
+
+  .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .subtabs button { background: var(--card); border: 1px solid var(--border); border-radius: 99px; padding: 6px 13px; cursor: pointer; }
+  .subtabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  .filters label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+
+  /* ---------- Forms / modal ---------- */
+  dialog { border: none; border-radius: 16px; padding: 0; width: 560px; max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  dialog::backdrop { background: rgba(30, 18, 12, .45); }
+  .modal-head { padding: 16px 18px 6px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-head h3 { font-size: 18px; }
+  .modal-body { padding: 8px 18px 4px; }
+  .modal-foot { padding: 12px 18px 18px; display: flex; gap: 8px; justify-content: flex-end; }
+  .x { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .field > span { font-size: 12px; color: var(--muted); }
+  .field input, .field select, .field textarea, .filters input, .filters select, .lines input, .lines select {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; width: 100%; min-width: 0; }
+  .field textarea { min-height: 60px; resize: vertical; }
+  .hint { font-size: 12px; color: var(--muted); margin: -4px 0 10px; }
+  .form-error { color: var(--red); font-size: 13px; min-height: 18px; }
+  .lines { border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+  .line { display: grid; grid-template-columns: 1fr 80px 100px 28px; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .line.two { grid-template-columns: 1fr 110px 28px; }
+  .line .rm { background: none; border: none; color: var(--red); font-size: 18px; cursor: pointer; }
+  .line-head { display: grid; grid-template-columns: 1fr 80px 100px 28px; gap: 6px; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+  .line-head.two { grid-template-columns: 1fr 110px 28px; }
+  @media (max-width: 520px) {
+    .line { grid-template-columns: 1fr 1fr 28px; }
+    .line > select { grid-column: 1 / -1; }
+    .line.two { grid-template-columns: 1fr 110px 28px; }
+    .line.two > select { grid-column: auto; }
+    .line-head:not(.two) { grid-template-columns: 1fr 1fr 28px; }
+    .line-head:not(.two) > div:first-child { display: none; }
+  }
+  .total-box { background: var(--cream); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 10px; }
+
+  /* ---------- Orders ---------- */
+  .order { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 8px; background: #fff; }
+  .order .top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .order .who { font-weight: 600; }
+  .order .items { margin: 6px 0; color: var(--ink); }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal .dow { font-size: 11px; color: var(--muted); text-align: center; padding: 4px 0; }
+  .cal .day { background: #fff; border: 1px solid var(--border); border-radius: 8px; min-height: 78px; padding: 4px; font-size: 11.5px; overflow: hidden; }
+  .cal .day.other { background: transparent; border-color: transparent; }
+  .cal .day.today { border-color: var(--accent); border-width: 2px; }
+  .cal .d { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+  .cal .ev { display: block; width: 100%; text-align: left; border: none; border-radius: 5px; padding: 2px 4px; margin-bottom: 2px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+  @media (max-width: 600px) { .cal .day { min-height: 56px; } .cal .ev { font-size: 10px; padding: 1px 2px; } }
+
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff;
+    padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 200; max-width: calc(100vw - 32px); }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--red); }
+  .loading { color: var(--muted); padding: 30px; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN ======================= -->
+<div id="login">
+  <div class="login-card">
+    <h1 class="serif">Rochar Gelato</h1>
+    <p id="loginMsg">Enter your PIN</p>
+    <form id="loginForm">
+      <input class="pin" id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" required>
+      <input class="pin" id="pinInput2" type="password" inputmode="numeric" maxlength="12" placeholder="repeat" style="display:none">
+      <div class="login-error" id="loginError"></div>
+      <button class="btn block" id="loginBtn">Unlock</button>
+    </form>
+  </div>
+</div>
+
+<!-- ======================= APP ======================= -->
+<header class="top">
+  <h1 class="serif">Rochar Gelato<small>Admin</small></h1>
+  <button class="btn ghost sm" style="color:#fff;border-color:#6b4a38" onclick="go('settings')">Settings</button>
+</header>
+<nav class="tabs" id="tabs"></nav>
+<main id="view"><div class="loading">Loading…</div></main>
+
+<dialog id="modal"><form method="dialog" id="modalForm" novalidate>
+  <div class="modal-head"><h3 id="modalTitle"></h3><button type="button" class="x" onclick="closeModal()">×</button></div>
+  <div class="modal-body" id="modalBody"></div>
+  <div class="form-error" id="modalError" style="padding:0 18px"></div>
+  <div class="modal-foot" id="modalFoot"></div>
+</form></dialog>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================================
+// Rochar Gelato — admin app. Talks to the FastAPI backend on Render.
+// ============================================================================
+const API_BASE = "https://rochar-gelato-backend.onrender.com";
+
+const TABS = [
+  ["dashboard", "Dashboard"], ["orders", "Orders"], ["sales", "Sales"],
+  ["production", "Production"], ["inventory", "Inventory"], ["wastage", "Wastage"],
+  ["expenses", "Expenses"], ["reports", "Reports"],
+];
+const CHANNELS = ["Walk-in", "Delivery", "Online", "Reseller", "Event", "Order"];
+const PAYMENTS = ["Cash", "GCash", "Maya", "Bank transfer", "Card"];
+const WASTE_REASONS = ["melted", "expired", "damaged", "sample / tasting", "failed batch", "other"];
+const ORDER_STATUS = {
+  pending: ["Pending", "b-gray"], confirmed: ["Confirmed", "b-blue"], in_production: ["In production", "b-amber"],
+  ready: ["Ready", "b-green"], completed: ["Completed", "b-gray"], cancelled: ["Cancelled", "b-red"],
+};
+
+// ---------------------------------------------------------------- helpers
+let TOKEN = null;
+try { TOKEN = localStorage.getItem("rochar_token"); } catch (e) {}
+const state = { tab: "dashboard", ingredients: [], products: [] };
+
+async function api(path, opts = {}) {
+  const res = await fetch(API_BASE + path, {
+    method: opts.method || "GET",
+    headers: { "Content-Type": "application/json", ...(TOKEN ? { Authorization: "Bearer " + TOKEN } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (res.status === 401 && !path.startsWith("/auth/")) { showLogin("Session ended — enter your PIN"); throw new Error("Please log in again."); }
+  if (!res.ok) {
+    let msg = data && data.detail;
+    if (Array.isArray(msg)) msg = msg.map(d => (d.loc ? d.loc.slice(-1)[0] + ": " : "") + d.msg).join("; ");
+    throw new Error(msg || ("Server error " + res.status));
+  }
+  return data;
+}
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const peso = n => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const peso0 = n => "₱" + Number(n || 0).toLocaleString("en-PH", { maximumFractionDigits: 0 });
+const qty = n => { const x = Number(n || 0); return Number.isInteger(x) ? x.toLocaleString() : x.toLocaleString(undefined, { maximumFractionDigits: 3 }); };
+function manilaToday() {
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+const thisMonth = () => manilaToday().slice(0, 7);
+function monthBounds(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return [`${ym}-01`, `${ym}-${String(last).padStart(2, "0")}`];
+}
+function fmtDate(d, withDow = false) {
+  if (!d) return "";
+  const dt = new Date(d + "T00:00:00");
+  return dt.toLocaleDateString("en-US", withDow ? { weekday: "short", month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+}
+function dueLabel(n) {
+  if (n < 0) return `<span class="badge b-red">${-n} day${n === -1 ? "" : "s"} overdue</span>`;
+  if (n === 0) return `<span class="badge b-red">Due today</span>`;
+  if (n === 1) return `<span class="badge b-amber">Tomorrow</span>`;
+  if (n <= 3) return `<span class="badge b-amber">In ${n} days</span>`;
+  return `<span class="badge b-gray">In ${n} days</span>`;
+}
+function toast(msg, isErr = false) {
+  const t = $("#toast"); t.textContent = msg; t.className = "show" + (isErr ? " err" : "");
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = "", isErr ? 5000 : 2500);
+}
+const options = (list, selected) => list.map(v => `<option ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join("");
+const datalist = (id, list) => `<datalist id="${id}">${list.map(v => `<option value="${esc(v)}">`).join("")}</datalist>`;
+
+async function loadCatalog() {
+  [state.ingredients, state.products] = await Promise.all([
+    api("/ingredients?include_inactive=true"), api("/products?include_inactive=true"),
+  ]);
+}
+const activeProducts = () => state.products.filter(p => p.active);
+const activeIngredients = () => state.ingredients.filter(i => i.active);
+const productById = id => state.products.find(p => p.id === Number(id));
+const ingredientById = id => state.ingredients.find(i => i.id === Number(id));
+function productOptions(selected) {
+  return `<option value="">— choose —</option>` + activeProducts().map(p =>
+    `<option value="${p.id}" ${p.id === Number(selected) ? "selected" : ""}>${esc(p.name)} (${qty(p.current_stock)} in stock)</option>`).join("");
+}
+function ingredientOptions(selected, list = activeIngredients()) {
+  return `<option value="">— choose —</option>` + list.map(i =>
+    `<option value="${i.id}" ${i.id === Number(selected) ? "selected" : ""}>${esc(i.name)} (${esc(i.unit)})</option>`).join("");
+}
+
+// ---------------------------------------------------------------- modal
+let modalSubmit = null;
+function openModal(title, bodyHtml, submitLabel, onSubmit, extraFoot = "") {
+  $("#modalTitle").textContent = title;
+  $("#modalBody").innerHTML = bodyHtml;
+  $("#modalError").textContent = "";
+  $("#modalFoot").innerHTML = extraFoot +
+    `<button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>` +
+    (submitLabel ? `<button type="submit" class="btn" id="modalSubmit">${esc(submitLabel)}</button>` : "");
+  modalSubmit = onSubmit;
+  $("#modal").showModal();
+  const first = $("#modalBody input:not([type=hidden]), #modalBody select");
+  if (first && window.innerWidth > 600) first.focus();
+}
+function closeModal() { $("#modal").close(); modalSubmit = null; }
+$("#modalForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!modalSubmit) return closeModal();
+  const btn = $("#modalSubmit"); if (btn) btn.disabled = true;
+  $("#modalError").textContent = "";
+  try {
+    const keepOpen = await modalSubmit(new FormData($("#modalForm")));
+    if (!keepOpen) closeModal();
+  } catch (err) {
+    $("#modalError").textContent = err.message;
+  } finally { if (btn) btn.disabled = false; }
+});
+const num = v => (v === "" || v === null || v === undefined) ? null : Number(v);
+const txt = v => { v = (v ?? "").toString().trim(); return v === "" ? null : v; };
+function need(cond, msg) { if (!cond) throw new Error(msg); }
+
+// ---------------------------------------------------------------- login
+async function showLogin(msg) {
+  TOKEN = null; try { localStorage.removeItem("rochar_token"); } catch (e) {}
+  $("#login").classList.remove("hidden");
+  $("#loginError").textContent = "";
+  $("#pinInput").value = ""; $("#pinInput2").value = "";
+  let setup = false;
+  try { setup = !(await api("/auth/status")).pin_set; }
+  catch (e) { $("#loginError").textContent = "Can't reach the server (it may be waking up). Try again in a moment."; }
+  $("#login").dataset.setup = setup ? "1" : "";
+  $("#pinInput2").style.display = setup ? "" : "none";
+  $("#pinInput2").required = setup;
+  $("#loginMsg").textContent = setup ? "First time: create a PIN (6+ digits recommended)" : (msg || "Enter your PIN");
+  $("#loginBtn").textContent = setup ? "Create PIN" : "Unlock";
+  $("#pinInput").focus();
+}
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const pin = $("#pinInput").value.trim(), setup = !!$("#login").dataset.setup;
+  $("#loginError").textContent = "";
+  if (setup && pin !== $("#pinInput2").value.trim()) { $("#loginError").textContent = "The two PINs don't match."; return; }
+  $("#loginBtn").disabled = true;
+  try {
+    const r = await api(setup ? "/auth/setup" : "/auth/login", { method: "POST", body: { pin } });
+    TOKEN = r.token; try { localStorage.setItem("rochar_token", TOKEN); } catch (e) {}
+    $("#login").classList.add("hidden");
+    await start();
+  } catch (err) { $("#loginError").textContent = err.message; }
+  finally { $("#loginBtn").disabled = false; }
+});
+
+// ---------------------------------------------------------------- navigation
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map(([k, label]) =>
+    `<button class="${state.tab === k ? "active" : ""}" onclick="go('${k}')">${label}</button>`).join("");
+}
+async function go(tab) {
+  state.tab = tab; renderTabs();
+  try { history.replaceState(null, "", "#" + tab); } catch (e) {}
+  $("#view").innerHTML = `<div class="loading">Loading…</div>`;
+  try { await VIEWS[tab](); }
+  catch (err) { $("#view").innerHTML = `<div class="card"><b>Couldn't load this page.</b><p class="muted">${esc(err.message)}</p><button class="btn" onclick="go('${tab}')">Try again</button></div>`; }
+}
+const refresh = () => go(state.tab);
+
+async function start() {
+  await loadCatalog();
+  const hash = location.hash.slice(1);
+  go(VIEWS[hash] ? hash : "dashboard");
+}
+
+// ============================================================================
+// DASHBOARD
+// ============================================================================
+async function viewDashboard() {
+  const d = await api("/dashboard");
+  const t = d.totals;
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Today · ${fmtDate(d.today, true)}</h2>
+      <div class="row"><button class="btn" onclick="newSale()">+ Sale</button>
+      <button class="btn ghost" onclick="newOrder()">+ Order</button>
+      <button class="btn ghost" onclick="newBatch()">+ Batch</button></div></div>
+    <div class="tiles">
+      <div class="tile"><div class="label">Sales today</div><div class="value">${peso0(t.sales_today)}</div></div>
+      <div class="tile"><div class="label">Sales this month</div><div class="value">${peso0(t.sales_mtd)}</div></div>
+      <div class="tile"><div class="label">Expenses this month</div><div class="value">${peso0(t.expenses_mtd)}</div></div>
+      <div class="tile"><div class="label">Wastage this month</div><div class="value">${peso0(t.wastage_mtd)}</div></div>
+      <div class="tile"><div class="label">Units made this month</div><div class="value">${qty(t.units_produced_mtd)}</div></div>
+      <div class="tile"><div class="label">Stock value (ingr. + gelato)</div><div class="value">${peso0(t.ingredient_stock_value + t.product_stock_value)}</div></div>
+    </div>
+    <div class="card"><h3>Orders due in the next 7 days</h3>
+      ${d.upcoming_orders.length ? d.upcoming_orders.map(orderCard).join("") : `<div class="empty">No open orders due this week.</div>`}
+    </div>
+    <div class="card"><h3>Low stock</h3>
+      ${d.low_stock.length ? `<div class="table-wrap"><table><thead><tr><th>Item</th><th>Type</th><th class="num">In stock</th><th class="num">Reorder at</th><th></th></tr></thead><tbody>
+        ${d.low_stock.map(i => `<tr><td>${esc(i.name)}</td><td><span class="badge ${i.item_type === "product" ? "b-blue" : "b-gray"}">${esc(i.kind)}</span></td>
+          <td class="num">${Number(i.current_stock) <= 0 ? `<span class="badge b-red">${qty(i.current_stock)} ${esc(i.unit)}</span>` : qty(i.current_stock) + " " + esc(i.unit)}</td>
+          <td class="num">${qty(i.reorder_level)}</td>
+          <td class="num">${i.item_type === "ingredient" ? `<button class="btn ghost sm" onclick="newPurchase(${i.id})">Restock</button>` : `<button class="btn ghost sm" onclick="newBatch(${i.id})">Make batch</button>`}</td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="empty">Everything is above its reorder level.</div>`}
+    </div>`;
+}
+
+// ============================================================================
+// ORDERS
+// ============================================================================
+state.orderMode = "list";
+state.orderMonth = thisMonth();
+
+function orderCard(o) {
+  const [label, cls] = ORDER_STATUS[o.status];
+  const items = o.items.map(i => `${qty(i.qty)}× ${esc(i.name)}`).join(", ");
+  const balance = Number(o.total) - Number(o.deposit_paid);
+  const open = !["completed", "cancelled"].includes(o.status);
+  return `<div class="order">
+    <div class="top"><div><span class="who">${esc(o.customer_name)}</span> <span class="muted small">#${o.id}</span>
+      ${o.contact ? `<span class="muted small"> · ${esc(o.contact)}</span>` : ""}</div>
+      <div class="row">${open ? dueLabel(o.days_until_due) : ""}<span class="badge ${cls}">${label}</span></div></div>
+    <div class="small muted">${fmtDate(o.due_date, true)}${o.due_time ? " · " + esc(o.due_time) : ""} · ${o.fulfillment === "delivery" ? "Delivery" + (o.address ? ": " + esc(o.address) : "") : "Pickup"}</div>
+    <div class="items">${items}</div>
+    <div class="row spread small">
+      <div>Total <b>${peso(o.total)}</b>${Number(o.deposit_paid) ? ` · deposit ${peso(o.deposit_paid)} · <b>balance ${peso(balance)}</b>` : ""}</div>
+      <div class="row">${open ? `
+        <select class="btn ghost sm" onchange="setOrderStatus(${o.id}, this.value)">
+          ${Object.entries(ORDER_STATUS).filter(([k]) => k !== "completed").map(([k, [l]]) => `<option value="${k}" ${k === o.status ? "selected" : ""}>${l}</option>`).join("")}
+        </select>
+        <button class="btn ghost sm" onclick="editOrder(${o.id})">Edit</button>
+        <button class="btn sm" onclick="completeOrder(${o.id})">Complete</button>` :
+        `<button class="btn danger sm" onclick="deleteOrder(${o.id})">Delete</button>`}</div>
+    </div>
+    ${o.notes ? `<div class="small muted" style="margin-top:6px">📝 ${esc(o.notes)}</div>` : ""}
+  </div>`;
+}
+
+async function viewOrders() {
+  const mode = state.orderMode;
+  let body = "";
+  if (mode === "list") {
+    const open = await api("/orders?open_only=true");
+    body = open.length ? open.map(orderCard).join("") : `<div class="empty">No open orders. Tap “+ Order” to add one.</div>`;
+  } else {
+    const [a, b] = monthBounds(state.orderMonth);
+    const list = await api(`/orders?date_from=${a}&date_to=${b}`);
+    body = orderCalendar(list);
+  }
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Orders</h2><button class="btn" onclick="newOrder()">+ Order</button></div>
+    <div class="subtabs">
+      <button class="${mode === "list" ? "active" : ""}" onclick="state.orderMode='list';refresh()">Open orders</button>
+      <button class="${mode === "calendar" ? "active" : ""}" onclick="state.orderMode='calendar';refresh()">Calendar</button>
+    </div>
+    ${mode === "calendar" ? `<div class="row" style="margin-bottom:10px">
+      <button class="btn ghost sm" onclick="shiftOrderMonth(-1)">‹</button>
+      <b style="min-width:130px;text-align:center">${new Date(state.orderMonth + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}</b>
+      <button class="btn ghost sm" onclick="shiftOrderMonth(1)">›</button></div>` : ""}
+    ${body}`;
+}
+function shiftOrderMonth(delta) {
+  const [y, m] = state.orderMonth.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  state.orderMonth = d.toISOString().slice(0, 7); refresh();
+}
+function orderCalendar(list) {
+  state.calendarOrders = list;
+  const [y, m] = state.orderMonth.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1));
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const lead = first.getUTCDay();
+  const today = manilaToday();
+  let cells = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => `<div class="dow">${d}</div>`).join("");
+  for (let i = 0; i < lead; i++) cells += `<div class="day other"></div>`;
+  for (let d = 1; d <= days; d++) {
+    const ds = `${state.orderMonth}-${String(d).padStart(2, "0")}`;
+    const evs = list.filter(o => o.due_date === ds).map(o => {
+      const cls = ORDER_STATUS[o.status][1];
+      return `<button type="button" class="ev badge ${cls}" onclick="showOrder(${o.id})">${esc(o.customer_name)}</button>`;
+    }).join("");
+    cells += `<div class="day ${ds === today ? "today" : ""}"><div class="d">${d}</div>${evs}</div>`;
+  }
+  return `<div class="cal">${cells}</div><p class="small muted">Tap an order to see its details.</p>`;
+}
+function showOrder(id) {
+  const o = (state.calendarOrders || []).find(x => x.id === id);
+  if (!o) return;
+  openModal(`Order #${o.id}`, orderCard(o), null, null);
+}
+
+function itemLinesHtml(items, withPrice = true) {
+  const head = withPrice ? `<div class="line-head"><div>Product</div><div>Qty</div><div>Price each</div><div></div></div>`
+                         : `<div class="line-head two"><div>Ingredient</div><div>Qty</div><div></div></div>`;
+  return `<div class="lines" id="lines">${head}<div id="lineRows"></div>
+    <button type="button" class="link" onclick="addLine()">+ add another</button></div>`;
+}
+function addLine(item = {}) {
+  const row = document.createElement("div");
+  row.className = "line";
+  row.innerHTML = `<select name="li_product" onchange="linePriceDefault(this)">${productOptions(item.product_id)}</select>
+    <input name="li_qty" type="number" step="any" min="0" placeholder="Qty" value="${item.qty ?? 1}" oninput="updateTotal()">
+    <input name="li_price" type="number" step="any" min="0" placeholder="Price" value="${item.unit_price ?? ""}" oninput="updateTotal()">
+    <button type="button" class="rm" onclick="this.parentElement.remove();updateTotal()">×</button>`;
+  $("#lineRows").appendChild(row);
+  updateTotal();
+}
+function linePriceDefault(sel) {
+  const p = productById(sel.value);
+  const price = sel.parentElement.querySelector("[name=li_price]");
+  if (p) price.value = p.selling_price;
+  updateTotal();
+}
+function readLines(fd) {
+  const ps = fd.getAll("li_product"), qs = fd.getAll("li_qty"), prs = fd.getAll("li_price");
+  const items = [];
+  ps.forEach((p, i) => {
+    if (!p) return;
+    need(Number(qs[i]) > 0, "Every item needs a quantity above 0.");
+    items.push({ product_id: Number(p), qty: Number(qs[i]), unit_price: num(prs[i]) });
+  });
+  need(items.length, "Add at least one product.");
+  return items;
+}
+function updateTotal() {
+  const box = $("#totalBox"); if (!box) return;
+  let sum = 0;
+  document.querySelectorAll("#lineRows .line").forEach(r => {
+    sum += Number(r.querySelector("[name=li_qty]").value || 0) * Number(r.querySelector("[name=li_price]").value || 0);
+  });
+  const f = $("#modalForm");
+  sum = sum - Number(f.discount?.value || 0) + Number(f.delivery_fee?.value || 0);
+  box.querySelector("span:last-child").textContent = peso(sum);
+}
+
+function orderForm(o = {}) {
+  return `
+    <div class="grid2">
+      <label class="field"><span>Customer name *</span><input name="customer_name" required value="${esc(o.customer_name)}"></label>
+      <label class="field"><span>Contact (phone / FB)</span><input name="contact" value="${esc(o.contact)}"></label>
+      <label class="field"><span>Due date *</span><input name="due_date" type="date" required value="${o.due_date || manilaToday()}"></label>
+      <label class="field"><span>Time</span><input name="due_time" placeholder="e.g. 3pm" value="${esc(o.due_time)}"></label>
+      <label class="field"><span>Pickup or delivery</span><select name="fulfillment" onchange="$('#addrField').style.display=this.value==='delivery'?'':'none'">
+        <option value="pickup" ${o.fulfillment !== "delivery" ? "selected" : ""}>Pickup</option>
+        <option value="delivery" ${o.fulfillment === "delivery" ? "selected" : ""}>Delivery</option></select></label>
+      <label class="field"><span>Status</span><select name="status">
+        ${Object.entries(ORDER_STATUS).filter(([k]) => k !== "completed").map(([k, [l]]) => `<option value="${k}" ${k === (o.status || "pending") ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    </div>
+    <label class="field" id="addrField" style="${o.fulfillment === "delivery" ? "" : "display:none"}"><span>Delivery address</span><input name="address" value="${esc(o.address)}"></label>
+    ${itemLinesHtml()}
+    <div class="grid2">
+      <label class="field"><span>Discount (₱)</span><input name="discount" type="number" step="any" min="0" value="${o.discount || 0}" oninput="updateTotal()"></label>
+      <label class="field"><span>Delivery fee (₱)</span><input name="delivery_fee" type="number" step="any" min="0" value="${o.delivery_fee || 0}" oninput="updateTotal()"></label>
+      <label class="field"><span>Deposit paid (₱)</span><input name="deposit_paid" type="number" step="any" min="0" value="${o.deposit_paid || 0}"></label>
+    </div>
+    <div class="total-box" id="totalBox"><span>Order total</span><span>₱0.00</span></div>
+    <label class="field"><span>Notes</span><textarea name="notes">${esc(o.notes)}</textarea></label>`;
+}
+function readOrder(fd) {
+  const body = {
+    customer_name: txt(fd.get("customer_name")), contact: txt(fd.get("contact")),
+    due_date: fd.get("due_date"), due_time: txt(fd.get("due_time")), fulfillment: fd.get("fulfillment"),
+    address: txt(fd.get("address")), status: fd.get("status"),
+    discount: num(fd.get("discount")) || 0, delivery_fee: num(fd.get("delivery_fee")) || 0,
+    deposit_paid: num(fd.get("deposit_paid")) || 0, notes: txt(fd.get("notes")), items: readLines(fd),
+  };
+  need(body.customer_name, "Customer name is required.");
+  need(body.due_date, "Due date is required.");
+  return body;
+}
+function newOrder() {
+  openModal("New order", orderForm(), "Save order", async fd => {
+    await api("/orders", { method: "POST", body: readOrder(fd) });
+    toast("Order saved"); refresh();
+  });
+  addLine();
+}
+async function editOrder(id) {
+  const o = await api(`/orders/${id}`);
+  openModal(`Edit order #${id}`, orderForm(o), "Save changes", async fd => {
+    await api(`/orders/${id}`, { method: "PUT", body: readOrder(fd) });
+    toast("Order updated"); refresh();
+  });
+  o.items.forEach(addLine);
+}
+async function setOrderStatus(id, status) {
+  try { await api(`/orders/${id}/status`, { method: "POST", body: { status } }); toast("Status updated"); refresh(); }
+  catch (err) { toast(err.message, true); refresh(); }
+}
+function completeOrder(id) {
+  openModal(`Complete order #${id}`, `
+    <p>This records the order as a sale and takes the gelato out of stock.</p>
+    <div class="grid2">
+      <label class="field"><span>Sale date</span><input name="sale_date" type="date" value="${manilaToday()}"></label>
+      <label class="field"><span>Payment method</span><input name="payment_method" list="payList" value="Cash">${datalist("payList", PAYMENTS)}</label>
+    </div>`, "Complete & record sale", async fd => {
+    await api(`/orders/${id}/complete`, { method: "POST", body: { sale_date: fd.get("sale_date"), payment_method: txt(fd.get("payment_method")), channel: "Order" } });
+    toast("Order completed — sale recorded"); await loadCatalog(); refresh();
+  });
+}
+async function deleteOrder(id) {
+  if (!confirm(`Delete order #${id}? This can't be undone.`)) return;
+  try { await api(`/orders/${id}`, { method: "DELETE" }); toast("Order deleted"); refresh(); }
+  catch (err) { toast(err.message, true); }
+}
+
+// ============================================================================
+// SALES
+// ============================================================================
+state.salesMonth = thisMonth();
+
+function monthFilter(key) {
+  return `<div class="filters"><label>Month<input type="month" value="${state[key]}" onchange="state['${key}']=this.value||thisMonth();refresh()"></label></div>`;
+}
+async function viewSales() {
+  const [a, b] = monthBounds(state.salesMonth);
+  const list = await api(`/sales?date_from=${a}&date_to=${b}`);
+  const total = list.reduce((s, x) => s + Number(x.total), 0);
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Sales</h2><button class="btn" onclick="newSale()">+ Sale</button></div>
+    ${monthFilter("salesMonth")}
+    <div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Items</th><th>Customer</th><th>Channel</th><th>Payment</th><th class="num">Total</th><th></th></tr></thead>
+      <tbody>${list.map(s => `<tr>
+        <td>${fmtDate(s.sale_date, true)}</td>
+        <td>${s.items.map(i => `${qty(i.qty)}× ${esc(i.name)} <span class="muted small">@${peso0(i.unit_price)}</span>`).join("<br>")}
+          ${Number(s.discount) ? `<br><span class="small muted">discount −${peso(s.discount)}</span>` : ""}
+          ${Number(s.delivery_fee) ? `<br><span class="small muted">delivery +${peso(s.delivery_fee)}</span>` : ""}</td>
+        <td>${esc(s.customer_name || "")}${s.order_id ? ` <span class="badge b-blue">order #${s.order_id}</span>` : ""}</td>
+        <td>${esc(s.channel || "")}</td><td>${esc(s.payment_method || "")}</td>
+        <td class="num"><b>${peso(s.total)}</b></td>
+        <td class="num"><button class="btn danger sm" onclick="deleteSale(${s.id}, ${s.order_id || "null"})">Delete</button></td></tr>`).join("")
+        || `<tr><td colspan="7" class="empty">No sales this month yet.</td></tr>`}</tbody>
+      ${list.length ? `<tfoot><tr><td colspan="5">${list.length} sale${list.length === 1 ? "" : "s"}</td><td class="num">${peso(total)}</td><td></td></tr></tfoot>` : ""}
+    </table></div></div>`;
+}
+function newSale() {
+  openModal("New sale", `
+    <div class="grid2">
+      <label class="field"><span>Date</span><input name="sale_date" type="date" required value="${manilaToday()}"></label>
+      <label class="field"><span>Customer (optional)</span><input name="customer_name"></label>
+      <label class="field"><span>Channel</span><input name="channel" list="chanList" value="Walk-in">${datalist("chanList", CHANNELS)}</label>
+      <label class="field"><span>Payment method</span><input name="payment_method" list="payList" value="Cash">${datalist("payList", PAYMENTS)}</label>
+    </div>
+    ${itemLinesHtml()}
+    <div class="grid2">
+      <label class="field"><span>Discount (₱)</span><input name="discount" type="number" step="any" min="0" value="0" oninput="updateTotal()"></label>
+      <label class="field"><span>Delivery fee charged (₱)</span><input name="delivery_fee" type="number" step="any" min="0" value="0" oninput="updateTotal()"></label>
+    </div>
+    <div class="total-box" id="totalBox"><span>Total</span><span>₱0.00</span></div>
+    <label class="field"><span>Notes</span><input name="notes"></label>`, "Save sale", async fd => {
+    const body = {
+      sale_date: fd.get("sale_date"), customer_name: txt(fd.get("customer_name")), channel: txt(fd.get("channel")),
+      payment_method: txt(fd.get("payment_method")), discount: num(fd.get("discount")) || 0,
+      delivery_fee: num(fd.get("delivery_fee")) || 0, notes: txt(fd.get("notes")), items: readLines(fd),
+    };
+    const s = await api("/sales", { method: "POST", body });
+    toast(`Sale saved — ${peso(s.total)}`); await loadCatalog(); refresh();
+  });
+  addLine();
+}
+async function deleteSale(id, orderId) {
+  const msg = orderId ? `Delete this sale? The gelato goes back into stock and order #${orderId} goes back to “Ready”.`
+                      : "Delete this sale? The gelato goes back into stock.";
+  if (!confirm(msg)) return;
+  try { await api(`/sales/${id}`, { method: "DELETE" }); toast("Sale deleted"); await loadCatalog(); refresh(); }
+  catch (err) { toast(err.message, true); }
+}
+
+// ============================================================================
+// PRODUCTION
+// ============================================================================
+state.prodMonth = thisMonth();
+
+async function viewProduction() {
+  const [a, b] = monthBounds(state.prodMonth);
+  const list = await api(`/production?date_from=${a}&date_to=${b}`);
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Production</h2><button class="btn" onclick="newBatch()">+ Batch</button></div>
+    ${monthFilter("prodMonth")}
+    <div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Product</th><th class="num">Units</th><th>Batch code</th><th class="num">Batch cost</th><th class="num">Cost / unit</th><th></th></tr></thead>
+      <tbody>${list.map(bt => `<tr>
+        <td>${fmtDate(bt.batch_date, true)}</td>
+        <td>${esc(bt.product_name)}<br><button class="link" onclick='showBatch(${JSON.stringify(bt).replace(/'/g, "&#39;")})'>${bt.ingredients.length} ingredient${bt.ingredients.length === 1 ? "" : "s"} used</button></td>
+        <td class="num">${qty(bt.units_produced)}</td><td>${esc(bt.batch_code || "")}</td>
+        <td class="num">${peso(bt.total_cost)}</td><td class="num">${peso(bt.cost_per_unit)}</td>
+        <td class="num"><button class="btn danger sm" onclick="deleteBatch(${bt.id})">Delete</button></td></tr>`).join("")
+        || `<tr><td colspan="7" class="empty">No batches logged this month.</td></tr>`}</tbody>
+    </table></div></div>`;
+}
+function showBatch(bt) {
+  openModal(`${bt.product_name} — ${fmtDate(bt.batch_date)}`, `
+    <p class="muted">${qty(bt.units_produced)} units${bt.batch_code ? " · batch " + esc(bt.batch_code) : ""}${bt.notes ? " · " + esc(bt.notes) : ""}</p>
+    <table><thead><tr><th>Ingredient</th><th class="num">Used</th><th class="num">Cost</th></tr></thead><tbody>
+    ${bt.ingredients.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${qty(i.qty_used)} ${esc(i.unit)}</td><td class="num">${peso(i.qty_used * i.unit_cost)}</td></tr>`).join("")
+      || `<tr><td colspan="3" class="empty">No ingredients were recorded.</td></tr>`}</tbody></table>`, null, null);
+}
+function ingLine(item = {}) {
+  const row = document.createElement("div");
+  row.className = "line two";
+  row.innerHTML = `<select name="ing_id">${ingredientOptions(item.ingredient_id)}</select>
+    <input name="ing_qty" type="number" step="any" min="0" placeholder="Qty" value="${item.qty_used ?? item.qty_per_unit ?? ""}">
+    <button type="button" class="rm" onclick="this.parentElement.remove()">×</button>`;
+  $("#lineRows").appendChild(row);
+}
+function newBatch(productId) {
+  openModal("Log a production batch", `
+    <div class="grid2">
+      <label class="field"><span>Date</span><input name="batch_date" type="date" required value="${manilaToday()}"></label>
+      <label class="field"><span>Batch code (optional)</span><input name="batch_code" placeholder="e.g. BBC-0924"></label>
+      <label class="field"><span>Product *</span><select name="product_id" id="batchProduct" onchange="loadRecipeLines()">${productOptions(productId)}</select></label>
+      <label class="field"><span>Units made *</span><input name="units_produced" id="batchUnits" type="number" step="any" min="0" oninput="loadRecipeLinesDebounced()"></label>
+    </div>
+    <div class="row spread"><b class="small">Ingredients used</b><span class="small muted" id="recipeNote"></span></div>
+    <div class="lines"><div class="line-head two"><div>Ingredient</div><div>Qty used</div><div></div></div>
+      <div id="lineRows"></div><button type="button" class="link" onclick="ingLine()">+ add ingredient</button></div>
+    <p class="hint">Filled in from the saved recipe × units made. Adjust if this batch was different — these amounts come out of ingredient stock.</p>
+    <label class="field"><span>Notes</span><input name="notes"></label>`, "Save batch", async fd => {
+    const ids = fd.getAll("ing_id"), qs = fd.getAll("ing_qty");
+    const ingredients = [];
+    ids.forEach((id, i) => { if (id && Number(qs[i]) > 0) ingredients.push({ ingredient_id: Number(id), qty_used: Number(qs[i]) }); });
+    need(fd.get("product_id"), "Choose a product.");
+    need(Number(fd.get("units_produced")) > 0, "Enter how many units were made.");
+    if (!ingredients.length && !confirm("No ingredients listed — stock won't be deducted and the batch cost will be ₱0. Save anyway?")) return true;
+    const b = await api("/production", { method: "POST", body: {
+      batch_date: fd.get("batch_date"), product_id: Number(fd.get("product_id")), units_produced: Number(fd.get("units_produced")),
+      batch_code: txt(fd.get("batch_code")), notes: txt(fd.get("notes")), ingredients } });
+    toast(`Batch saved — ${peso(b.total_cost / b.units_produced)} per unit`); await loadCatalog(); refresh();
+  });
+}
+let _recipeTimer = null;
+function loadRecipeLinesDebounced() { clearTimeout(_recipeTimer); _recipeTimer = setTimeout(loadRecipeLines, 350); }
+async function loadRecipeLines() {
+  const pid = $("#batchProduct").value, units = Number($("#batchUnits").value);
+  if (!pid || !(units > 0)) return;
+  const lines = await api(`/production/recipe-preview?product_id=${pid}&units=${units}`);
+  $("#lineRows").innerHTML = "";
+  lines.forEach(ingLine);
+  const cost = lines.reduce((s, l) => s + Number(l.cost), 0);
+  $("#recipeNote").textContent = lines.length ? `Recipe cost ≈ ${peso(cost)} (${peso(cost / units)}/unit)` : "No recipe saved for this product — add ingredients by hand, or set a recipe in Inventory → Products.";
+}
+async function deleteBatch(id) {
+  if (!confirm("Delete this batch? Its ingredients go back into stock and its units come out of product stock.")) return;
+  try { await api(`/production/${id}`, { method: "DELETE" }); toast("Batch deleted"); await loadCatalog(); refresh(); }
+  catch (err) { toast(err.message, true); }
+}
+
+// ============================================================================
+// INVENTORY (ingredients, products + recipes, purchases, stock counts)
+// ============================================================================
+state.invTab = "ingredients";
+state.purchMonth = thisMonth();
+
+async function viewInventory() {
+  await loadCatalog();
+  const t = state.invTab;
+  const sub = [["ingredients", "Ingredients & packaging"], ["products", "Gelato products"], ["purchases", "Purchases"], ["counts", "Stock counts"]];
+  let html = `<div class="section-title"><h2 class="serif">Inventory</h2><div class="row">
+      <button class="btn ghost" onclick="newStockCount()">Record a count</button>
+      <button class="btn" onclick="newPurchase()">+ Purchase</button></div></div>
+    <div class="subtabs">${sub.map(([k, l]) => `<button class="${t === k ? "active" : ""}" onclick="state.invTab='${k}';refresh()">${l}</button>`).join("")}</div>`;
+
+  if (t === "ingredients") {
+    const list = state.ingredients;
+    html += `<div class="card"><div class="row spread" style="margin-bottom:8px"><span class="muted small">${list.filter(i => i.active).length} active items · stock value ${peso(list.filter(i => i.active).reduce((s, i) => s + Number(i.stock_value), 0))}</span>
+      <button class="btn sm" onclick="editIngredient()">+ New item</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Type</th><th class="num">In stock</th><th class="num">Reorder at</th><th class="num">Avg cost</th><th class="num">Value</th><th></th></tr></thead><tbody>
+      ${list.map(i => `<tr style="${i.active ? "" : "opacity:.5"}">
+        <td>${esc(i.name)} ${i.low_stock ? `<span class="badge b-red">low</span>` : ""}${i.active ? "" : ` <span class="badge b-gray">inactive</span>`}${i.supplier ? `<br><span class="small muted">${esc(i.supplier)}</span>` : ""}</td>
+        <td>${esc(i.kind)}</td>
+        <td class="num">${qty(i.current_stock)} ${esc(i.unit)}</td><td class="num">${qty(i.reorder_level)}</td>
+        <td class="num">${peso(i.cost_per_unit)}/${esc(i.unit)}</td><td class="num">${peso(i.stock_value)}</td>
+        <td class="num"><button class="btn ghost sm" onclick="editIngredient(${i.id})">Edit</button></td></tr>`).join("")
+        || `<tr><td colspan="7" class="empty">No ingredients yet. Add your first one — e.g. “Powdered milk (g)”, “Pint tub 475ml (pc)”.</td></tr>`}
+      </tbody></table></div></div>`;
+  }
+  if (t === "products") {
+    const list = state.products;
+    html += `<div class="card"><div class="row spread" style="margin-bottom:8px"><span class="muted small">One product per flavor + size (e.g. “Malted Polvoron — Pint”).</span>
+      <button class="btn sm" onclick="editProduct()">+ New product</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Product</th><th class="num">Price</th><th class="num">In stock</th><th class="num">Reorder at</th><th class="num">Actual cost</th><th class="num">Recipe cost</th><th class="num">Margin</th><th></th></tr></thead><tbody>
+      ${list.map(p => {
+        const cost = Number(p.cost_per_unit) || Number(p.recipe_cost_per_unit);
+        const margin = Number(p.selling_price) ? (1 - cost / p.selling_price) * 100 : null;
+        return `<tr style="${p.active ? "" : "opacity:.5"}">
+        <td>${esc(p.name)} ${p.low_stock ? `<span class="badge b-red">low</span>` : ""}${p.active ? "" : ` <span class="badge b-gray">inactive</span>`}</td>
+        <td class="num">${peso(p.selling_price)}</td><td class="num">${qty(p.current_stock)}</td><td class="num">${qty(p.reorder_level)}</td>
+        <td class="num">${Number(p.cost_per_unit) ? peso(p.cost_per_unit) : `<span class="muted">—</span>`}</td>
+        <td class="num">${p.recipe_lines ? peso(p.recipe_cost_per_unit) : `<span class="badge b-amber">no recipe</span>`}</td>
+        <td class="num">${margin === null || !cost ? "—" : margin.toFixed(0) + "%"}</td>
+        <td class="num" style="white-space:nowrap"><button class="btn ghost sm" onclick="editRecipe(${p.id})">Recipe</button>
+          <button class="btn ghost sm" onclick="editProduct(${p.id})">Edit</button></td></tr>`; }).join("")
+        || `<tr><td colspan="8" class="empty">No products yet.</td></tr>`}
+      </tbody></table></div>
+      <p class="small muted">Actual cost = average cost of batches actually made. Recipe cost = what the saved recipe costs at today's ingredient prices.</p></div>`;
+  }
+  if (t === "purchases") {
+    const [a, b] = monthBounds(state.purchMonth);
+    const list = await api(`/purchases?date_from=${a}&date_to=${b}`);
+    const total = list.reduce((s, x) => s + Number(x.total_cost), 0);
+    html += monthFilter("purchMonth") + `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Item</th><th class="num">Qty</th><th class="num">Total</th><th class="num">Unit cost</th><th>Supplier</th><th>Paid via</th><th></th></tr></thead><tbody>
+      ${list.map(p => `<tr><td>${fmtDate(p.purchase_date, true)}</td><td>${esc(p.ingredient_name)}</td>
+        <td class="num">${qty(p.qty)} ${esc(p.unit)}</td><td class="num">${peso(p.total_cost)}</td><td class="num">${peso(p.unit_cost)}</td>
+        <td>${esc(p.supplier || "")}</td><td>${esc(p.payment_method || "")}</td>
+        <td class="num"><button class="btn danger sm" onclick="deletePurchase(${p.id})">Delete</button></td></tr>`).join("")
+        || `<tr><td colspan="8" class="empty">No purchases this month.</td></tr>`}</tbody>
+      ${list.length ? `<tfoot><tr><td colspan="3">Total</td><td class="num">${peso(total)}</td><td colspan="4"></td></tr></tfoot>` : ""}
+      </table></div></div>`;
+  }
+  if (t === "counts") {
+    const list = await api(`/stock-counts?date_from=2000-01-01`);
+    html += `<div class="card"><p class="small muted" style="margin-top:0">When you physically count stock and it doesn't match the app, record the count here — the app sets stock to what you counted and logs the difference.</p>
+      <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Item</th><th class="num">App said</th><th class="num">Counted</th><th class="num">Difference</th><th>Notes</th></tr></thead><tbody>
+      ${list.map(c => `<tr><td>${fmtDate(c.adjust_date, true)}</td><td>${esc(c.item_name)}</td>
+        <td class="num">${qty(c.system_qty)}</td><td class="num">${qty(c.counted_qty)} ${esc(c.unit)}</td>
+        <td class="num"><span class="badge ${Number(c.difference) < 0 ? "b-red" : Number(c.difference) > 0 ? "b-amber" : "b-green"}">${Number(c.difference) > 0 ? "+" : ""}${qty(c.difference)}</span></td>
+        <td>${esc(c.notes || "")}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">No counts recorded yet.</td></tr>`}</tbody>
+      </table></div></div>`;
+  }
+  $("#view").innerHTML = html;
+}
+
+function editIngredient(id) {
+  const i = id ? ingredientById(id) : { kind: "ingredient", unit: "g", active: true, reorder_level: 0 };
+  openModal(id ? `Edit ${i.name}` : "New ingredient / packaging", `
+    <label class="field"><span>Name *</span><input name="name" required value="${esc(i.name)}" placeholder="e.g. Powdered milk"></label>
+    <div class="grid2">
+      <label class="field"><span>Type</span><select name="kind">${["ingredient", "packaging", "other"].map(k => `<option ${k === i.kind ? "selected" : ""}>${k}</option>`).join("")}</select></label>
+      <label class="field"><span>Unit</span><input name="unit" list="unitList" value="${esc(i.unit)}">${datalist("unitList", ["g", "kg", "ml", "L", "pc", "pack"])}</label>
+      <label class="field"><span>Reorder when stock falls to</span><input name="reorder_level" type="number" step="any" min="0" value="${i.reorder_level}"></label>
+      ${id ? `<label class="field"><span>Average cost per ${esc(i.unit)} (₱)</span><input name="cost_per_unit" type="number" step="any" min="0" value="${i.cost_per_unit}"></label>`
+           : `<label class="field"><span>Stock on hand right now</span><input name="opening_stock" type="number" step="any" min="0" value="0"></label>
+              <label class="field"><span>Cost per unit (₱) — for the stock on hand</span><input name="cost_per_unit" type="number" step="any" min="0" value="0"></label>`}
+      <label class="field"><span>Usual supplier</span><input name="supplier" value="${esc(i.supplier)}"></label>
+    </div>
+    <p class="hint">Cost is in pesos per ONE unit, e.g. ₱350 per kg bag bought in grams = 0.35.${id ? " Stock changes only through purchases, batches, wastage and counts." : ""}</p>
+    <label class="field"><span>Notes</span><input name="notes" value="${esc(i.notes)}"></label>
+    ${id ? `<label class="row small"><input type="checkbox" name="active" ${i.active ? "checked" : ""} style="width:auto"> Active (untick to hide it without losing history)</label>` : ""}`,
+    "Save", async fd => {
+      const body = { name: txt(fd.get("name")), kind: fd.get("kind"), unit: txt(fd.get("unit")) || "pc",
+        reorder_level: num(fd.get("reorder_level")) || 0, cost_per_unit: num(fd.get("cost_per_unit")),
+        supplier: txt(fd.get("supplier")), notes: txt(fd.get("notes")), active: id ? fd.get("active") === "on" : true,
+        opening_stock: id ? null : num(fd.get("opening_stock")) };
+      need(body.name, "Name is required.");
+      await api(id ? `/ingredients/${id}` : "/ingredients", { method: id ? "PUT" : "POST", body });
+      toast("Saved"); await loadCatalog(); refresh();
+    });
+}
+function editProduct(id) {
+  const p = id ? productById(id) : { active: true, reorder_level: 0, selling_price: 0 };
+  openModal(id ? `Edit ${p.name}` : "New gelato product", `
+    <label class="field"><span>Name *</span><input name="name" required value="${esc(p.name)}" placeholder="e.g. Basque Burnt Cheesecake — Pint"></label>
+    <div class="grid2">
+      <label class="field"><span>Flavor</span><input name="flavor" value="${esc(p.flavor)}"></label>
+      <label class="field"><span>Size</span><input name="size" list="sizeList" value="${esc(p.size)}">${datalist("sizeList", ["Pint 475ml", "Mini 89ml", "Cake", "Pie"])}</label>
+      <label class="field"><span>Selling price (₱)</span><input name="selling_price" type="number" step="any" min="0" value="${p.selling_price}"></label>
+      <label class="field"><span>Reorder / make more when stock falls to</span><input name="reorder_level" type="number" step="any" min="0" value="${p.reorder_level}"></label>
+      ${id ? "" : `<label class="field"><span>Units in the freezer right now</span><input name="opening_stock" type="number" step="any" min="0" value="0"></label>
+                   <label class="field"><span>Cost per unit of those (₱, optional)</span><input name="cost_per_unit" type="number" step="any" min="0" value="0"></label>`}
+    </div>
+    <label class="field"><span>Notes</span><input name="notes" value="${esc(p.notes)}"></label>
+    ${id ? `<label class="row small"><input type="checkbox" name="active" ${p.active ? "checked" : ""} style="width:auto"> Active (untick for discontinued flavors)</label>` : ""}`,
+    "Save", async fd => {
+      const body = { name: txt(fd.get("name")), flavor: txt(fd.get("flavor")), size: txt(fd.get("size")),
+        selling_price: num(fd.get("selling_price")) || 0, reorder_level: num(fd.get("reorder_level")) || 0,
+        cost_per_unit: id ? null : num(fd.get("cost_per_unit")), notes: txt(fd.get("notes")),
+        active: id ? fd.get("active") === "on" : true, opening_stock: id ? null : num(fd.get("opening_stock")) };
+      need(body.name, "Name is required.");
+      await api(id ? `/products/${id}` : "/products", { method: id ? "PUT" : "POST", body });
+      toast("Saved"); await loadCatalog(); refresh();
+    });
+}
+async function editRecipe(id) {
+  const p = productById(id);
+  const lines = await api(`/products/${id}/recipe`);
+  openModal(`Recipe — ${p.name}`, `
+    <p class="hint" style="margin-top:0">How much of each ingredient goes into <b>ONE</b> unit of this product (include the tub, lid and sticker as packaging). The production form multiplies this by the units made.</p>
+    <div class="lines"><div class="line-head two"><div>Ingredient</div><div>Per 1 unit</div><div></div></div>
+      <div id="lineRows"></div><button type="button" class="link" onclick="ingLine()">+ add ingredient</button></div>`,
+    "Save recipe", async fd => {
+      const ids = fd.getAll("ing_id"), qs = fd.getAll("ing_qty");
+      const items = [];
+      ids.forEach((iid, i) => { if (iid) { need(Number(qs[i]) > 0, "Every ingredient needs an amount above 0."); items.push({ ingredient_id: Number(iid), qty_per_unit: Number(qs[i]) }); } });
+      const saved = await api(`/products/${id}/recipe`, { method: "PUT", body: { items } });
+      const cost = saved.reduce((s, l) => s + Number(l.line_cost), 0);
+      toast(`Recipe saved — ${peso(cost)} per unit at current prices`); await loadCatalog(); refresh();
+    });
+  if (lines.length) lines.forEach(ingLine); else { ingLine(); ingLine(); ingLine(); }
+}
+function newPurchase(ingredientId) {
+  openModal("Record a purchase", `
+    <div class="grid2">
+      <label class="field"><span>Date</span><input name="purchase_date" type="date" required value="${manilaToday()}"></label>
+      <label class="field"><span>Item *</span><select name="ingredient_id" onchange="purchaseHint(this.value)">${ingredientOptions(ingredientId)}</select></label>
+      <label class="field"><span>Quantity bought * <span id="pUnit"></span></span><input name="qty" type="number" step="any" min="0" required></label>
+      <label class="field"><span>Total paid (₱) *</span><input name="total_cost" type="number" step="any" min="0" required></label>
+      <label class="field"><span>Supplier</span><input name="supplier" id="pSupplier"></label>
+      <label class="field"><span>Paid via</span><input name="payment_method" list="payList" value="Cash">${datalist("payList", PAYMENTS)}</label>
+    </div>
+    <p class="hint">Enter the quantity in the item's own unit — e.g. a 1 kg bag of something tracked in grams = 1000.</p>
+    <label class="field"><span>Notes</span><input name="notes"></label>`, "Save purchase", async fd => {
+    need(fd.get("ingredient_id"), "Choose an item.");
+    need(Number(fd.get("qty")) > 0, "Enter the quantity bought.");
+    need(fd.get("total_cost") !== "", "Enter the total paid.");
+    await api("/purchases", { method: "POST", body: {
+      purchase_date: fd.get("purchase_date"), ingredient_id: Number(fd.get("ingredient_id")), qty: Number(fd.get("qty")),
+      total_cost: Number(fd.get("total_cost")), supplier: txt(fd.get("supplier")), payment_method: txt(fd.get("payment_method")), notes: txt(fd.get("notes")) } });
+    toast("Purchase saved — stock updated"); await loadCatalog(); refresh();
+  });
+  if (ingredientId) purchaseHint(ingredientId);
+}
+function purchaseHint(id) {
+  const i = ingredientById(id);
+  $("#pUnit").textContent = i ? `(in ${i.unit})` : "";
+  if (i && i.supplier && !$("#pSupplier").value) $("#pSupplier").value = i.supplier;
+}
+async function deletePurchase(id) {
+  if (!confirm("Delete this purchase? Its quantity comes back out of stock.")) return;
+  try { await api(`/purchases/${id}`, { method: "DELETE" }); toast("Purchase deleted"); await loadCatalog(); refresh(); }
+  catch (err) { toast(err.message, true); }
+}
+function itemPicker() {
+  return `<option value="">— choose —</option>
+    <optgroup label="Gelato products">${activeProducts().map(p => `<option value="product:${p.id}">${esc(p.name)} (app: ${qty(p.current_stock)})</option>`).join("")}</optgroup>
+    <optgroup label="Ingredients & packaging">${activeIngredients().map(i => `<option value="ingredient:${i.id}">${esc(i.name)} (app: ${qty(i.current_stock)} ${esc(i.unit)})</option>`).join("")}</optgroup>`;
+}
+function newStockCount() {
+  openModal("Record a stock count", `
+    <label class="field"><span>Date</span><input name="adjust_date" type="date" value="${manilaToday()}"></label>
+    <label class="field"><span>Item *</span><select name="item">${itemPicker()}</select></label>
+    <label class="field"><span>Actual amount counted *</span><input name="counted_qty" type="number" step="any" min="0" required></label>
+    <label class="field"><span>Notes</span><input name="notes" placeholder="e.g. monthly count"></label>`, "Save count", async fd => {
+    const [type, id] = (fd.get("item") || ":").split(":");
+    need(id, "Choose an item.");
+    need(fd.get("counted_qty") !== "", "Enter the amount counted.");
+    const r = await api("/stock-counts", { method: "POST", body: { adjust_date: fd.get("adjust_date"), item_type: type, item_id: Number(id),
+      counted_qty: Number(fd.get("counted_qty")), notes: txt(fd.get("notes")) } });
+    toast(Number(r.difference) === 0 ? "Count matches the app" : `Stock corrected by ${Number(r.difference) > 0 ? "+" : ""}${qty(r.difference)}`);
+    await loadCatalog(); if (state.tab === "inventory") state.invTab = "counts"; refresh();
+  });
+}
+
+// ============================================================================
+// WASTAGE
+// ============================================================================
+state.wasteMonth = thisMonth();
+
+async function viewWastage() {
+  const [a, b] = monthBounds(state.wasteMonth);
+  const list = await api(`/wastage?date_from=${a}&date_to=${b}`);
+  const total = list.reduce((s, x) => s + Number(x.cost_value), 0);
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Wastage</h2><button class="btn" onclick="newWastage()">+ Wastage</button></div>
+    ${monthFilter("wasteMonth")}
+    <div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Item</th><th class="num">Qty</th><th>Reason</th><th class="num">Cost lost</th><th>Notes</th><th></th></tr></thead>
+      <tbody>${list.map(w => `<tr><td>${fmtDate(w.waste_date, true)}</td>
+        <td>${esc(w.item_name)} <span class="badge ${w.item_type === "product" ? "b-blue" : "b-gray"}">${w.item_type}</span></td>
+        <td class="num">${qty(w.qty)} ${esc(w.unit)}</td><td>${esc(w.reason)}</td><td class="num">${peso(w.cost_value)}</td>
+        <td>${esc(w.notes || "")}</td>
+        <td class="num"><button class="btn danger sm" onclick="deleteWastage(${w.id})">Delete</button></td></tr>`).join("")
+        || `<tr><td colspan="7" class="empty">No wastage logged this month.</td></tr>`}</tbody>
+      ${list.length ? `<tfoot><tr><td colspan="4">Total</td><td class="num">${peso(total)}</td><td colspan="2"></td></tr></tfoot>` : ""}
+    </table></div></div>`;
+}
+function newWastage() {
+  openModal("Log wastage", `
+    <div class="grid2">
+      <label class="field"><span>Date</span><input name="waste_date" type="date" value="${manilaToday()}"></label>
+      <label class="field"><span>Reason</span><select name="reason">${options(WASTE_REASONS, "melted")}</select></label>
+    </div>
+    <label class="field"><span>Item *</span><select name="item">${itemPicker()}</select></label>
+    <label class="field"><span>Quantity wasted *</span><input name="qty" type="number" step="any" min="0" required></label>
+    <label class="field"><span>Notes</span><input name="notes"></label>`, "Save", async fd => {
+    const [type, id] = (fd.get("item") || ":").split(":");
+    need(id, "Choose an item.");
+    need(Number(fd.get("qty")) > 0, "Enter the quantity wasted.");
+    const w = await api("/wastage", { method: "POST", body: { waste_date: fd.get("waste_date"), item_type: type, item_id: Number(id),
+      qty: Number(fd.get("qty")), reason: fd.get("reason"), notes: txt(fd.get("notes")) } });
+    toast(`Wastage logged — ${peso(w.cost_value)}`); await loadCatalog(); refresh();
+  });
+}
+async function deleteWastage(id) {
+  if (!confirm("Delete this wastage entry? The quantity goes back into stock.")) return;
+  try { await api(`/wastage/${id}`, { method: "DELETE" }); toast("Deleted"); await loadCatalog(); refresh(); }
+  catch (err) { toast(err.message, true); }
+}
+
+// ============================================================================
+// EXPENSES
+// ============================================================================
+state.expMonth = thisMonth();
+
+async function viewExpenses() {
+  const [a, b] = monthBounds(state.expMonth);
+  const [list, cats] = await Promise.all([api(`/expenses?date_from=${a}&date_to=${b}`), api("/expenses/categories")]);
+  state.expenseCats = cats; state.expenses = list;
+  const total = list.reduce((s, x) => s + Number(x.amount), 0);
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Expenses</h2><button class="btn" onclick="editExpense()">+ Expense</button></div>
+    ${monthFilter("expMonth")}
+    <p class="small muted" style="margin-top:-4px">Operating costs only. Ingredient & packaging purchases go in Inventory → Purchases so they count toward stock.</p>
+    <div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Paid via</th><th class="num">Amount</th><th></th></tr></thead>
+      <tbody>${list.map(x => `<tr><td>${fmtDate(x.expense_date, true)}</td><td>${esc(x.category)}</td>
+        <td>${esc(x.description)}${x.vendor ? `<br><span class="small muted">${esc(x.vendor)}</span>` : ""}</td>
+        <td>${esc(x.payment_method || "")}</td><td class="num">${peso(x.amount)}</td>
+        <td class="num" style="white-space:nowrap"><button class="btn ghost sm" onclick="editExpense(${x.id})">Edit</button>
+          <button class="btn danger sm" onclick="deleteExpense(${x.id})">Delete</button></td></tr>`).join("")
+        || `<tr><td colspan="6" class="empty">No expenses this month.</td></tr>`}</tbody>
+      ${list.length ? `<tfoot><tr><td colspan="4">Total</td><td class="num">${peso(total)}</td><td></td></tr></tfoot>` : ""}
+    </table></div></div>`;
+}
+async function editExpense(id) {
+  if (!state.expenseCats) state.expenseCats = await api("/expenses/categories");
+  const x = id ? state.expenses.find(e => e.id === id) : { expense_date: manilaToday(), category: "", payment_method: "Cash" };
+  openModal(id ? "Edit expense" : "New expense", `
+    <div class="grid2">
+      <label class="field"><span>Date</span><input name="expense_date" type="date" value="${x.expense_date}"></label>
+      <label class="field"><span>Category *</span><input name="category" list="catList" required value="${esc(x.category)}">${datalist("catList", state.expenseCats)}</label>
+    </div>
+    <label class="field"><span>Description *</span><input name="description" required value="${esc(x.description)}" placeholder="e.g. Meralco bill — September"></label>
+    <div class="grid2">
+      <label class="field"><span>Amount (₱) *</span><input name="amount" type="number" step="any" min="0" required value="${x.amount ?? ""}"></label>
+      <label class="field"><span>Paid via</span><input name="payment_method" list="payList" value="${esc(x.payment_method)}">${datalist("payList", PAYMENTS)}</label>
+      <label class="field"><span>Paid to (vendor)</span><input name="vendor" value="${esc(x.vendor)}"></label>
+    </div>
+    <label class="field"><span>Notes</span><input name="notes" value="${esc(x.notes)}"></label>`, "Save", async fd => {
+    const body = { expense_date: fd.get("expense_date"), category: txt(fd.get("category")) || "Other", description: txt(fd.get("description")),
+      amount: num(fd.get("amount")), payment_method: txt(fd.get("payment_method")), vendor: txt(fd.get("vendor")), notes: txt(fd.get("notes")) };
+    need(body.description, "Description is required.");
+    need(body.amount !== null, "Amount is required.");
+    await api(id ? `/expenses/${id}` : "/expenses", { method: id ? "PUT" : "POST", body });
+    toast("Expense saved"); state.expenseCats = null; refresh();
+  });
+}
+async function deleteExpense(id) {
+  if (!confirm("Delete this expense?")) return;
+  try { await api(`/expenses/${id}`, { method: "DELETE" }); toast("Deleted"); refresh(); }
+  catch (err) { toast(err.message, true); }
+}
+
+// ============================================================================
+// REPORTS
+// ============================================================================
+state.repMonth = thisMonth();
+
+async function viewReports() {
+  const r = await api(`/reports/monthly?month=${state.repMonth}`);
+  const s = r.summary;
+  const tbl = (head, rowsHtml, empty) => `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rowsHtml || `<tr><td colspan="9" class="empty">${empty}</td></tr>`}</tbody></table></div>`;
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Monthly report</h2></div>
+    ${monthFilter("repMonth")}
+    <div class="tiles">
+      <div class="tile"><div class="label">Sales (${s.sale_count})</div><div class="value">${peso0(s.revenue)}</div></div>
+      <div class="tile"><div class="label">Cost of gelato sold</div><div class="value">${peso0(s.cogs)}</div></div>
+      <div class="tile"><div class="label">Gross profit${s.gross_margin_pct !== null ? ` · ${s.gross_margin_pct}%` : ""}</div><div class="value ${s.gross_profit < 0 ? "neg" : ""}">${peso0(s.gross_profit)}</div></div>
+      <div class="tile"><div class="label">Wastage</div><div class="value">${peso0(s.wastage)}</div></div>
+      <div class="tile"><div class="label">Operating expenses</div><div class="value">${peso0(s.expenses)}</div></div>
+      <div class="tile"><div class="label">Net profit</div><div class="value ${s.net_profit < 0 ? "neg" : ""}">${peso0(s.net_profit)}</div></div>
+    </div>
+    <div class="card small muted" style="padding:12px 16px">Net profit = sales − cost of gelato sold − wastage − expenses. Ingredient purchases this month
+      (<b>${peso(s.ingredient_purchases)}</b>) are stock, not an expense — they reach profit when that gelato is sold or wasted.
+      Sales include ${peso(s.delivery_fees)} of delivery fees charged and are after ${peso(s.discounts)} of discounts.</div>
+    <div class="card"><h3>Sales by product</h3>${tbl(`<th>Product</th><th class="num">Qty</th><th class="num">Sales</th><th class="num">Cost</th><th class="num">Profit</th>`,
+      r.sales_by_product.map(p => `<tr><td>${esc(p.name)}</td><td class="num">${qty(p.qty)}</td><td class="num">${peso(p.gross_sales)}</td><td class="num">${peso(p.cogs)}</td><td class="num">${peso(p.gross_sales - p.cogs)}</td></tr>`).join(""), "No sales.")}</div>
+    <div class="grid2">
+      <div class="card"><h3>By channel</h3>${tbl(`<th>Channel</th><th class="num">Sales</th><th class="num">Amount</th>`,
+        r.sales_by_channel.map(c => `<tr><td>${esc(c.channel)}</td><td class="num">${c.sale_count}</td><td class="num">${peso(c.revenue)}</td></tr>`).join(""), "No sales.")}</div>
+      <div class="card"><h3>By payment method</h3>${tbl(`<th>Method</th><th class="num">Amount</th>`,
+        r.sales_by_payment_method.map(c => `<tr><td>${esc(c.payment_method)}</td><td class="num">${peso(c.revenue)}</td></tr>`).join(""), "No sales.")}</div>
+      <div class="card"><h3>Expenses by category</h3>${tbl(`<th>Category</th><th class="num">Entries</th><th class="num">Amount</th>`,
+        r.expenses_by_category.map(c => `<tr><td>${esc(c.category)}</td><td class="num">${c.entries}</td><td class="num">${peso(c.amount)}</td></tr>`).join(""), "No expenses.")}</div>
+      <div class="card"><h3>Wastage</h3>${tbl(`<th>Type</th><th>Reason</th><th class="num">Cost</th>`,
+        r.wastage_breakdown.map(w => `<tr><td>${esc(w.item_type)}</td><td>${esc(w.reason)}</td><td class="num">${peso(w.cost_value)}</td></tr>`).join(""), "No wastage.")}</div>
+    </div>
+    <div class="card"><h3>Production</h3>${tbl(`<th>Product</th><th class="num">Batches</th><th class="num">Units</th><th class="num">Cost</th><th class="num">Cost / unit</th>`,
+      r.production.map(p => `<tr><td>${esc(p.name)}</td><td class="num">${p.batches}</td><td class="num">${qty(p.units)}</td><td class="num">${peso(p.cost)}</td><td class="num">${peso(p.cost_per_unit)}</td></tr>`).join(""), "No batches made.")}</div>
+    <div class="grid2">
+      <div class="card"><h3>Daily sales</h3>${tbl(`<th>Day</th><th class="num">Sales</th>`,
+        r.daily_sales.map(d => `<tr><td>${fmtDate(d.day, true)}</td><td class="num">${peso(d.revenue)}</td></tr>`).join(""), "No sales.")}</div>
+      <div class="card"><h3>Orders due this month</h3>${tbl(`<th>Status</th><th class="num">Count</th>`,
+        Object.entries(r.orders_by_status).map(([k, v]) => `<tr><td>${ORDER_STATUS[k] ? ORDER_STATUS[k][0] : esc(k)}</td><td class="num">${v}</td></tr>`).join(""), "No orders.")}
+        <h3 style="margin-top:14px">Ingredient purchases</h3>${tbl(`<th>Type</th><th class="num">Amount</th>`,
+        r.purchases_by_kind.map(p => `<tr><td>${esc(p.kind)}</td><td class="num">${peso(p.amount)}</td></tr>`).join(""), "No purchases.")}</div>
+    </div>`;
+}
+
+// ============================================================================
+// SETTINGS
+// ============================================================================
+async function viewSettings() {
+  const s = await api("/settings");
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Settings</h2><button class="btn ghost" onclick="logout()">Log out</button></div>
+    <div class="card"><h3>Email alerts</h3>
+      <p class="small">${s.email_configured ? `<span class="badge b-green">Email is set up</span>` : `<span class="badge b-amber">Email not set up on the server yet</span> <span class="muted">— add SMTP_USER and SMTP_PASSWORD on Render.</span>`}</p>
+      <p class="small muted">Once a day (from the hour below, Manila time) the app emails a summary of low-stock items and orders due soon. Nothing is sent on days with nothing to report.</p>
+      <form id="settingsForm">
+        <label class="field"><span>Send alerts to (separate several with commas)</span><input name="alert_emails" value="${esc(s.alert_emails)}" placeholder="you@gmail.com, wife@gmail.com"></label>
+        <div class="grid2">
+          <label class="field"><span>Send from (hour, 0–23)</span><input name="alert_hour" type="number" min="0" max="23" value="${esc(s.alert_hour || 7)}"></label>
+          <label class="field"><span>Warn about orders due within (days)</span><input name="order_alert_days" type="number" min="0" max="30" value="${esc(s.order_alert_days)}"></label>
+        </div>
+        <label class="row small" style="margin-bottom:12px"><input type="checkbox" name="alerts_enabled" ${s.alerts_enabled === "true" ? "checked" : ""} style="width:auto"> Alerts on</label>
+        <div class="row"><button class="btn">Save</button>
+          <button type="button" class="btn ghost" onclick="previewAlert()">Preview today's alert</button>
+          <button type="button" class="btn ghost" onclick="testEmail()">Send test email</button></div>
+      </form>
+    </div>
+    <div class="card"><h3>Change PIN</h3>
+      <form id="pinForm" class="grid2">
+        <label class="field"><span>Current PIN</span><input name="current_pin" type="password" inputmode="numeric" required></label>
+        <label class="field"><span>New PIN (4–12 digits)</span><input name="new_pin" type="password" inputmode="numeric" required></label>
+        <div><button class="btn">Change PIN</button></div>
+      </form>
+      <p class="small muted">Changing the PIN logs out every other phone and computer.</p>
+    </div>`;
+  $("#settingsForm").onsubmit = async e => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    try {
+      await api("/settings", { method: "PUT", body: { alert_emails: fd.get("alert_emails"), alert_hour: Number(fd.get("alert_hour")),
+        order_alert_days: Number(fd.get("order_alert_days")), alerts_enabled: fd.get("alerts_enabled") === "on" } });
+      toast("Settings saved");
+    } catch (err) { toast(err.message, true); }
+  };
+  $("#pinForm").onsubmit = async e => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    try {
+      const r = await api("/auth/change-pin", { method: "POST", body: { current_pin: fd.get("current_pin"), new_pin: fd.get("new_pin") } });
+      TOKEN = r.token; try { localStorage.setItem("rochar_token", TOKEN); } catch (x) {}
+      e.target.reset(); toast("PIN changed");
+    } catch (err) { toast(err.message, true); }
+  };
+}
+async function previewAlert() {
+  try {
+    const p = await api("/alerts/preview");
+    openModal("Today's alert", p.would_send
+      ? `<p><b>${esc(p.subject)}</b></p><pre style="white-space:pre-wrap;font:inherit;background:var(--cream);padding:10px;border-radius:8px">${esc(p.text)}</pre>
+         <p class="small muted">To: ${esc(p.recipients.join(", ") || "(no address set)")}</p>`
+      : `<p>Nothing to report today — no low stock and no orders due soon.</p>`,
+      p.would_send && p.email_method ? "Send it now" : null,
+      async () => { const r = await api("/alerts/run?force=true", { method: "POST" }); toast(r.sent ? "Alert sent" : r.reason, !r.sent); });
+  } catch (err) { toast(err.message, true); }
+}
+async function testEmail() {
+  try { const r = await api("/alerts/test", { method: "POST" }); toast("Test email sent to " + r.sent_to.join(", ")); }
+  catch (err) { toast(err.message, true); }
+}
+async function logout() {
+  try { await api("/auth/logout", { method: "POST" }); } catch (e) {}
+  showLogin();
+}
+
+// ---------------------------------------------------------------- boot
+const VIEWS = {
+  dashboard: viewDashboard, orders: viewOrders, sales: viewSales, production: viewProduction,
+  inventory: viewInventory, wastage: viewWastage, expenses: viewExpenses, reports: viewReports, settings: viewSettings,
+};
+renderTabs();
+if (TOKEN) { $("#login").classList.add("hidden"); start().catch(() => {}); } else showLogin();
+</script>
+</body>
+</html>
