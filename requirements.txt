@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+psycopg[binary]
+requests
+pydantic
