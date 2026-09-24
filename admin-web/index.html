@@ -50,7 +50,83 @@
   body.mobile nav.tabs button { flex: 1; padding: 12px 2px; font-size: 12.5px; border-bottom: none; border-top: 3px solid transparent; }
   body.mobile nav.tabs button.active { border-top-color: var(--accent); }
   body.mobile main { padding-bottom: 110px; max-width: 640px; }
-  body:not(.mobile) nav.tabs { position: sticky; top: 50px; z-index: 19; }
+
+  /* ---------- Web: hover-to-open sidebar ---------- */
+  :root { --rail: 68px; --rail-open: 228px; --ease: cubic-bezier(.22, .8, .24, 1); }
+  body:not(.mobile) header.top { padding-left: calc(var(--rail) + 20px); }
+  body:not(.mobile) main { margin-left: var(--rail); max-width: none; padding-left: 28px; padding-right: 28px; }
+  body:not(.mobile) main > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
+  body:not(.mobile) nav.tabs {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--rail); z-index: 40;
+    flex-direction: column; overflow: hidden; gap: 2px; padding: 12px 10px;
+    background: var(--accent); border: none;
+    transition: width .32s var(--ease), box-shadow .32s var(--ease);
+  }
+  body:not(.mobile) nav.tabs:hover, body:not(.mobile) nav.tabs:focus-within {
+    width: var(--rail-open); box-shadow: 12px 0 40px rgba(30, 18, 12, .28);
+  }
+  body:not(.mobile) nav.tabs .brand { display: flex; align-items: center; gap: 12px; padding: 4px 4px 16px; margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,.12); color: #fff; white-space: nowrap; }
+  body:not(.mobile) nav.tabs .brand .mark { flex: 0 0 40px; height: 40px; border-radius: 11px; background: var(--cream); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font: 700 20px "Playfair Display", Georgia, serif; }
+  body:not(.mobile) nav.tabs .brand span { font: 700 17px "Playfair Display", Georgia, serif; }
+  body:not(.mobile) nav.tabs button {
+    display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 12px; border: none; border-radius: 10px;
+    color: #cbb7a4; text-align: left; position: relative; transition: background .2s, color .2s;
+  }
+  body:not(.mobile) nav.tabs button:hover { background: rgba(255,255,255,.08); color: #fff; }
+  body:not(.mobile) nav.tabs button.active { background: var(--cream); color: var(--accent); }
+  body:not(.mobile) nav.tabs button svg { flex: 0 0 22px; }
+  body:not(.mobile) nav.tabs .lbl, body:not(.mobile) nav.tabs .brand span {
+    opacity: 0; transform: translateX(-8px); transition: opacity .18s ease, transform .25s var(--ease); white-space: nowrap;
+  }
+  body:not(.mobile) nav.tabs:hover .lbl, body:not(.mobile) nav.tabs:focus-within .lbl,
+  body:not(.mobile) nav.tabs:hover .brand span, body:not(.mobile) nav.tabs:focus-within .brand span {
+    opacity: 1; transform: none; transition-delay: .08s;
+  }
+  body:not(.mobile) nav.tabs .count { position: absolute; left: 30px; top: 4px; margin: 0; border: 2px solid var(--accent);
+    background: #d9534f; transition: left .32s var(--ease), top .32s var(--ease); }
+  body:not(.mobile) nav.tabs:hover .count, body:not(.mobile) nav.tabs:focus-within .count { left: 190px; top: 12px; }
+  body:not(.mobile) nav.tabs button.active .count { border-color: var(--cream); }
+  .nav-dim { position: fixed; inset: 0; background: rgba(30,18,12,.18); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 35; }
+  body:not(.mobile) nav.tabs:hover ~ .nav-dim { opacity: 1; }
+
+  /* phone bottom bar: icon over label */
+  body.mobile nav.tabs button { display: flex; flex-direction: column; align-items: center; gap: 3px; position: relative; transition: color .2s; }
+  body.mobile nav.tabs button svg { width: 21px; height: 21px; transition: transform .25s var(--ease); }
+  body.mobile nav.tabs button.active svg { transform: translateY(-2px) scale(1.08); }
+  body.mobile nav.tabs .count { position: absolute; top: 5px; left: calc(50% + 6px); margin: 0; }
+
+  /* ---------- Page, modal, card animations ---------- */
+  @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  #view.enter { animation: viewIn .32s var(--ease) both; }
+  @keyframes modalIn { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes modalOut { to { opacity: 0; transform: translateY(12px) scale(.97); } }
+  @keyframes sheetIn { from { transform: translateY(100%); } to { transform: none; } }
+  @keyframes sheetOut { to { transform: translateY(100%); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeOut { to { opacity: 0; } }
+  dialog[open] { animation: modalIn .28s var(--ease); }
+  dialog[open]::backdrop { animation: fadeIn .28s ease; }
+  dialog.closing { animation: modalOut .2s ease forwards; }
+  dialog.closing::backdrop { animation: fadeOut .2s ease forwards; }
+  body.mobile dialog { margin: auto 0 0; width: 100%; max-width: 100%; max-height: 88vh; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  body.mobile dialog[open] { animation: sheetIn .34s var(--ease); }
+  body.mobile dialog.closing { animation: sheetOut .24s ease forwards; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+  .ocard.new { animation: cardIn .35s var(--ease); }
+  .ocard.leaving { transition: opacity .3s ease, transform .3s ease, max-height .35s ease .1s, margin .35s ease .1s;
+    opacity: 0; transform: translateX(40px); max-height: 0 !important; margin-bottom: 0; }
+  .ocard-body-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .32s var(--ease); }
+  .ocard-body-wrap > div { min-height: 0; overflow: hidden; }
+  .ocard.collapsed .ocard-body-wrap { grid-template-rows: 0fr; }
+  .ocard .chev { display: inline-block; transition: transform .3s var(--ease); }
+  .ocard.collapsed .chev { transform: rotate(-90deg); }
+  #toast { transition: opacity .2s, transform .25s var(--ease); transform: translateX(-50%) translateY(10px); }
+  #toast.show { transform: translateX(-50%); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
+  }
 
   /* ---------- Building blocks ---------- */
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -150,7 +226,6 @@
   .ocard { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
   .ocard-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; background: var(--hover); border-bottom: 1px solid var(--border); }
   .ocard.collapsed .ocard-head { border-bottom: none; }
-  .ocard.collapsed .ocard-body { display: none; }
   .ocard-body { padding: 12px 14px 14px; }
   .pos { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-bottom: 12px; }
   .pos button { position: relative; text-align: left; background: var(--cream); border: 1px solid #e7d7c1; border-radius: 10px; padding: 10px; cursor: pointer; min-height: 64px; }
@@ -221,6 +296,7 @@
   </div>
 </header>
 <nav class="tabs" id="tabs"></nav>
+<div class="nav-dim"></div>
 <main id="view"><div class="loading">Loading…</div></main>
 
 <dialog id="modal">
@@ -321,9 +397,19 @@ function fileUrl(id) { return `${API_BASE}/files/${id}?token=${encodeURIComponen
 // ---------------------------------------------------------------- modal
 function openModal(title, html) {
   $("#modalTitle").textContent = title; $("#modalBody").innerHTML = html;
-  if (!$("#modal").open) $("#modal").showModal();
+  const d = $("#modal"); d.classList.remove("closing");
+  if (!d.open) d.showModal();
 }
-function closeModal() { $("#modal").close(); }
+function closeModal() {
+  const d = $("#modal");
+  if (!d.open || d.classList.contains("closing")) return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) return d.close();
+  d.classList.add("closing");
+  d.addEventListener("animationend", () => { d.classList.remove("closing"); d.close(); }, { once: true });
+}
+$("#modal").addEventListener("cancel", e => { e.preventDefault(); closeModal(); });   // Esc key
+$("#modal").addEventListener("click", e => { if (e.target === $("#modal")) closeModal(); });   // click outside
 $("#modal").addEventListener("close", () => { $("#modalBody").innerHTML = ""; });
 
 // ---------------------------------------------------------------- login
@@ -361,9 +447,27 @@ async function logout() {
 }
 
 // ---------------------------------------------------------------- navigation + sync
+// Simple line icons (24×24, drawn with strokes)
+const ICON_PATHS = {
+  overview: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  orders: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  sales: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
+  products: '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/>',
+  purchases: '<path d="M3 4h2l2.4 11h11L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
+  buy: '<path d="M3 4h2l2.4 11h11L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
+  expenses: '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10h19M16 14.5h2.5"/><path d="M6 6l9-3 1.5 3"/>',
+  expense: '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10h19M16 14.5h2.5"/><path d="M6 6l9-3 1.5 3"/>',
+  production: '<path d="M7 10a5 5 0 0110 0"/><path d="M6 10h12l-5 11h-2z"/><path d="M12 3v2"/>',
+  make: '<path d="M7 10a5 5 0 0110 0"/><path d="M6 10h12l-5 11h-2z"/><path d="M12 3v2"/>',
+  counts: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.8h6V4M9 10l1.5 1.5L14 8M9 16h6"/>',
+  count: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.8h6V4M9 10l1.5 1.5L14 8M9 16h6"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+};
+const icon = k => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] || ""}</svg>`;
 function renderTabs() {
-  $("#tabs").innerHTML = TABS.map(([k, label]) =>
-    `<button class="${S.tab === k ? "active" : ""}" onclick="go('${k}')">${label}${k === "orders" && S.openCount ? `<span class="count">${S.openCount}</span>` : ""}</button>`).join("");
+  const brand = MODE === "mobile" ? "" : `<div class="brand"><div class="mark">R</div><span>Rochar Gelato</span></div>`;
+  $("#tabs").innerHTML = brand + TABS.map(([k, label]) =>
+    `<button class="${S.tab === k ? "active" : ""}" onclick="go('${k}')" title="${label}">${icon(k)}<span class="lbl">${label}</span>${k === "orders" && S.openCount ? `<span class="count">${S.openCount}</span>` : ""}</button>`).join("");
 }
 async function go(tab, opts = {}) {
   S.tab = tab; renderTabs();
@@ -374,6 +478,7 @@ async function go(tab, opts = {}) {
   try {
     await VIEWS[tab]();
     if (opts.quiet) window.scrollTo(0, y);
+    else { const v = $("#view"); v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); window.scrollTo(0, 0); }
   } catch (err) {
     if (!opts.quiet) $("#view").innerHTML = `<div class="card"><b>Couldn't load this page.</b><p class="muted">${esc(err.message)}</p><button class="btn" onclick="go('${tab}')">Try again</button></div>`;
   }
@@ -563,7 +668,7 @@ async function newOrder() {
     delete collapsed[o.id]; saveCollapsed();
     if (!S.orders.length) $("#orderCards").innerHTML = "";
     S.orders.push(o); S.openCount = S.orders.length; renderTabs();
-    drawOrderCard(o.id);
+    S.animateNew = o.id; drawOrderCard(o.id);
     document.getElementById("oc" + o.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (err) { toast(err.message, true); }
 }
@@ -578,16 +683,22 @@ function drawOrderCard(id) {
   const box = $("#orderCards"); if (!box) return;
   const o = S.orders.find(x => x.id === id);
   let card = document.getElementById("oc" + id);
-  if (!o) { if (card) card.remove(); if (!S.orders.length) box.innerHTML = `<div class="card empty">No open orders.</div>`; return; }
+  if (!o) {
+    if (card && !card.classList.contains("leaving")) {
+      card.style.maxHeight = card.offsetHeight + "px"; void card.offsetWidth; card.classList.add("leaving");
+      setTimeout(() => { card.remove(); if (!S.orders.length && $("#orderCards")) $("#orderCards").innerHTML = `<div class="card empty">No open orders.</div>`; }, 450);
+    }
+    return;
+  }
   const qtyOf = itemId => (o.items.find(i => i.item_id === itemId) || {}).qty || 0;
   const isCollapsed = !!collapsed[id];
   const html = `
     <div class="ocard-head" onclick="toggleCard(${id})">
       <div><b>#${id}</b> <span class="oc-name">${o.customer_name ? esc(o.customer_name) : `<span class="muted">New order</span>`}</span>
         <span class="small muted">· ${fmtTime(o.created_at)}</span></div>
-      <div class="row"><b class="oc-total">${money(o.total)}</b><span class="muted">${isCollapsed ? "▸" : "▾"}</span></div>
+      <div class="row"><b class="oc-total">${money(o.total)}</b><span class="muted chev">▾</span></div>
     </div>
-    <div class="ocard-body">
+    <div class="ocard-body-wrap"><div><div class="ocard-body">
       <div class="pos">${activeItems("Gelato").map(i => `<button type="button" onclick="bump(${id}, ${i.id}, 1)">
         <b>${esc(i.name)}</b><span>${esc(i.variant)}${i.variant ? " · " : ""}${money(i.selling_price)}</span>
         ${qtyOf(i.id) ? `<span class="q">${qtyOf(i.id)}</span>` : ""}</button>`).join("")}</div>
@@ -618,9 +729,10 @@ function drawOrderCard(id) {
         <span class="small muted">Saved automatically</span>
         <button type="button" class="link red" onclick="cancelOrder(${id})">${o.items.length ? "Void order" : "Delete"}</button>
       </div>
-    </div>`;
+    </div></div></div>`;
   if (!card) {
     card = document.createElement("div"); card.id = "oc" + id; card.className = "ocard";
+    if (S.animateNew === id) { card.classList.add("new"); S.animateNew = null; }
     box.appendChild(card);
   }
   // Keep whatever field is being typed in, and the cursor, while redrawing.
@@ -636,7 +748,8 @@ function drawOrderCard(id) {
 }
 function toggleCard(id) {
   collapsed[id] = !collapsed[id]; if (!collapsed[id]) delete collapsed[id];
-  saveCollapsed(); drawOrderCard(id);
+  saveCollapsed();
+  const card = $("#oc" + id); if (card) card.classList.toggle("collapsed", !!collapsed[id]);   // animates open/closed
 }
 function bump(orderId, itemId, delta) {
   const o = S.orders.find(x => x.id === orderId); if (!o) return;
