@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Rochar Gelato</title>
-<meta name="theme-color" content="#3b2418">
+<meta name="theme-color" content="#fbf6f0">
+<link rel="icon" type="image/png" href="brand/favicon.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Rochar">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +14,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f7f3ee; --card: #ffffff; --ink: #2a1d17; --muted: #85766c; --border: #eae2d9;
-    --accent: #3b2418; --accent-2: #5a3a29; --cream: #f1e6d6; --hover: #fbf7f2;
+    /* Rochar brand: cream background, chocolate wordmark brown, monogram gold */
+    --bg: #fbf6f0; --card: #ffffff; --ink: #322218; --muted: #8a7868; --border: #ece2d6;
+    --accent: #443128; --accent-2: #5b4337; --gold: #765101; --gold-soft: #f3e7cc;
+    --cream: #f4ebdf; --hover: #fdf9f4; --rail-bg: #f4ebdf;
     --red-bg: #fbe9e6; --red: #b3372a; --amber-bg: #fcf1dc; --amber: #9a6208;
     --green-bg: #e7f2ea; --green: #22733d; --blue-bg: #e7eef8; --blue: #2c5a93;
     --gray-bg: #efebe7; --gray: #6f655e; --radius: 12px;
@@ -27,28 +31,34 @@
   .hidden { display: none !important; }
 
   /* ---------- Login ---------- */
-  #login { position: fixed; inset: 0; background: var(--accent); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
-  .login-card { background: var(--card); border-radius: 18px; padding: 32px 28px; width: 340px; max-width: 100%; text-align: center; }
+  #login { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .login-card { background: var(--card); border-radius: 18px; padding: 30px 28px; width: 360px; max-width: 100%; text-align: center;
+    border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(68, 49, 40, .10); }
+  .login-card .logo { width: 230px; max-width: 80%; display: block; margin: 0 auto 14px; }
   .login-card h1 { font-size: 26px; }
   .login-card p { color: var(--muted); margin: 6px 0 20px; font-size: 13px; }
   .pin { width: 100%; padding: 12px; font-size: 22px; letter-spacing: 8px; text-align: center; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; }
   .login-error { color: var(--red); min-height: 18px; font-size: 13px; margin: 6px 0; }
 
   /* ---------- Shell ---------- */
-  header.top { background: var(--accent); color: #fff; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+  header.top { background: rgba(251, 246, 240, .94); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border); color: var(--ink); padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top));
     display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
   header.top h1 { font-size: 20px; }
-  header.top small { color: #d9c8b6; font-size: 12px; margin-left: 8px; font-family: Inter, sans-serif; }
+  header.top small { color: var(--gold); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; margin-left: 12px; font-family: Inter, sans-serif; font-weight: 600; }
+  header.top .wordmark { height: 30px; display: block; }
+  header.top h1 { display: flex; align-items: center; }
+  header.top .btn.ghost { background: #fff; }
   nav.tabs { background: var(--card); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; scrollbar-width: none; }
   nav.tabs::-webkit-scrollbar { display: none; }
   nav.tabs button { background: none; border: none; padding: 13px 14px; cursor: pointer; white-space: nowrap; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; }
-  nav.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  nav.tabs button.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
   nav.tabs button .count { background: var(--accent); color: #fff; border-radius: 99px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
   main { max-width: 1200px; margin: 0 auto; padding: 18px 16px 60px; }
   body.mobile nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; justify-content: space-around;
     border-top: 1px solid var(--border); border-bottom: none; padding-bottom: env(safe-area-inset-bottom); }
   body.mobile nav.tabs button { flex: 1; padding: 12px 2px; font-size: 12.5px; border-bottom: none; border-top: 3px solid transparent; }
-  body.mobile nav.tabs button.active { border-top-color: var(--accent); }
+  body.mobile nav.tabs button.active { border-top-color: var(--gold); }
   body.mobile main { padding-bottom: 110px; max-width: 640px; }
 
   /* ---------- Web: hover-to-open sidebar ---------- */
@@ -59,23 +69,23 @@
   body:not(.mobile) nav.tabs {
     position: fixed; top: 0; left: 0; bottom: 0; width: var(--rail); z-index: 40;
     flex-direction: column; overflow: hidden; gap: 2px; padding: 12px 10px;
-    background: var(--accent); border: none;
+    background: var(--rail-bg); border: none; border-right: 1px solid var(--border);
     transition: width .32s var(--ease), box-shadow .32s var(--ease);
   }
   body:not(.mobile) nav.tabs:hover, body:not(.mobile) nav.tabs:focus-within {
-    width: var(--rail-open); box-shadow: 12px 0 40px rgba(30, 18, 12, .28);
+    width: var(--rail-open); box-shadow: 12px 0 40px rgba(68, 49, 40, .16);
   }
-  body:not(.mobile) nav.tabs .brand { display: flex; align-items: center; gap: 12px; padding: 4px 4px 16px; margin-bottom: 6px;
-    border-bottom: 1px solid rgba(255,255,255,.12); color: #fff; white-space: nowrap; }
-  body:not(.mobile) nav.tabs .brand .mark { flex: 0 0 40px; height: 40px; border-radius: 11px; background: var(--cream); color: var(--accent);
-    display: flex; align-items: center; justify-content: center; font: 700 20px "Playfair Display", Georgia, serif; }
-  body:not(.mobile) nav.tabs .brand span { font: 700 17px "Playfair Display", Georgia, serif; }
+  body:not(.mobile) nav.tabs .brand { display: flex; align-items: center; gap: 12px; padding: 2px 2px 14px; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(68, 49, 40, .12); white-space: nowrap; min-height: 58px; }
+  body:not(.mobile) nav.tabs .brand .mark { flex: 0 0 44px; width: 44px; height: auto; display: block; }
+  body:not(.mobile) nav.tabs .brand span img { height: 22px; display: block; }
   body:not(.mobile) nav.tabs button {
     display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 12px; border: none; border-radius: 10px;
-    color: #cbb7a4; text-align: left; position: relative; transition: background .2s, color .2s;
+    color: #6b5647; text-align: left; position: relative; transition: background .2s, color .2s;
   }
-  body:not(.mobile) nav.tabs button:hover { background: rgba(255,255,255,.08); color: #fff; }
-  body:not(.mobile) nav.tabs button.active { background: var(--cream); color: var(--accent); }
+  body:not(.mobile) nav.tabs button:hover { background: rgba(68, 49, 40, .06); color: var(--accent); }
+  body:not(.mobile) nav.tabs button.active { background: #fff; color: var(--gold); font-weight: 600; box-shadow: 0 1px 3px rgba(68, 49, 40, .08); }
+  body:not(.mobile) nav.tabs button.active::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--gold); }
   body:not(.mobile) nav.tabs button svg { flex: 0 0 22px; }
   body:not(.mobile) nav.tabs .lbl, body:not(.mobile) nav.tabs .brand span {
     opacity: 0; transform: translateX(-8px); transition: opacity .18s ease, transform .25s var(--ease); white-space: nowrap;
@@ -84,11 +94,11 @@
   body:not(.mobile) nav.tabs:hover .brand span, body:not(.mobile) nav.tabs:focus-within .brand span {
     opacity: 1; transform: none; transition-delay: .08s;
   }
-  body:not(.mobile) nav.tabs .count { position: absolute; left: 30px; top: 4px; margin: 0; border: 2px solid var(--accent);
+  body:not(.mobile) nav.tabs .count { position: absolute; left: 30px; top: 4px; margin: 0; border: 2px solid var(--rail-bg);
     background: #d9534f; transition: left .32s var(--ease), top .32s var(--ease); }
   body:not(.mobile) nav.tabs:hover .count, body:not(.mobile) nav.tabs:focus-within .count { left: 190px; top: 12px; }
-  body:not(.mobile) nav.tabs button.active .count { border-color: var(--cream); }
-  .nav-dim { position: fixed; inset: 0; background: rgba(30,18,12,.18); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 35; }
+  body:not(.mobile) nav.tabs button.active .count { border-color: #fff; }
+  .nav-dim { position: fixed; inset: 0; background: rgba(68, 49, 40, .12); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 35; }
   body:not(.mobile) nav.tabs:hover ~ .nav-dim { opacity: 1; }
 
   /* phone bottom bar: icon over label */
@@ -125,10 +135,10 @@
   #toast { transition: opacity .2s, transform .25s var(--ease); transform: translateX(-50%) translateY(10px); }
   #toast.show { transform: translateX(-50%); }
   /* sidebar group headers */
-  body:not(.mobile) nav.tabs .grp { font-size: 10.5px; letter-spacing: .12em; font-weight: 600; color: #a88f7b; padding: 12px 12px 4px;
+  body:not(.mobile) nav.tabs .grp { font-size: 10.5px; letter-spacing: .12em; font-weight: 600; color: #a08a74; padding: 12px 12px 4px;
     white-space: nowrap; height: 30px; position: relative; }
   body:not(.mobile) nav.tabs .grp span { opacity: 0; transition: opacity .18s ease; }
-  body:not(.mobile) nav.tabs .grp::before { content: ""; position: absolute; left: 14px; right: 14px; top: 17px; height: 1px; background: rgba(255,255,255,.14); transition: opacity .18s; }
+  body:not(.mobile) nav.tabs .grp::before { content: ""; position: absolute; left: 14px; right: 14px; top: 17px; height: 1px; background: rgba(68, 49, 40, .12); transition: opacity .18s; }
   body:not(.mobile) nav.tabs:hover .grp span, body:not(.mobile) nav.tabs:focus-within .grp span { opacity: 1; transition-delay: .08s; }
   body:not(.mobile) nav.tabs:hover .grp::before, body:not(.mobile) nav.tabs:focus-within .grp::before { opacity: 0; }
   /* typeahead */
@@ -158,13 +168,13 @@
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .spread { justify-content: space-between; }
   .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 2px 0 12px; }
-  .section-title h2 { font-size: 22px; }
+  .section-title h2 { font-size: 24px; color: var(--accent); font-weight: 600; letter-spacing: .01em; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
   .card h3 { font-size: 15px; margin-bottom: 10px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
   .tile .label { color: var(--muted); font-size: 12px; }
-  .tile .value { font-size: 21px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .value { color: var(--accent); font-size: 21px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .neg { color: var(--red); }
   .muted { color: var(--muted); }
   .small { font-size: 12px; }
@@ -303,7 +313,7 @@
 
 <div id="login">
   <div class="login-card">
-    <h1 class="serif">Rochar Gelato</h1>
+    <img class="logo" src="brand/logo-full.png" alt="Rochar Artisan Gelato">
     <p id="loginMsg">Enter your PIN</p>
     <form id="loginForm">
       <input class="pin" id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" required>
@@ -315,11 +325,11 @@
 </div>
 
 <header class="top">
-  <h1 class="serif">Rochar Gelato<small id="modeLabel"></small></h1>
+  <h1><img class="wordmark" src="brand/wordmark.png" alt="Rochar Artisan Gelato"><small id="modeLabel"></small></h1>
   <div class="row">
-    <button class="btn ghost sm hidden" id="settingsLink" style="color:#fff;border-color:#6b4a38" onclick="go('settings')">⚙ Settings</button>
-    <a class="btn ghost sm" id="switchLink" style="color:#fff;border-color:#6b4a38;text-decoration:none"></a>
-    <button class="btn ghost sm hidden" id="mobileLogout" style="color:#fff;border-color:#6b4a38" onclick="logout()">Log out</button>
+    <button class="btn ghost sm hidden" id="settingsLink" onclick="go('settings')">⚙ Settings</button>
+    <a class="btn ghost sm" id="switchLink" style="text-decoration:none"></a>
+    <button class="btn ghost sm hidden" id="mobileLogout" onclick="logout()">Log out</button>
   </div>
 </header>
 <nav class="tabs" id="tabs"></nav>
@@ -508,7 +518,7 @@ function renderTabs() {
   const btn = ([k, label]) => `<button class="${S.tab === k ? "active" : ""}" onclick="go('${k}')" title="${label}">${icon(k)}<span class="lbl">${label}</span>${
     (k === "orders" && S.openCount) ? `<span class="count">${S.openCount}</span>` : ""}</button>`;
   if (MODE === "mobile") { $("#tabs").innerHTML = TABS.map(btn).join(""); return; }
-  $("#tabs").innerHTML = `<div class="brand"><div class="mark">R</div><span>Rochar Gelato</span></div>` +
+  $("#tabs").innerHTML = `<div class="brand"><img class="mark" src="brand/monogram.png" alt="R"><span><img src="brand/wordmark.png" alt="Rochar"></span></div>` +
     NAV_GROUPS.map(([g, list]) => `<div class="grp"><span>${g}</span></div>` + list.map(btn).join("")).join("");
 }
 async function go(tab, opts = {}) {
