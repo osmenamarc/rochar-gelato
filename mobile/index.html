@@ -58,7 +58,9 @@
   body.mobile nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; justify-content: space-around;
     border-top: 1px solid var(--border); border-bottom: none; padding-bottom: env(safe-area-inset-bottom); }
   body.mobile nav.tabs button { flex: 1; padding: 12px 2px; font-size: 12.5px; border-bottom: none; border-top: 3px solid transparent; }
-  body.mobile nav.tabs button.active { border-top-color: var(--gold); }
+  .tab-ind { position: absolute; top: 0; left: 0; height: 3px; width: 0; border-radius: 0 0 3px 3px; background: var(--gold);
+    transition: transform .45s var(--spring), width .45s var(--spring); pointer-events: none; }
+  body.mobile nav.tabs button:active svg { transform: scale(.82) !important; transition-duration: .08s; }
   body.mobile main { padding-bottom: 110px; max-width: 640px; }
 
   /* ---------- Web: hover-to-open sidebar ---------- */
@@ -108,8 +110,21 @@
   body.mobile nav.tabs .count { position: absolute; top: 5px; left: calc(50% + 6px); margin: 0; }
 
   /* ---------- Page, modal, card animations ---------- */
-  @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  #view.enter { animation: viewIn .32s var(--ease) both; }
+  :root { --spring: cubic-bezier(.32, .72, 0, 1); }
+  /* page change: old content fades away, new content glides in (children staggered) */
+  @keyframes viewIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes viewInR { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: none; } }
+  @keyframes viewInL { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: none; } }
+  #view > * { transition: opacity .14s ease, transform .14s ease; }
+  #view.leaving > *:not([data-keep]) { opacity: 0; transform: translateY(4px); }
+  #view.enter > *:not([data-keep]) { animation: viewIn .42s var(--spring) backwards; }
+  #view.enter.from-r > *:not([data-keep]) { animation-name: viewInR; }
+  #view.enter.from-l > *:not([data-keep]) { animation-name: viewInL; }
+  .loading { display: flex; justify-content: center; padding: 60px 0; }
+  .spinner { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--cream); border-top-color: var(--gold); animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes bodySwap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  #modalBody.swap { animation: bodySwap .26s var(--spring); }
   @keyframes modalIn { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
   @keyframes modalOut { to { opacity: 0; transform: translateY(12px) scale(.97); } }
   @keyframes sheetIn { from { transform: translateY(100%); } to { transform: none; } }
@@ -121,8 +136,10 @@
   dialog.closing { animation: modalOut .2s ease forwards; }
   dialog.closing::backdrop { animation: fadeOut .2s ease forwards; }
   body.mobile dialog { margin: auto 0 0; width: 100%; max-width: 100%; max-height: 88vh; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom); }
-  body.mobile dialog[open] { animation: sheetIn .34s var(--ease); }
-  body.mobile dialog.closing { animation: sheetOut .24s ease forwards; }
+  body.mobile dialog[open] { animation: sheetIn .48s var(--spring); }
+  body.mobile dialog[open]::backdrop { animation: fadeIn .4s ease; }
+  body.mobile dialog.closing { animation: sheetOut .3s cubic-bezier(.4, 0, 1, 1) forwards; }
+  body.mobile dialog.closing::backdrop { animation: fadeOut .3s ease forwards; }
   @keyframes cardIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
   .ocard.new { animation: cardIn .35s var(--ease); }
   .ocard.leaving { transition: opacity .3s ease, transform .3s ease, max-height .35s ease .1s, margin .35s ease .1s;
@@ -188,9 +205,12 @@
   .sc-body > div { margin-top: 3px; }
   .sc-tags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 7px !important; }
   /* Orders tab */
-  .orders-toggle { display: grid; grid-template-columns: 1fr 1fr; background: var(--gray-bg); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 14px; }
-  .orders-toggle button { border: none; background: none; padding: 11px; border-radius: 9px; font-weight: 600; color: var(--muted); cursor: pointer; transition: background .2s, color .2s, transform .08s; }
-  .orders-toggle button.on { background: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(68,49,40,.25); }
+  .orders-toggle { display: grid; grid-template-columns: 1fr 1fr; background: var(--gray-bg); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 14px; position: relative; }
+  .orders-toggle::before { content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 6px); border-radius: 9px;
+    background: var(--accent); box-shadow: 0 2px 6px rgba(68,49,40,.25); transition: transform .42s var(--spring); }
+  .orders-toggle.hist::before { transform: translateX(calc(100% + 4px)); }
+  .orders-toggle button { position: relative; z-index: 1; border: none; background: none; padding: 11px; border-radius: 9px; font-weight: 600; color: var(--muted); cursor: pointer; transition: color .3s, transform .08s; }
+  .orders-toggle button.on { color: #fff; }
   .orders-toggle button:active { transform: scale(.96); }
   .orders-toggle .pill { display: inline-block; min-width: 20px; padding: 1px 7px; border-radius: 99px; background: var(--gold); color: #fff; font-size: 12px; margin-left: 4px; }
   .live-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(68,49,40,.05); }
@@ -300,9 +320,14 @@
   .eline.removed { opacity: .4; } .eline.removed input { text-decoration: line-through; }
   .proof-grid { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
   .proof-grid .thumb { width: 84px; height: 84px; }
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
+  @media (prefers-reduced-motion: reduce) {   /* keep soft fades, drop the sliding */
+    #view.enter > *:not([data-keep]), #view.enter.from-r > *:not([data-keep]), #view.enter.from-l > *:not([data-keep]) { animation-name: fadeIn; }
+    body.mobile dialog[open] { animation: fadeIn .3s ease; } body.mobile dialog.closing { animation: fadeOut .22s ease forwards; }
   }
+  /* touch feedback on anything tappable */
+  .list-item, .menu-row, .live-card .lc-head, .sched-card, .open-chip, .sd, tr.clickable td { transition: background .18s, transform .12s var(--spring), opacity .18s; }
+  .list-item:active, .menu-row:active { background: var(--hover); transform: scale(.985); }
+  .live-card .lc-head:active { opacity: .55; }
 
   /* ---------- Building blocks ---------- */
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -584,15 +609,15 @@ function fileUrl(id) { return `${API_BASE}/files/${id}?token=${encodeURIComponen
 
 // ---------------------------------------------------------------- modal
 function openModal(title, html, tools = "") {
-  $("#modalTitle").textContent = title; $("#modalBody").innerHTML = html; $("#modalTools").innerHTML = tools;
-  const d = $("#modal"); d.classList.remove("closing");
+  const d = $("#modal"), body = $("#modalBody"), wasOpen = d.open && !d.classList.contains("closing");
+  $("#modalTitle").textContent = title; body.innerHTML = html; $("#modalTools").innerHTML = tools;
+  if (wasOpen) { body.classList.remove("swap"); void body.offsetWidth; body.classList.add("swap"); }
+  d.classList.remove("closing");
   if (!d.open) d.showModal();
 }
 function closeModal() {
   const d = $("#modal");
   if (!d.open || d.classList.contains("closing")) return;
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (reduce) return d.close();
   d.classList.add("closing");
   d.addEventListener("animationend", () => { d.classList.remove("closing"); d.close(); }, { once: true });
 }
@@ -666,23 +691,73 @@ const icon = k => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" s
 function renderTabs() {
   const btn = ([k, label]) => `<button class="${S.tab === k ? "active" : ""}" onclick="go('${k}')" title="${label}">${icon(k)}<span class="lbl">${label}</span>${
     (k === "orders" && S.openCount) ? `<span class="count">${S.openCount}</span>` : ""}</button>`;
-  if (MODE === "mobile") { $("#tabs").innerHTML = TABS.map(btn).join(""); return; }
+  if (MODE === "mobile") {
+    $("#tabs").innerHTML = TABS.map(btn).join("") + `<span class="tab-ind"></span>`;
+    const ind = $("#tabs .tab-ind"), a = $("#tabs button.active");
+    if (S.indPos) { ind.style.transition = "none"; ind.style.width = S.indPos.w + "px"; ind.style.transform = `translateX(${S.indPos.x}px)`; void ind.offsetWidth; ind.style.transition = ""; }
+    if (a && a.offsetWidth) { const w = a.offsetWidth * .56, x = a.offsetLeft + (a.offsetWidth - w) / 2; ind.style.width = w + "px"; ind.style.transform = `translateX(${x}px)`; S.indPos = { x, w }; }
+    return;
+  }
   $("#tabs").innerHTML = `<div class="brand"><img class="mark" src="brand/monogram.png" alt="R"><span><img src="brand/wordmark.png" alt="Rochar"></span></div>` +
     NAV_GROUPS.map(([g, list]) => `<div class="grp"><span>${g}</span></div>` + list.map(btn).join("")).join("");
 }
+// Pages render off-screen first, so the old page stays put until the new one is ready (no blank "Loading…" flash).
+// Quiet refreshes (every 15 s) only touch the screen when something actually changed.
+let navSeq = 0, navigating = false;
+async function renderOffscreen(tab) {
+  const real = $("#view"), off = document.createElement("main");
+  off.style.display = "none"; document.body.prepend(off);
+  real.id = "view-live"; off.id = "view";
+  try { await VIEWS[tab](); } finally { off.id = ""; real.id = "view"; off.remove(); }
+  return off;
+}
+function swapIn(real, off) {
+  // keep elements marked data-keep (e.g. the Live/History switch) so they can animate instead of blinking
+  $$("[data-keep]", off).forEach(n => {
+    const old = $(`[data-keep="${n.dataset.keep}"]`, real);
+    if (old && old.parentNode === real && n.parentNode === off) { old.className = n.className; old.innerHTML = n.innerHTML; n.replaceWith(old); }
+  });
+  real.replaceChildren(...off.childNodes);
+}
 async function go(tab, opts = {}) {
-  S.tab = tab; renderTabs();
+  const prev = S.tab; S.tab = tab; renderTabs();
   for (const k of Object.keys(EDITS)) delete EDITS[k];
   try { history.replaceState(null, "", location.pathname + location.search + "#" + tab); } catch (e) {}
-  if (!opts.quiet) $("#view").innerHTML = `<div class="loading">Loading…</div>`;
-  const y = window.scrollY;
-  try {
-    await VIEWS[tab]();
-    if (opts.quiet) window.scrollTo(0, y);
-    else { const v = $("#view"); v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); window.scrollTo(0, 0); }
-  } catch (err) {
-    if (!opts.quiet) $("#view").innerHTML = `<div class="card"><b>Couldn't load this page.</b><p class="muted">${esc(err.message)}</p><button class="btn" onclick="go('${tab}')">Try again</button></div>`;
+  const v = $("#view");
+  if (opts.quiet) {
+    if (navigating) return;                  // a page change is running — it will show fresh data anyway
+    const seq = navSeq, y = window.scrollY;
+    try {
+      const off = await renderOffscreen(tab);
+      if (seq !== navSeq || navigating || S.tab !== tab) return;
+      settleView(v);
+      if (off.innerHTML !== v.innerHTML) { swapIn(v, off); window.scrollTo(0, y); }
+    } catch (err) {}
+    return;
   }
+  const seq = ++navSeq; navigating = true;
+  const idx = t => TABS.findIndex(x => x[0] === t);
+  const dir = MODE !== "mobile" || tab === prev ? "" : idx(tab) > idx(prev) ? "from-r" : "from-l";
+  v.classList.remove("enter", "from-r", "from-l"); v.classList.add("leaving");
+  const leaveDone = new Promise(r => setTimeout(r, 130));
+  const slow = setTimeout(() => { if (seq === navSeq) { v.classList.remove("leaving"); v.innerHTML = `<div class="loading"><span class="spinner"></span></div>`; } }, 500);
+  let off, error = null;
+  try { off = await renderOffscreen(tab); } catch (err) { error = err; }
+  await leaveDone; clearTimeout(slow);
+  if (seq !== navSeq) return;
+  navigating = false;
+  if (error) {
+    v.innerHTML = `<div class="card"><b>Couldn't load this page.</b><p class="muted">${esc(error.message)}</p><button class="btn" onclick="go('${tab}')">Try again</button></div>`;
+  } else swapIn(v, off);
+  if (!opts.keepScroll) window.scrollTo(0, 0);
+  v.classList.remove("leaving");
+  [...v.children].forEach((c, i) => c.style.animationDelay = Math.min(i, 8) * 40 + "ms");
+  void v.offsetWidth; v.classList.add("enter"); if (dir) v.classList.add(dir);
+  setTimeout(() => { if (seq === navSeq) settleView(v); }, 900);
+}
+function settleView(v) {   // animation finished: strip the helper classes/styles so refreshes compare cleanly
+  v.classList.remove("enter", "from-r", "from-l", "leaving");
+  [...v.children].forEach(c => { c.style.animationDelay = ""; if (c.getAttribute("style") === "") c.removeAttribute("style"); });
 }
 const refresh = () => go(S.tab, { quiet: true });
 async function loadItems() { S.items = await api("/items?include_inactive=true"); }
@@ -1265,7 +1340,7 @@ function fmtDeliver(iso) {
   const d = manilaParts(new Date(iso)).date, t = fmtTime(iso);
   return d === manilaToday() ? `Today ${t}` : d === addDays(manilaToday(), 1) ? `Tomorrow ${t}` : `${fmtDate(d)} ${t}`;
 }
-function schedGo(day) { S.schedDay = day; refresh(); }
+function schedGo(day) { S.schedDay = day; go("schedule", { keepScroll: true }); }
 async function viewSchedule() {
   const day = S.schedDay || (S.schedDay = manilaToday());
   const from = addDays(day, -3), to = addDays(day, 3);
@@ -1297,22 +1372,28 @@ async function viewSchedule() {
       </div></div>`;
   }).join("");
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Schedule</h2>
+    <div class="section-title" data-keep="sched-head"><h2 class="serif">Schedule</h2>
       <div class="row"><button class="btn ghost sm" onclick="schedGo(addDays(S.schedDay,-7))">‹ Week</button>
         <input type="date" class="sched-date" value="${day}" onchange="this.value && schedGo(this.value)">
         <button class="btn ghost sm" onclick="schedGo(addDays(S.schedDay,7))">Week ›</button>
         ${day !== manilaToday() ? `<button class="btn sm" onclick="schedGo(manilaToday())">Today</button>` : ""}</div></div>
-    <div class="sched-strip">${strip}</div>
+    <div class="sched-strip" data-keep="sched-strip">${strip}</div>
     <div class="day-head"><span>${day === manilaToday() ? "Today" : fmtDate(day)}</span><span>${list.length} order${list.length === 1 ? "" : "s"} · ${money(total)}</span></div>
     ${cards || `<div class="card empty">No deliveries on this day.</div>`}`;
 }
 
 // ---- Orders tab (phone): live orders with the copy buttons, plus History
-function showHistory() { S.ordersView = "history"; go("orders"); }
+function showHistory() { setOrdersView("history"); }
+function setOrdersView(v) {
+  const t = $(".orders-toggle");
+  if (t) { t.classList.toggle("hist", v === "history"); $$("button", t).forEach((b, i) => b.classList.toggle("on", (i === 1) === (v === "history"))); }
+  S.ordersView = v;
+  if (S.tab === "orders") go("orders", { keepScroll: true }); else go("orders");
+}
 function ordersToggle() {
   const live = S.ordersView !== "history";
-  return `<div class="orders-toggle">
-    <button class="${live ? "on" : ""}" onclick="S.ordersView='live'; go('orders')">Live orders${S.openCount ? ` <span class="pill">${S.openCount}</span>` : ""}</button>
+  return `<div class="orders-toggle ${live ? "" : "hist"}" data-keep="orders-toggle">
+    <button class="${live ? "on" : ""}" onclick="setOrdersView('live')">Live orders${S.openCount ? ` <span class="pill">${S.openCount}</span>` : ""}</button>
     <button class="${live ? "" : "on"}" onclick="showHistory()">History</button></div>`;
 }
 async function viewLiveOrders() {
@@ -1550,7 +1631,7 @@ async function ledgerScreen(kind) {
   const data = await api(`/${L.path}?date_from=${addDays(manilaToday(), -13)}&date_to=${manilaToday()}`);
   S["ledger_" + kind] = data.entries;
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">${kind === "purchase" ? "Buy — raw materials & packaging" : "Expense"}</h2></div>
+    <div class="section-title"><h2 class="serif">${kind === "purchase" ? "Stock In — raw materials & packaging" : "Expense"}</h2></div>
     <div class="card">${ledgerForm(kind)}</div>
     <div class="card"><h3>Last 14 days · ${money(data.total)}</h3>
       ${data.entries.map(x => `<div class="list-item" onclick="editLedgerModal('${kind}', ${x.id})">
@@ -1745,7 +1826,7 @@ async function viewMake() {
   const data = await api(`/production?date_from=${addDays(manilaToday(), -13)}&date_to=${manilaToday()}`);
   S.production = data.entries;
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Make — production</h2></div>
+    <div class="section-title"><h2 class="serif">Production</h2></div>
     <div class="card">${productionForm()}</div>
     <div class="card"><h3>Last 14 days</h3>
       ${data.entries.map(p => `<div class="list-item" onclick="editProductionModal(${p.id})"><div>${esc(itemLabel(p.item_name, p.variant))}<br><span class="small muted">${fmtDateTime(p.produced_at)}${p.notes ? " · " + esc(p.notes) : ""}</span></div>
