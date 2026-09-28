@@ -493,7 +493,7 @@ ORDER_SELECT = """
     FROM orders o
 """
 ORDER_FIELDS = {"customer_name": as_text, "phone": as_text, "address": as_text, "delivery_fee": as_money,
-                "rider_name": as_text, "notes": as_text, "completed_at": as_timestamp,
+                "rider_name": as_text, "notes": as_text, "completed_at": as_timestamp, "delivery_at": as_timestamp,
                 "payment_status": as_pay_status, "payment_method": as_sale_method}
 
 
@@ -567,6 +567,20 @@ def order_history(date_from: Optional[date] = None, date_to: Optional[date] = No
             "voided": len(out) - len(done),
         },
     }
+
+
+@api.get("/orders/schedule")
+def order_schedule(date_from: Optional[date] = None, date_to: Optional[date] = None):
+    """Live and finished orders (not voided) by delivery day, earliest first."""
+    start = date_from or today_manila()
+    end = date_to or start
+    when = LOCAL_DAY.format(col="o.delivery_at")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute(ORDER_SELECT + f"""
+            WHERE o.status IN ('open', 'completed') AND {when} BETWEEN %s AND %s
+            ORDER BY o.delivery_at, o.id;
+        """, (start, end))
+        return {"date_from": start, "date_to": end, "orders": [order_out(r) for r in cur.fetchall()]}
 
 
 class NewOrderLine(BaseModel):

@@ -343,3 +343,10 @@ CREATE TABLE IF NOT EXISTS item_images (
     data        BYTEA NOT NULL,
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- v6: delivery date & time on each order (defaults to when the order was rung up; editable)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_at TIMESTAMPTZ;
+UPDATE orders SET delivery_at = created_at WHERE delivery_at IS NULL;
+ALTER TABLE orders ALTER COLUMN delivery_at SET DEFAULT now();
+ALTER TABLE orders ALTER COLUMN delivery_at SET NOT NULL;
+CREATE INDEX IF NOT EXISTS orders_delivery_at_idx ON orders (delivery_at);

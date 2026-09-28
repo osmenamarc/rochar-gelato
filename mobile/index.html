@@ -154,8 +154,51 @@
   /* segmented control */
   .seg { display: inline-flex; background: var(--gray-bg); border-radius: 10px; padding: 3px; gap: 3px; }
   .seg button { border: none; background: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; color: var(--muted); transition: background .2s, color .2s; }
-  .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-  .seg button.on.credit { color: var(--amber); }
+  .seg button.on { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 2px 6px rgba(68,49,40,.25); }
+  .seg button.on.credit { background: var(--amber); color: #fff; }
+  /* copy buttons: big, obvious "Copied ✓" state */
+  .copy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
+  .copy-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 76px; padding: 10px 6px;
+    border: 1.5px solid #cdd9ea; background: var(--blue-bg); color: var(--blue); border-radius: 14px; cursor: pointer; text-align: center;
+    font-weight: 600; font-size: 13px; line-height: 1.2; transition: transform .08s, background .25s, border-color .25s, color .25s; }
+  .copy-btn small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .75; margin-bottom: 2px; }
+  .copy-btn:active { transform: scale(.93); filter: brightness(.9); }
+  .copy-btn.done { background: var(--green); border-color: var(--green); color: #fff; }
+  .copy-btn.flash { animation: copyflash .45s ease; }
+  @keyframes copyflash { 0% { transform: scale(.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  /* Schedule */
+  .sched-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 4px 0 14px; }
+  .sd { border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    cursor: pointer; transition: transform .08s, background .2s, color .2s; }
+  .sd small { font-size: 11px; color: var(--muted); } .sd b { font-size: 17px; }
+  .sd .sd-n { min-height: 18px; min-width: 18px; font-size: 11px; font-weight: 700; border-radius: 99px; background: var(--gold); color: #fff; padding: 1px 6px; }
+  .sd .sd-n:empty { background: none; }
+  .sd.today { border-color: var(--gold); }
+  .sd.on { background: var(--accent); border-color: var(--accent); color: #fff; } .sd.on small { color: #f1e6da; }
+  .sd:active { transform: scale(.94); }
+  .sched-date { padding: 6px 8px; border: 1px solid var(--border); border-radius: 9px; background: #fff; }
+  .sched-card { display: grid; grid-template-columns: 74px 1fr; gap: 12px; background: #fff; border: 1px solid var(--border); border-left: 5px solid var(--gold);
+    border-radius: 14px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: transform .08s, background .2s; }
+  .sched-card.done { border-left-color: var(--green); }
+  .sched-card:active { transform: scale(.985); background: var(--hover); }
+  .sc-time { font-weight: 700; font-size: 15px; color: var(--accent); padding-top: 1px; }
+  .sc-name { font-size: 16px; }
+  .sc-body > div { margin-top: 3px; }
+  .sc-tags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 7px !important; }
+  /* Orders tab */
+  .orders-toggle { display: grid; grid-template-columns: 1fr 1fr; background: var(--gray-bg); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 14px; }
+  .orders-toggle button { border: none; background: none; padding: 11px; border-radius: 9px; font-weight: 600; color: var(--muted); cursor: pointer; transition: background .2s, color .2s, transform .08s; }
+  .orders-toggle button.on { background: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(68,49,40,.25); }
+  .orders-toggle button:active { transform: scale(.96); }
+  .orders-toggle .pill { display: inline-block; min-width: 20px; padding: 1px 7px; border-radius: 99px; background: var(--gold); color: #fff; font-size: 12px; margin-left: 4px; }
+  .live-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(68,49,40,.05); }
+  .live-card .copy-grid { margin: 12px 0 0; }
+  .lc-head { display: flex; justify-content: space-between; gap: 10px; cursor: pointer; }
+  .lc-label { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+  .lc-name { font-size: 20px; font-weight: 700; margin: 1px 0 3px; word-break: break-word; }
+  .lc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; white-space: nowrap; }
+  .lc-right b { font-size: 16px; }
+  .lc-open { font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 2px; }
   .locked-banner { background: var(--green-bg); color: var(--green); border: 1px solid #b9dcc4; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
   tr.clickable { cursor: pointer; }
   tr.clickable:hover td { background: var(--hover); }
@@ -284,6 +327,8 @@
   .btn.sm { padding: 5px 10px; font-size: 12.5px; }
   .btn.block { width: 100%; }
   .btn.big { padding: 13px 16px; font-size: 15px; }
+  .btn, .open-chip, .seg button { transition: transform .08s, background .2s, color .2s, box-shadow .2s; }
+  .btn:active:not(:disabled), .open-chip:active, .seg button:active { transform: scale(.95); filter: brightness(.92); }
   .link { background: none; border: none; color: var(--blue); cursor: pointer; padding: 0; text-decoration: underline; font-size: 12.5px; }
   .link.red { color: var(--red); }
 
@@ -455,13 +500,13 @@ const isSellable = i => SELL_CATS.includes(i.category);
 const REFRESH_MS = 15000;
 
 const NAV_GROUPS = [
-  ["DASHBOARD", [["dashboard", "Dashboard"], ["sales", "Sales"]]],
+  ["DASHBOARD", [["dashboard", "Dashboard"], ["sales", "Sales"], ["schedule", "Schedule"]]],
   ["CLIENTS", [["customers", "Customers"], ["resellers", "Resellers"]]],
   ["FINANCE", [["reconciliation", "Reconciliation"], ["receivables", "Receivables"], ["liabilities", "Liabilities"]]],
   ["OPERATIONS", [["products", "Products"], ["recipes", "Recipes"], ["materials", "Materials"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["inventory", "Inventory"]]],
 ];
 const TABS = MODE === "mobile"
-  ? [["orders", "Orders"], ["sales", "Sales"], ["buy", "Buy"], ["expense", "Expense"], ["make", "Make"], ["count", "Count"]]
+  ? [["pos", "POS"], ["orders", "Orders"], ["schedule", "Schedule"], ["buy", "Stock In"], ["expense", "Expense"], ["make", "Production"], ["count", "Inventory"]]
   : [...NAV_GROUPS.flatMap(g => g[1]), ["settings", "Settings"]];
 const SALE_METHODS = ["Cash", "GCash", "Bank"];
 
@@ -551,7 +596,7 @@ function closeModal() {
 }
 $("#modal").addEventListener("cancel", e => { e.preventDefault(); closeModal(); });   // Esc key
 $("#modal").addEventListener("click", e => { if (e.target === $("#modal")) closeModal(); });   // click outside
-$("#modal").addEventListener("close", () => { $("#modalBody").innerHTML = ""; $("#modalTools").innerHTML = ""; if (S.tab === "orders") setTimeout(refresh, 50); });
+$("#modal").addEventListener("close", () => { $("#modalBody").innerHTML = ""; $("#modalTools").innerHTML = ""; if (["orders", "pos", "schedule"].includes(S.tab)) setTimeout(refresh, 50); });
 
 // ---------------------------------------------------------------- login
 async function showLogin(msg) {
@@ -592,6 +637,8 @@ async function logout() {
 const ICON_PATHS = {
   overview: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
   orders: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  schedule: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/>',
+  pos: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   sales: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
   products: '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/>',
   purchases: '<path d="M3 4h2l2.4 11h11L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
@@ -649,7 +696,7 @@ const sellables = () => S.items.filter(i => i.active && isSellable(i));
 
 // "Real-time" sync: every 15 s (and whenever the app comes back to the
 // foreground) the live screens reload — unless you're in the middle of typing.
-const LIVE_TABS = ["orders", "sales", "dashboard", "receivables", "reconciliation"];
+const LIVE_TABS = ["pos", "orders", "schedule", "sales", "dashboard", "receivables", "reconciliation"];
 function busy() {
   const a = document.activeElement;
   return $("#modal").open || $(".ed.editing") || (a && ["INPUT", "TEXTAREA", "SELECT"].includes(a.tagName))
@@ -918,7 +965,7 @@ function ticketTotals() {
   return { n, total };
 }
 const initials = name => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
-async function viewOrders() {
+async function viewPOS() {
   if (!busy()) [S.orders] = await Promise.all([api("/orders/open"), loadCustomers()]);
   S.openCount = S.orders.length; renderTabs();
   for (const id of Object.keys(TICKET)) if (!S.items.some(i => i.id === Number(id) && i.active)) delete TICKET[id];
@@ -928,7 +975,7 @@ async function viewOrders() {
   $("#view").innerHTML = `
     <div class="pos-top">
       <div class="ticket-lbl">TICKET <span class="tk-count" id="tkCount">0</span></div>
-      <div class="row"><button class="btn ghost sm caps" onclick="go('sales')">History</button>
+      <div class="row"><button class="btn ghost sm caps" onclick="showHistory()">History</button>
         <button class="btn ghost sm caps" id="tkClear" onclick="clearTicket()">Clear</button></div>
     </div>
     <button class="charge" id="chargeBtn" onclick="charge()">Charge <span id="chargeAmt">₱0</span></button>
@@ -1045,6 +1092,8 @@ function drawOrderCard(id) {
              ${o.customer_tier === "Reseller" ? `<span class="muted">reseller prices applied</span>` : ""} <button type="button" class="link" onclick="linkCustomer(${id}, null)">unlink</button>`
           : (o.customer_name ? `<span class="muted">New client — saved when the order is finished</span>` : "")}</div>
       </div>
+      <label class="field"><span>Delivery date &amp; time</span>
+        <input data-f="delivery_at" type="datetime-local" value="${o.delivery_at ? toManilaInput(o.delivery_at) : localInputNow()}"></label>
       <div class="field"><span>Payment</span>
         <div class="row">
           <div class="seg"><button type="button" class="${o.payment_status === "paid" ? "on" : ""}" onclick="setPay(${id}, 'payment_status', 'paid')">Paid</button>
@@ -1061,11 +1110,7 @@ function drawOrderCard(id) {
         <label class="field"><span>Delivery fee (₱)</span><input data-f="delivery_fee" type="number" inputmode="decimal" min="0" step="any" value="${Number(o.delivery_fee) || ""}" placeholder="0"></label>
         <label class="field"><span>Rider name</span><input data-f="rider_name" value="${esc(o.rider_name)}"></label>
       </div>
-      <div class="copybar">
-        <button type="button" class="btn" onclick="copyOrder(${id}, 'customer')">Copy customer message</button>
-        <button type="button" class="btn" onclick="copyOrder(${id}, 'location')">Copy rider location</button>
-        <button type="button" class="btn" onclick="copyOrder(${id}, 'df')">Copy rider DF request</button>
-      </div>
+      ${copyButtons(id)}
       <button type="button" class="btn green block big" onclick="finishOrder(${id})">Order finished</button>
       <div class="row spread" style="margin-top:10px">
         <span class="small muted">Saved automatically</span>
@@ -1118,7 +1163,8 @@ const fieldSaves = {};   // "orderId:field" → { timer, run }
 function fieldChanged(orderId, inp, now = false) {
   const o = S.orders.find(x => x.id === orderId); if (!o) return;
   const f = inp.dataset.f;
-  const v = f === "delivery_fee" ? Number(inp.value || 0) : inp.value;
+  if (f === "delivery_at" && !inp.value) return;          // must always have a delivery time
+  const v = f === "delivery_fee" ? Number(inp.value || 0) : f === "delivery_at" ? fromManilaInput(inp.value) : inp.value;
   o[f] = v;
   const card = $("#oc" + orderId);
   if (f === "delivery_fee") {
@@ -1189,11 +1235,117 @@ function setPay(orderId, field, value) {
   o[field] = value; drawOrderCard(orderId);
   enqueue(orderId, () => api(`/orders/${orderId}`, { method: "PATCH", body: { [field]: value } }));
 }
-async function copyOrder(id, which) {
+// Which copy buttons were already pressed, per open order (so you can see at a glance what's been sent).
+let COPIED = {};
+try { COPIED = JSON.parse(localStorage.getItem("rochar_copied") || "{}"); } catch (e) {}
+function saveCopied() { try { localStorage.setItem("rochar_copied", JSON.stringify(COPIED)); } catch (e) {} }
+const COPY_KINDS = [["customer", "Customer", "message"], ["location", "Rider", "location"], ["df", "Rider", "DF request"]];
+const COPY_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>`;
+const CHECK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
+function copyButtons(id) {
+  const done = COPIED[id] || {};
+  return `<div class="copy-grid">${COPY_KINDS.map(([k, a, b]) => `
+    <button type="button" class="copy-btn ${done[k] ? "done" : ""}" data-copy="${k}" onclick="copyOrder(${id}, '${k}', this)">
+      <span class="cb-ic">${done[k] ? CHECK_ICON : COPY_ICON}</span>
+      <span class="cb-txt"><small>${done[k] ? "Copied" : "Copy"}</small>${a} ${b}</span></button>`).join("")}</div>`;
+}
+async function copyOrder(id, which, el) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
-  if (which === "customer") { if (!o.items.length) return toast("Add items first", true); copyText(orderMessage(o), "Customer message"); }
-  if (which === "location") copyText(S.settings.msg_rider_location || "", "Rider location");
-  if (which === "df") copyText(S.settings.msg_rider_df || "", "Rider DF request");
+  if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), "Customer message"); }
+  if (which === "location") await copyText(S.settings.msg_rider_location || "", "Rider location");
+  if (which === "df") await copyText(S.settings.msg_rider_df || "", "Rider DF request");
+  (COPIED[id] = COPIED[id] || {})[which] = true; saveCopied();
+  if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+  // mark every copy of this button on screen (list card + open sheet)
+  $$(`.copy-btn[data-copy="${which}"]`).forEach(b => {
+    if (!b.closest(`[data-order="${id}"]`) && b !== el && !b.closest("#oc" + id)) return;
+    b.classList.add("done"); $(".cb-ic", b).innerHTML = CHECK_ICON; $(".cb-txt small", b).textContent = "Copied";
+    b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash");
+  });
+}
+
+// ---- Schedule: every live + finished order by delivery day
+function fmtDeliver(iso) {
+  if (!iso) return "";
+  const d = manilaParts(new Date(iso)).date, t = fmtTime(iso);
+  return d === manilaToday() ? `Today ${t}` : d === addDays(manilaToday(), 1) ? `Tomorrow ${t}` : `${fmtDate(d)} ${t}`;
+}
+function schedGo(day) { S.schedDay = day; refresh(); }
+async function viewSchedule() {
+  const day = S.schedDay || (S.schedDay = manilaToday());
+  const from = addDays(day, -3), to = addDays(day, 3);
+  const [r, open] = await Promise.all([api(`/orders/schedule?date_from=${from}&date_to=${to}`), busy() ? S.orders : api("/orders/open")]);
+  S.orders = open; S.openCount = open.length; renderTabs();
+  S.history = r.orders.filter(o => o.status !== "open");
+  const byDay = {};
+  r.orders.forEach(o => { const d = manilaParts(new Date(o.delivery_at)).date; (byDay[d] = byDay[d] || []).push(o); });
+  const list = byDay[day] || [];
+  const strip = [...Array(7)].map((_, i) => {
+    const d = addDays(from, i), n = (byDay[d] || []).length, dt = new Date(d + "T00:00:00");
+    return `<button class="sd ${d === day ? "on" : ""} ${d === manilaToday() ? "today" : ""}" onclick="schedGo('${d}')">
+      <small>${dt.toLocaleDateString("en-US", { weekday: "short" })}</small><b>${dt.getDate()}</b><span class="sd-n">${n ? n : ""}</span></button>`;
+  }).join("");
+  const total = list.reduce((s, o) => s + o.total, 0);
+  const cards = list.map(o => {
+    const live = o.status === "open";
+    return `<div class="sched-card ${live ? "live" : "done"}" onclick="${live ? `openOrderSheet(${o.id})` : `showSale(${o.id})`}">
+      <div class="sc-time">${fmtTime(o.delivery_at)}</div>
+      <div class="sc-body">
+        <div class="row spread"><b class="sc-name">${esc(o.customer_name || "No name yet")}</b><b>${money(o.total)}</b></div>
+        <div class="small">${o.items.map(i => `${qty(i.qty)}× ${esc(itemLabel(i.name, i.variant))}`).join(", ") || `<span class="muted">no items</span>`}</div>
+        ${o.address ? `<div class="small muted">📍 ${esc(o.address)}</div>` : ""}
+        ${o.phone || o.rider_name ? `<div class="small muted">${o.phone ? "📞 " + esc(o.phone) : ""}${o.phone && o.rider_name ? " · " : ""}${o.rider_name ? "🛵 " + esc(o.rider_name) : ""}</div>` : ""}
+        ${o.notes ? `<div class="small muted">📝 ${esc(o.notes)}</div>` : ""}
+        <div class="sc-tags"><span class="badge ${live ? "b-amber" : "b-green"}">${live ? "Live" : "Done"}</span>
+          ${o.payment_status === "credit" ? `<span class="badge b-amber">Credit</span>` : `<span class="badge b-gray">${esc(o.payment_method)}</span>`}
+          ${o.customer_tier === "Reseller" ? `<span class="badge b-blue">Reseller</span>` : ""}<span class="small muted">#${o.id}</span></div>
+      </div></div>`;
+  }).join("");
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Schedule</h2>
+      <div class="row"><button class="btn ghost sm" onclick="schedGo(addDays(S.schedDay,-7))">‹ Week</button>
+        <input type="date" class="sched-date" value="${day}" onchange="this.value && schedGo(this.value)">
+        <button class="btn ghost sm" onclick="schedGo(addDays(S.schedDay,7))">Week ›</button>
+        ${day !== manilaToday() ? `<button class="btn sm" onclick="schedGo(manilaToday())">Today</button>` : ""}</div></div>
+    <div class="sched-strip">${strip}</div>
+    <div class="day-head"><span>${day === manilaToday() ? "Today" : fmtDate(day)}</span><span>${list.length} order${list.length === 1 ? "" : "s"} · ${money(total)}</span></div>
+    ${cards || `<div class="card empty">No deliveries on this day.</div>`}`;
+}
+
+// ---- Orders tab (phone): live orders with the copy buttons, plus History
+function showHistory() { S.ordersView = "history"; go("orders"); }
+function ordersToggle() {
+  const live = S.ordersView !== "history";
+  return `<div class="orders-toggle">
+    <button class="${live ? "on" : ""}" onclick="S.ordersView='live'; go('orders')">Live orders${S.openCount ? ` <span class="pill">${S.openCount}</span>` : ""}</button>
+    <button class="${live ? "" : "on"}" onclick="showHistory()">History</button></div>`;
+}
+async function viewLiveOrders() {
+  if (S.ordersView === "history") {
+    await viewSales();
+    $("#view").insertAdjacentHTML("afterbegin", ordersToggle());
+    return;
+  }
+  if (!busy()) S.orders = await api("/orders/open");
+  S.openCount = S.orders.length; renderTabs();
+  for (const k of Object.keys(COPIED)) if (!S.orders.some(o => o.id === Number(k))) delete COPIED[k];
+  saveCopied();
+  const cards = S.orders.slice().reverse().map(o => {
+    const n = o.items.reduce((s, i) => s + Number(i.qty), 0);
+    return `<div class="live-card" data-order="${o.id}">
+      <div class="lc-head" onclick="openOrderSheet(${o.id})">
+        <div class="lc-who">
+          <div class="lc-label">Name</div>
+          <div class="lc-name">${o.customer_name ? esc(o.customer_name) : `<span class="muted">No name yet</span>`}</div>
+          <div class="small muted">#${o.id} · 🕒 ${fmtDeliver(o.delivery_at)} · ${n} item${n === 1 ? "" : "s"}${o.customer_tier === "Reseller" ? ` · <span class="badge b-blue">Reseller</span>` : ""}</div>
+        </div>
+        <div class="lc-right"><b>${money(o.total)}</b>${o.payment_status === "credit" ? `<span class="badge b-amber">Credit</span>` : `<span class="small muted">${esc(o.payment_method)}</span>`}
+          <span class="lc-open">Open ›</span></div>
+      </div>
+      ${copyButtons(o.id)}
+    </div>`;
+  }).join("");
+  $("#view").innerHTML = ordersToggle() + (cards || `<div class="card empty">No live orders. Ring one up in <a href="#pos">POS</a>.</div>`);
 }
 async function finishOrder(id) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
@@ -1283,7 +1435,7 @@ function showSale(id) {
   openModal(`Order #${o.id}`, `
     ${v ? `<p><span class="badge b-red">VOIDED</span> <span class="small muted">${fmtDateTime(o.voided_at)}${o.void_reason ? " — " + esc(o.void_reason) : ""}</span></p>` : ""}
     <div class="${v ? "strike muted" : ""}">
-    <p class="small muted">${o.completed_at ? "Finished " + fmtDateTime(o.completed_at) : "Never finished"}</p>
+    <p class="small muted">Delivery ${fmtDateTime(o.delivery_at)} · ${o.completed_at ? "finished " + fmtDateTime(o.completed_at) : "never finished"}</p>
     <p><b>${esc(o.customer_name || "—")}</b>${o.customer_tier ? ` <span class="badge ${o.customer_tier === "Reseller" ? "b-blue" : "b-gray"}">${o.customer_tier}</span>` : ""}${o.phone ? " · " + esc(o.phone) : ""}<br>
       <span class="muted">${esc(o.address)}</span>${o.notes ? `<br><span class="small muted">📝 ${esc(o.notes)}</span>` : ""}</p>
     <p>${o.payment_status === "credit"
@@ -1311,7 +1463,8 @@ function editSaleModal(id) {
       { name: "delivery_fee", label: "Delivery fee (₱)", type: "money" }, { name: "rider_name", label: "Rider" },
       { name: "payment_status", label: "Payment", type: "select", options: [["paid", "Paid"], ["credit", "On credit"]] },
       { name: "payment_method", label: "Paid via", type: "select", options: SALE_METHODS },
-      { name: "completed_at", label: "Date & time finished", type: "datetime", full: true }],
+      { name: "delivery_at", label: "Delivery date & time", type: "datetime" },
+      { name: "completed_at", label: "Date & time finished", type: "datetime" }],
     buttons: `<button type="button" class="btn ghost sm" onclick="copySaleMessage(${o.id})">Copy customer message</button>
       <button type="button" class="btn danger sm" onclick="voidSale(${o.id})">Void order</button>` });
 }
@@ -2449,7 +2602,7 @@ async function changePin(e) {
 
 // ---------------------------------------------------------------- boot
 const VIEWS = {
-  orders: viewOrders, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
+  pos: viewPOS, orders: viewLiveOrders, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
   dashboard: viewDashboard, customers: viewCustomers, resellers: viewResellers, reconciliation: viewReconciliation,
   receivables: viewReceivables, liabilities: viewLiabilities, inventory: viewInventory,
   products: viewProducts, recipes: viewRecipes, materials: viewMaterials, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings,
