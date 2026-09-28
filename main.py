@@ -1109,6 +1109,23 @@ def list_counts():
         return rows(cur)
 
 
+@api.get("/counts/matrix")
+def counts_matrix():
+    """Every count as a column, every item as a row — for the Physical Count
+    and Physical Count (Value) grids. Oldest count first."""
+    with db() as conn, conn.cursor() as cur:
+        cur.execute(COUNT_SELECT + " ORDER BY c.count_date, c.id;")
+        counts = rows(cur)
+        cur.execute(f"""
+            SELECT l.count_id, l.item_id, COALESCE(i.name, l.name) AS name, COALESCE(i.variant, l.variant) AS variant,
+                   COALESCE(i.category, l.category) AS category, l.qty, l.unit_cost
+            FROM count_lines l LEFT JOIN items i ON i.id = l.item_id
+            ORDER BY {CATEGORY_ORDER.replace('category', 'COALESCE(i.category, l.category)')}, 3, 4;
+        """)
+        lines = rows(cur)
+    return {"counts": counts, "lines": lines}
+
+
 @api.get("/counts/checklist")
 def count_checklist():
     """Every active product, with what was counted last time (as a hint)."""

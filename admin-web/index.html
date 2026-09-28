@@ -200,6 +200,23 @@
   details.addmore { margin: 10px 0 14px; }
   details.addmore summary { cursor: pointer; color: var(--blue); font-size: 13px; margin-bottom: 8px; }
 
+  /* count matrix */
+  .mx-card { padding: 0; overflow: hidden; width: fit-content; max-width: 100%; margin-left: 0 !important; }
+  .mx-card > p { padding: 0 16px 14px; }
+  .mx-wrap { max-height: 70vh; overflow: auto; }
+  table.matrix { border-collapse: separate; border-spacing: 0; width: auto; }
+  table.matrix th, table.matrix td { white-space: nowrap; padding: 9px 14px; }
+  table.matrix thead th { position: sticky; top: 0; background: var(--hover); z-index: 2; color: var(--accent); font-weight: 600; font-size: 13px; line-height: 1.3; border-bottom: 1px solid var(--border); }
+  table.matrix thead th span { color: var(--muted); font-weight: 400; font-size: 12px; }
+  table.matrix .mx-col { cursor: pointer; }
+  table.matrix .mx-col:hover { color: var(--gold); }
+  table.matrix td:first-child, table.matrix th:first-child { position: sticky; left: 0; z-index: 1; background: #fff; min-width: 240px; border-right: 1px solid var(--border); }
+  table.matrix th.mx-corner { background: var(--accent); color: #fff; z-index: 3; font-size: 14px; }
+  table.matrix tr.mx-grp td { background: var(--hover); font-size: 11.5px; font-weight: 700; letter-spacing: .12em; color: var(--gold); text-transform: uppercase; padding: 12px 14px 6px; }
+  table.matrix tr.mx-grp td:first-child { background: var(--hover); }
+  table.matrix tfoot td { position: sticky; bottom: 0; background: var(--cream); font-weight: 700; }
+  table.matrix tfoot td:first-child { background: var(--cream); }
+
   /* row selection + edit pencil */
   .sel-hint { font-size: 12px; color: var(--muted); margin: -4px 0 8px; }
   .view-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; margin: 4px 0 6px; }
@@ -1662,7 +1679,7 @@ async function submitCount() {
     const c = await api("/counts", { method: "POST", body: { count_date: date, lines } });
     try { localStorage.removeItem("rochar_count_draft"); } catch (e) {}
     toast(`Count saved — ending inventory ${money(c.total_value)}`);
-    if (MODE === "web") { S.invTab = "history"; S.countId = null; } refresh();
+    if (MODE === "web") { S.invTab = "physical"; S.countId = null; } refresh();
   } catch (err) { toast(err.message, true); }
 }
 async function viewCount() {
@@ -1698,7 +1715,7 @@ async function viewCountDetail(id) {
   }).join("");
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">Count · ${fmtDate(c.count_date, false)}</h2>
-      <div class="row"><button class="btn ghost" onclick="S.countId=null;refresh()">← All counts</button>
+      <div class="row"><button class="btn ghost" onclick="S.countId=null;refresh()">← Back to counts</button>
       <button class="icon-btn" title="Edit count date / notes" onclick="editCountModal()">${ICON_PENCIL}</button></div></div>
     ${selCard("countlines", editCountLineModal, `<div class="table-wrap"><table>
       <thead><tr><th>Item</th><th class="num">Qty counted</th><th class="num">Unit cost</th><th class="num">Value</th></tr></thead>
@@ -2351,11 +2368,48 @@ async function unsettle(kind, id) {
 // OPERATIONS — Inventory (batch production + monthly count + count history)
 // ============================================================================
 async function viewInventory() {
-  const sub = S.invTab || "production";
-  if (sub === "production") await viewProduction(); else await viewCounts();
+  const sub = S.invTab || "physical";
+  if (sub === "production") await viewProduction();
+  else if (sub === "count" || S.countId) await viewCounts();
+  else await viewCountMatrix(sub === "value");
   $("#view").insertAdjacentHTML("afterbegin", `<div class="chips" style="margin-bottom:16px">
-    ${[["production", "Batch production"], ["count", "Monthly count"], ["history", "Count history"]].map(([k, l]) =>
-      `<button class="${sub === k ? "active" : ""}" onclick="S.invTab='${k}';S.countId=null;refresh()">${l}</button>`).join("")}</div>`);
+    ${[["physical", "Physical Count"], ["value", "Physical Count (Value)"], ["count", "New count"], ["production", "Batch production"]].map(([k, l]) =>
+      `<button class="${sub === k && !(S.countId && k !== "count") ? "active" : ""}" onclick="S.invTab='${k}';S.countId=null;refresh()">${l}</button>`).join("")}</div>`);
+}
+// Grid: every item down the side, every count across the top (oldest → newest).
+async function viewCountMatrix(asValue) {
+  const m = await api("/counts/matrix");
+  if (!m.counts.length) {
+    $("#view").innerHTML = `<div class="card empty">No counts yet. Tap “New count” to do your first one — it becomes the opening balance.</div>`; return;
+  }
+  const rowsBy = new Map();
+  m.lines.forEach(l => {
+    const key = l.item_id ? "i" + l.item_id : "n" + l.name + "|" + l.variant;
+    if (!rowsBy.has(key)) rowsBy.set(key, { name: l.name, variant: l.variant, category: l.category, cells: {} });
+    rowsBy.get(key).cells[l.count_id] = l;
+  });
+  const order = [...SELL_CATS, ...MAT_CATS];
+  const rows = [...rowsBy.values()].sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category) || a.name.localeCompare(b.name) || a.variant.localeCompare(b.variant));
+  let cat = "", body = "";
+  rows.forEach(r => {
+    if (r.category !== cat) { cat = r.category; body += `<tr class="mx-grp"><td>${esc(cat)}</td>${m.counts.map(() => "<td></td>").join("")}</tr>`; }
+    body += `<tr><td>${esc(itemLabel(r.name, r.variant))}</td>${m.counts.map(c => {
+      const l = r.cells[c.id];
+      if (!l) return `<td class="num muted">—</td>`;
+      return `<td class="num">${asValue ? (Number(l.qty) && Number(l.unit_cost) ? money(l.qty * l.unit_cost) : `<span class="muted">${Number(l.qty) ? "no cost" : "—"}</span>`) : qty(l.qty)}</td>`;
+    }).join("")}</tr>`;
+  });
+  const head = m.counts.map(c => { const t = manilaParts(new Date(c.submitted_at));
+    return `<th class="num mx-col" onclick="S.countId=${c.id};refresh()" title="Open this count">${fmtDate(c.count_date).replace(/^\w+, /, "")}<br><span>${fmtTime(c.submitted_at)}</span></th>`; }).join("");
+  $("#view").innerHTML = `
+    <div class="card mx-card"><div class="table-wrap mx-wrap" id="mxWrap"><table class="matrix">
+      <thead><tr><th class="mx-corner">Item</th>${head}</tr></thead>
+      <tbody>${body}</tbody>
+      ${asValue ? `<tfoot><tr><td>Total inventory value</td>${m.counts.map(c => `<td class="num">${money(c.total_value)}</td>`).join("")}</tr></tfoot>` : ""}
+    </table></div>
+    <p class="small muted">${asValue ? "Value = count × the unit cost at the time of that count. The total is that count's Ending Inventory (and the next period's Beginning)." : "Each column is one count, newest on the right."}
+      Tap a date to open that count, fix a line or remove it.</p></div>`;
+  const wrap = $("#mxWrap"); wrap.scrollLeft = wrap.scrollWidth;
 }
 
 // ============================================================================
