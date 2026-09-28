@@ -420,6 +420,21 @@ def refresh_costs(cur):
     """)
 
 
+def require_material(cur, name: str, item_id: Optional[int] = None) -> int:
+    """Stock In lines must be an item from the Materials list (Raw Material / Packaging)."""
+    if item_id:
+        cur.execute("SELECT id FROM items WHERE id = %s AND category IN ('Raw Material', 'Packaging');", (item_id,))
+        r = cur.fetchone()
+        if r:
+            return r["id"]
+    mid = match_item(cur, name)
+    if mid:
+        cur.execute("SELECT 1 FROM items WHERE id = %s AND category IN ('Raw Material', 'Packaging');", (mid,))
+        if cur.fetchone():
+            return mid
+    raise HTTPException(400, f"“{(name or '').strip() or 'That item'}” isn't in your Materials list. Add it under Materials first, then pick it here.")
+
+
 def match_item(cur, name: str) -> Optional[int]:
     """Links a typed purchase line (e.g. "Powdered milk (1 kg)") to its material."""
     n = (name or "").strip().lower()
@@ -863,7 +878,7 @@ def create_purchase(p: PurchaseIn):
         pid = cur.fetchone()["id"]
         for l in lines:
             cur.execute("INSERT INTO purchase_lines (purchase_id, item_id, item_name, qty, amount) VALUES (%s,%s,%s,%s,%s);",
-                        (pid, l.item_id or match_item(cur, l.item_name), l.item_name.strip(), as_qty(l.qty), as_money(l.amount)))
+                        (pid, require_material(cur, l.item_name, l.item_id), l.item_name.strip(), as_qty(l.qty), as_money(l.amount)))
         save_attachments(cur, "purchase", pid, p.attachments)
         refresh_costs(cur)
         return fetch_ledger(cur, "purchase", pid)
@@ -929,7 +944,7 @@ def register_ledger_routes(kind: str):
             fetch_ledger(cur, kind, row_id)
             if kind == "purchase":
                 cur.execute("INSERT INTO purchase_lines (purchase_id, item_id, item_name, qty, amount) VALUES (%s,%s,%s,%s,%s);",
-                            (row_id, line.get("item_id") or match_item(cur, line.get("item_name")), as_text(line.get("item_name")) or "New item",
+                            (row_id, require_material(cur, line.get("item_name"), line.get("item_id")), as_text(line.get("item_name")),
                              as_qty(line.get("qty", 1)), as_money(line.get("amount", 0))))
                 refresh_costs(cur)
             else:
@@ -948,7 +963,7 @@ def register_ledger_routes(kind: str):
             apply_patch(cur, L["lines"], line_id, changes, L["line_fields"])
             if kind == "purchase":
                 if "item_name" in changes:
-                    cur.execute("UPDATE purchase_lines SET item_id = %s WHERE id = %s;", (match_item(cur, changes["item_name"]), line_id))
+                    cur.execute("UPDATE purchase_lines SET item_id = %s WHERE id = %s;", (require_material(cur, changes["item_name"]), line_id))
                 refresh_costs(cur)
             return fetch_ledger(cur, kind, row_id)
 

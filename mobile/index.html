@@ -1677,6 +1677,18 @@ const LEDGER = {
   purchase: { path: "purchases", when: "purchased_at", title: "Purchase", lineName: "item_name" },
   expense: { path: "expenses", when: "spent_at", title: "Expense", lineName: "particulars" },
 };
+// Stock In can only use items from the Materials list — a dropdown, not free typing.
+function materialSelect(attr, selected = "") {
+  const groups = [["Raw Material", activeItems("Raw Material")], ["Packaging", activeItems("Packaging")]].filter(g => g[1].length);
+  const labels = groups.flatMap(g => g[1].map(i => itemLabel(i.name, i.variant)));
+  const legacy = selected && !labels.some(l => l.toLowerCase() === selected.toLowerCase());
+  return `<select ${attr} class="mat-select">
+    <option value="">${labels.length ? "Select a material" : "No materials yet — add them in Materials"}</option>
+    ${legacy ? `<option value="${esc(selected)}" selected>${esc(selected)} (not in Materials)</option>` : ""}
+    ${groups.map(([g, list]) => `<optgroup label="${g}">${list.map(i => { const l = itemLabel(i.name, i.variant);
+      return `<option value="${esc(l)}" ${l.toLowerCase() === (selected || "").toLowerCase() ? "selected" : ""}>${esc(l)}</option>`; }).join("")}</optgroup>`).join("")}
+  </select>`;
+}
 function purchaseItemOptions() {
   return [...activeItems("Raw Material"), ...activeItems("Packaging")].map(i => itemLabel(i.name, i.variant));
 }
@@ -1689,7 +1701,6 @@ function ledgerForm(kind) {
       <div id="rows_${kind}"></div>
       <button type="button" class="box-btn" onclick="addLedgerRow('${kind}')">+ Add ${isP ? "item" : "line"}</button>
     </div>
-    ${isP ? `<datalist id="itemList">${purchaseItemOptions().map(n => `<option value="${esc(n)}">`).join("")}</datalist>` : ""}
     <div class="total-box"><span>Total</span><span id="total_${kind}">₱0</span></div>
     <div class="field"><span>Payment method</span>${payChips("pay_" + kind)}</div>
     <div class="field"><span>${isP ? "Receipt photos" : "Proof of payment"} (optional)</span><div>${filePicker(kind, true)}</div></div>
@@ -1702,7 +1713,7 @@ function addLedgerRow(kind) {
   const row = document.createElement("div");
   row.className = "line" + (kind === "expense" ? " exp" : "");
   row.innerHTML = kind === "purchase"
-    ? `<input name="name" list="itemList" placeholder="Item name" autocomplete="off">
+    ? `${materialSelect('name="name"')}
        <input name="qty" type="number" inputmode="decimal" step="any" min="0" placeholder="Qty" value="1">
        <input name="amount" type="number" inputmode="decimal" step="any" min="0" placeholder="₱ Amount" oninput="ledgerTotal('purchase')">
        <button type="button" class="rm" onclick="this.parentElement.remove();ledgerTotal('purchase')">×</button>`
@@ -1724,10 +1735,12 @@ async function submitLedger(e, kind) {
     const lines = $$(`#rows_${kind} .line`).map(r => {
       const name = $("[name=name]", r).value.trim(), amount = $("[name=amount]", r).value;
       if (!name && !amount) return null;
-      need(name, "Every line with an amount needs a name.");
+      need(name, isP ? "Pick the material for every line that has an amount." : "Every line with an amount needs a name.");
       need(amount !== "", `Enter the amount for “${name}”.`);
       if (!isP) return { particulars: name, amount: Number(amount) };
-      const match = S.items.find(i => itemLabel(i.name, i.variant).toLowerCase() === name.toLowerCase());
+      need(name, "Pick the material for every line that has an amount.");
+      const match = S.items.find(i => ["Raw Material", "Packaging"].includes(i.category) && itemLabel(i.name, i.variant).toLowerCase() === name.toLowerCase());
+      need(match, `“${name}” isn't in your Materials list. Add it under Materials first.`);
       return { item_id: match ? match.id : null, item_name: name, qty: Number($("[name=qty]", r).value || 1), amount: Number(amount) };
     }).filter(Boolean);
     need(lines.length, isP ? "Add at least one item." : "Add at least one line.");
@@ -1779,7 +1792,6 @@ function ledgerEditForm(kind, id) {
   openModal(`Edit ${L.title.toLowerCase()}`, `
     <form id="ledgerEdit" onsubmit="saveLedgerEdit(event)">
       <label class="field"><span>Date & time</span><input name="when" type="datetime-local" value="${toManilaInput(x[L.when])}"></label>
-      ${isP ? `<datalist id="itemList">${purchaseItemOptions().map(n => `<option value="${esc(n)}">`).join("")}</datalist>` : ""}
       <div class="lines edit-lines ${isP ? "" : "exp"}"><div class="line-head">${isP ? "Item · Qty · Amount (₱)" : "Particulars · Amount (₱)"}</div>
         <div id="elines">${x.lines.map(l => ledgerEditLine(kind, l)).join("")}</div>
         <button type="button" class="link" onclick="$('#elines').insertAdjacentHTML('beforeend', ledgerEditLine('${kind}', {}))">+ add another ${isP ? "item" : "line"}</button></div>
@@ -1800,7 +1812,7 @@ function proofThumbs(x) {
 function ledgerEditLine(kind, l) {
   const isP = kind === "purchase";
   return `<div class="eline" data-line="${l.id || ""}">
-    <input data-k="${isP ? "item_name" : "particulars"}" value="${esc(l.item_name ?? l.particulars ?? "")}" placeholder="${isP ? "Item" : "Particulars"}" ${isP ? `list="itemList"` : ""}>
+    ${isP ? materialSelect('data-k="item_name"', l.item_name || "") : `<input data-k="particulars" value="${esc(l.particulars ?? "")}" placeholder="Particulars">`}
     ${isP ? `<input data-k="qty" type="number" step="any" min="0" inputmode="decimal" value="${l.qty ?? 1}">` : ""}
     <input data-k="amount" type="number" step="any" min="0" inputmode="decimal" value="${l.amount ?? ""}" placeholder="₱">
     <button type="button" class="rm" title="Remove line" onclick="const r=this.parentElement; if (r.dataset.line) r.classList.toggle('removed'); else r.remove();">×</button></div>`;
