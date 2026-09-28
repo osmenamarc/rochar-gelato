@@ -176,16 +176,42 @@
   /* copy buttons: big, obvious "Copied ✓" state */
   .copy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
   .copy-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 76px; padding: 10px 6px;
-    border: 1.5px solid #b9cbe3; background: var(--blue-bg); color: var(--blue); border-radius: 14px; cursor: pointer; text-align: center;
+    border: 1.5px solid #e2d2bf; background: var(--cream); color: var(--accent); border-radius: 14px; cursor: pointer; text-align: center;
     font-weight: 600; font-size: 13px; line-height: 1.2; position: relative; top: 0;
-    box-shadow: 0 5px 0 #b3c5de, 0 7px 12px rgba(44,90,147,.12);
+    box-shadow: 0 5px 0 #d9c4ab, 0 7px 12px rgba(68,49,40,.10);
     transition: top .06s, box-shadow .06s, background .2s, border-color .2s, color .2s; touch-action: manipulation; }
   .copy-btn small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .75; margin-bottom: 2px; }
-  .copy-btn:active { top: 5px; box-shadow: 0 0 0 #b3c5de, 0 1px 3px rgba(44,90,147,.15); }
-  .copy-btn.hit { background: var(--green); border-color: var(--green); color: #fff; box-shadow: 0 5px 0 #17522b, 0 7px 12px rgba(34,115,61,.2); }
-  .copy-btn.hit:active { box-shadow: 0 0 0 #17522b; }
+  .copy-btn:active { top: 5px; box-shadow: 0 0 0 #d9c4ab, 0 1px 3px rgba(68,49,40,.15); }
+  .copy-btn.hit { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 5px 0 #2a1d17, 0 7px 12px rgba(68,49,40,.25); }
+  .copy-btn.hit:active { box-shadow: 0 0 0 #2a1d17; }
   .live-card .copy-grid, .copy-grid { padding-bottom: 5px; }
   /* Schedule */
+  .sched-strip-wrap { overflow: hidden; margin: 4px -4px 14px; padding: 0 4px; }
+  .sched-strip { position: relative; }
+  .sd-pill { position: absolute; top: 0; bottom: 0; left: 0; width: calc((100% - 36px) / 7); border-radius: 12px; background: var(--accent);
+    box-shadow: 0 4px 12px rgba(68,49,40,.25); transition: transform .42s var(--spring); }
+  /* white day boxes sit under the sliding pill; the day text sits above it */
+  .sched-strip .sd { position: relative; background: transparent !important; border-color: transparent !important; transition: color .3s, transform .08s; }
+  .sched-strip .sd::before { content: ""; position: absolute; inset: 0; border-radius: 12px; background: #fff; border: 1px solid var(--border); z-index: 0; }
+  .sched-strip .sd.today::before { border-color: var(--gold); }
+  .sched-strip .sd > * { position: relative; z-index: 2; }
+  .sched-strip .sd small { transition: color .3s; }
+  .sched-strip .sd:active { transform: none; }                /* a transform here would hide the text under the pill */
+  .sched-strip .sd::before { transition: background .15s; } .sched-strip .sd:active::before { background: var(--cream); }
+  .sd-pill { z-index: 1; }
+  .sched-strip.out-l { transform: translateX(-30%); opacity: 0; transition: transform .18s ease-in, opacity .18s ease-in; }
+  .sched-strip.out-r { transform: translateX(30%); opacity: 0; transition: transform .18s ease-in, opacity .18s ease-in; }
+  .sched-strip.in-r { animation: viewInR .4s var(--spring); } .sched-strip.in-l { animation: viewInL .4s var(--spring); }
+  @keyframes listInR { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+  @keyframes listInL { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+  @keyframes listInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .sched-list.in-r > * { animation: listInR .34s var(--spring) backwards; }
+  .sched-list.in-l > * { animation: listInL .34s var(--spring) backwards; }
+  .sched-list.in-up > * { animation: listInUp .3s var(--spring) backwards; }
+  .sched-list > *:nth-child(2) { animation-delay: .03s !important; } .sched-list > *:nth-child(3) { animation-delay: .06s !important; }
+  .sched-list > *:nth-child(4) { animation-delay: .09s !important; } .sched-list > *:nth-child(n+5) { animation-delay: .12s !important; }
+  .sched-list.fading { opacity: .35; transition: opacity .15s; }
+  .sched-list { transition: opacity .2s; touch-action: pan-y; }
   .sched-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 4px 0 14px; }
   .sd { border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px;
     cursor: pointer; transition: transform .08s, background .2s, color .2s; }
@@ -1341,47 +1367,104 @@ function fmtDeliver(iso) {
   const d = manilaParts(new Date(iso)).date, t = fmtTime(iso);
   return d === manilaToday() ? `Today ${t}` : d === addDays(manilaToday(), 1) ? `Tomorrow ${t}` : `${fmtDate(d)} ${t}`;
 }
-function schedGo(day) { S.schedDay = day; go("schedule", { keepScroll: true }); }
-async function viewSchedule() {
-  const day = S.schedDay || (S.schedDay = manilaToday());
-  const from = addDays(day, -3), to = addDays(day, 3);
-  const [r, open] = await Promise.all([api(`/orders/schedule?date_from=${from}&date_to=${to}`), busy() ? S.orders : api("/orders/open")]);
+// Days switch instantly inside the loaded week (no reload): the highlight slides and the list crossfades.
+// Changing week slides the whole strip. Swipe left/right on the list to go day by day.
+const weekStartOf = d => addDays(d, -((new Date(d + "T00:00:00Z").getUTCDay() + 6) % 7));   // Monday
+function schedCard(o) {
+  const live = o.status === "open";
+  return `<div class="sched-card ${live ? "live" : "done"}" onclick="${live ? `openOrderSheet(${o.id})` : `showSale(${o.id})`}">
+    <div class="sc-time">${fmtTime(o.delivery_at)}</div>
+    <div class="sc-body">
+      <div class="row spread"><b class="sc-name">${esc(o.customer_name || "No name yet")}</b><b>${money(o.total)}</b></div>
+      <div class="small">${o.items.map(i => `${qty(i.qty)}× ${esc(itemLabel(i.name, i.variant))}`).join(", ") || `<span class="muted">no items</span>`}</div>
+      ${o.address ? `<div class="small muted">📍 ${esc(o.address)}</div>` : ""}
+      ${o.phone || o.rider_name ? `<div class="small muted">${o.phone ? "📞 " + esc(o.phone) : ""}${o.phone && o.rider_name ? " · " : ""}${o.rider_name ? "🛵 " + esc(o.rider_name) : ""}</div>` : ""}
+      ${o.notes ? `<div class="small muted">📝 ${esc(o.notes)}</div>` : ""}
+      <div class="sc-tags"><span class="badge ${live ? "b-amber" : "b-green"}">${live ? "Live" : "Done"}</span>
+        ${o.payment_status === "credit" ? `<span class="badge b-amber">Credit</span>` : `<span class="badge b-gray">${esc(o.payment_method)}</span>`}
+        ${o.customer_tier === "Reseller" ? `<span class="badge b-blue">Reseller</span>` : ""}<span class="small muted">#${o.id}</span></div>
+    </div></div>`;
+}
+function schedDayHtml(day) {
+  const list = (S.schedByDay || {})[day] || [];
+  const total = list.reduce((s, o) => s + o.total, 0);
+  return `<div class="day-head"><span>${day === manilaToday() ? "Today" : fmtDate(day)}</span><span>${list.length} order${list.length === 1 ? "" : "s"} · ${money(total)}</span></div>
+    ${list.map(schedCard).join("") || `<div class="card empty">No deliveries on this day.</div>`}`;
+}
+function schedStripHtml(ws, day) {
+  const i = Math.round((new Date(day + "T00:00:00Z") - new Date(ws + "T00:00:00Z")) / 864e5);
+  return `<span class="sd-pill" style="transform:translateX(calc(${i} * (100% + 6px)))"></span>` + [...Array(7)].map((_, k) => {
+    const d = addDays(ws, k), n = ((S.schedByDay || {})[d] || []).length, dt = new Date(d + "T00:00:00");
+    return `<button class="sd ${d === day ? "on" : ""} ${d === manilaToday() ? "today" : ""}" data-day="${d}" onclick="schedPick('${d}')">
+      <small>${dt.toLocaleDateString("en-US", { weekday: "short" })}</small><b>${dt.getDate()}</b><span class="sd-n">${n || ""}</span></button>`;
+  }).join("");
+}
+async function loadSchedWeek(ws) {
+  const [r, open] = await Promise.all([api(`/orders/schedule?date_from=${ws}&date_to=${addDays(ws, 6)}`), busy() ? S.orders : api("/orders/open")]);
   S.orders = open; S.openCount = open.length; renderTabs();
   S.history = r.orders.filter(o => o.status !== "open");
-  const byDay = {};
-  r.orders.forEach(o => { const d = manilaParts(new Date(o.delivery_at)).date; (byDay[d] = byDay[d] || []).push(o); });
-  const list = byDay[day] || [];
-  const strip = [...Array(7)].map((_, i) => {
-    const d = addDays(from, i), n = (byDay[d] || []).length, dt = new Date(d + "T00:00:00");
-    return `<button class="sd ${d === day ? "on" : ""} ${d === manilaToday() ? "today" : ""}" onclick="schedGo('${d}')">
-      <small>${dt.toLocaleDateString("en-US", { weekday: "short" })}</small><b>${dt.getDate()}</b><span class="sd-n">${n ? n : ""}</span></button>`;
-  }).join("");
-  const total = list.reduce((s, o) => s + o.total, 0);
-  const cards = list.map(o => {
-    const live = o.status === "open";
-    return `<div class="sched-card ${live ? "live" : "done"}" onclick="${live ? `openOrderSheet(${o.id})` : `showSale(${o.id})`}">
-      <div class="sc-time">${fmtTime(o.delivery_at)}</div>
-      <div class="sc-body">
-        <div class="row spread"><b class="sc-name">${esc(o.customer_name || "No name yet")}</b><b>${money(o.total)}</b></div>
-        <div class="small">${o.items.map(i => `${qty(i.qty)}× ${esc(itemLabel(i.name, i.variant))}`).join(", ") || `<span class="muted">no items</span>`}</div>
-        ${o.address ? `<div class="small muted">📍 ${esc(o.address)}</div>` : ""}
-        ${o.phone || o.rider_name ? `<div class="small muted">${o.phone ? "📞 " + esc(o.phone) : ""}${o.phone && o.rider_name ? " · " : ""}${o.rider_name ? "🛵 " + esc(o.rider_name) : ""}</div>` : ""}
-        ${o.notes ? `<div class="small muted">📝 ${esc(o.notes)}</div>` : ""}
-        <div class="sc-tags"><span class="badge ${live ? "b-amber" : "b-green"}">${live ? "Live" : "Done"}</span>
-          ${o.payment_status === "credit" ? `<span class="badge b-amber">Credit</span>` : `<span class="badge b-gray">${esc(o.payment_method)}</span>`}
-          ${o.customer_tier === "Reseller" ? `<span class="badge b-blue">Reseller</span>` : ""}<span class="small muted">#${o.id}</span></div>
-      </div></div>`;
-  }).join("");
-  $("#view").innerHTML = `
-    <div class="section-title" data-keep="sched-head"><h2 class="serif">Schedule</h2>
-      <div class="row"><button class="btn ghost sm" onclick="schedGo(addDays(S.schedDay,-7))">‹ Week</button>
-        <input type="date" class="sched-date" value="${day}" onchange="this.value && schedGo(this.value)">
-        <button class="btn ghost sm" onclick="schedGo(addDays(S.schedDay,7))">Week ›</button>
-        ${day !== manilaToday() ? `<button class="btn sm" onclick="schedGo(manilaToday())">Today</button>` : ""}</div></div>
-    <div class="sched-strip" data-keep="sched-strip">${strip}</div>
-    <div class="day-head"><span>${day === manilaToday() ? "Today" : fmtDate(day)}</span><span>${list.length} order${list.length === 1 ? "" : "s"} · ${money(total)}</span></div>
-    ${cards || `<div class="card empty">No deliveries on this day.</div>`}`;
+  S.schedByDay = {}; S.schedWeek = ws;
+  r.orders.forEach(o => { const d = manilaParts(new Date(o.delivery_at)).date; (S.schedByDay[d] = S.schedByDay[d] || []).push(o); });
 }
+async function viewSchedule() {
+  const day = S.schedDay || (S.schedDay = manilaToday());
+  const ws = weekStartOf(day);
+  await loadSchedWeek(ws);
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Schedule</h2>
+      <div class="row"><button class="btn ghost sm" onclick="schedWeek(-1)">‹ Week</button>
+        <input type="date" class="sched-date" id="schedDate" value="${day}" onchange="this.value && schedPick(this.value)">
+        <button class="btn ghost sm" onclick="schedWeek(1)">Week ›</button>
+        <button class="btn sm ${day === manilaToday() ? "hidden" : ""}" id="schedToday" onclick="schedPick(manilaToday())">Today</button></div></div>
+    <div class="sched-strip-wrap"><div class="sched-strip" id="schedStrip">${schedStripHtml(ws, day)}</div></div>
+    <div id="schedList" class="sched-list">${schedDayHtml(day)}</div>`;
+}
+let schedBusy = null;
+async function schedPick(day, dir) {
+  if (!day) return;
+  const prev = S.schedDay; S.schedDay = day;
+  const ws = weekStartOf(day), strip = $("#schedStrip"), listEl = $("#schedList");
+  if (!strip || !listEl) return go("schedule");
+  $("#schedDate").value = day; $("#schedToday").classList.toggle("hidden", day === manilaToday());
+  if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {}
+  const d = dir || (day > prev ? 1 : day < prev ? -1 : 0);
+  if (ws === S.schedWeek) {
+    // same week: slide the highlight, crossfade the list — no loading
+    const i = Math.round((new Date(day + "T00:00:00Z") - new Date(ws + "T00:00:00Z")) / 864e5);
+    $(".sd-pill", strip).style.transform = `translateX(calc(${i} * (100% + 6px)))`;
+    $$(".sd", strip).forEach(b => b.classList.toggle("on", b.dataset.day === day));
+    swapSchedList(listEl, day, d);
+    return;
+  }
+  // another week: slide the strip out, load, slide the new week in from the other side
+  strip.classList.remove("in-l", "in-r"); strip.classList.add(d > 0 ? "out-l" : "out-r");
+  listEl.classList.add("fading");
+  const job = schedBusy = Promise.all([loadSchedWeek(ws), new Promise(r => setTimeout(r, 180))]);
+  try { await job; } catch (err) { toast(err.message, true); }
+  if (job !== schedBusy || S.tab !== "schedule") return;
+  strip.innerHTML = schedStripHtml(ws, day);
+  strip.classList.remove("out-l", "out-r"); void strip.offsetWidth; strip.classList.add(d > 0 ? "in-r" : "in-l");
+  listEl.classList.remove("fading"); swapSchedList(listEl, day, d);
+}
+function swapSchedList(listEl, day, d) {
+  listEl.innerHTML = schedDayHtml(day);
+  listEl.classList.remove("in-l", "in-r", "in-up"); void listEl.offsetWidth;
+  listEl.classList.add(d > 0 ? "in-r" : d < 0 ? "in-l" : "in-up");
+}
+function schedWeek(n) { schedPick(addDays(S.schedDay || manilaToday(), 7 * n), n); }
+function schedGo(day) { schedPick(day); }
+// swipe on the list → next / previous day
+(() => {
+  let x0 = null, y0 = null;
+  document.addEventListener("touchstart", e => { if (e.target.closest("#schedList, #schedStrip")) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } else x0 = null; }, { passive: true });
+  document.addEventListener("touchend", e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * .6) return;
+    const inStrip = e.target.closest("#schedStrip");
+    if (inStrip) schedWeek(dx < 0 ? 1 : -1); else schedPick(addDays(S.schedDay, dx < 0 ? 1 : -1));
+  }, { passive: true });
+})();
 
 // ---- Orders tab (phone): live orders with the copy buttons, plus History
 function showHistory() { setOrdersView("history"); }
