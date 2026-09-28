@@ -217,9 +217,10 @@
   .live-card .copy-grid { margin: 12px 0 0; }
   .lc-head { display: flex; justify-content: space-between; gap: 10px; cursor: pointer; }
   .lc-label { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
-  .lc-name { font-size: 20px; font-weight: 700; margin: 1px 0 3px; word-break: break-word; }
+  .lc-name { font-size: 20px; font-weight: 700; margin: 0 0 3px; word-break: break-word; }
   .lc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; white-space: nowrap; }
-  .lc-right b { font-size: 16px; }
+  .lc-right b { font-size: 20px; }
+  .lc-sched { font-size: 14px; color: var(--muted); font-weight: 500; }
   .lc-open { font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 2px; }
   .locked-banner { background: var(--green-bg); color: var(--green); border: 1px solid #b9dcc4; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
   tr.clickable { cursor: pointer; }
@@ -1313,7 +1314,7 @@ function setPay(orderId, field, value) {
   enqueue(orderId, () => api(`/orders/${orderId}`, { method: "PATCH", body: { [field]: value } }));
 }
 // Copy buttons behave like physical buttons: press → it pushes down, flashes "Copied ✓" for a moment, then pops back.
-const COPY_KINDS = [["customer", "Customer", "message"], ["location", "Rider", "location"], ["df", "Rider", "DF request"]];
+const COPY_KINDS = [["customer", "Total", "Info"], ["location", "Loc", "Guide"], ["df", "Rider", "GCash"]];
 const COPY_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>`;
 const CHECK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
 function copyButtons(id) {
@@ -1324,9 +1325,9 @@ function copyButtons(id) {
 }
 async function copyOrder(id, which, el) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
-  if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), "Customer message"); }
-  if (which === "location") await copyText(S.settings.msg_rider_location || "", "Rider location");
-  if (which === "df") await copyText(S.settings.msg_rider_df || "", "Rider DF request");
+  if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), "Total info"); }
+  if (which === "location") await copyText(S.settings.msg_rider_location || "", "Loc guide");
+  if (which === "df") await copyText(S.settings.msg_rider_df || "", "Rider GCash");
   if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
   if (!el) return;
   clearTimeout(el._t);
@@ -1410,12 +1411,10 @@ async function viewLiveOrders() {
     return `<div class="live-card" data-order="${o.id}">
       <div class="lc-head" onclick="openOrderSheet(${o.id})">
         <div class="lc-who">
-          <div class="lc-label">Name</div>
           <div class="lc-name">${o.customer_name ? esc(o.customer_name) : `<span class="muted">No name yet</span>`}</div>
-          <div class="small muted">#${o.id} · 🕒 ${fmtDeliver(o.delivery_at)} · ${n} item${n === 1 ? "" : "s"}${o.customer_tier === "Reseller" ? ` · <span class="badge b-blue">Reseller</span>` : ""}</div>
+          <div class="lc-sched">🕒 ${fmtDeliver(o.delivery_at)}</div>
         </div>
-        <div class="lc-right"><b>${money(o.total)}</b>${o.payment_status === "credit" ? `<span class="badge b-amber">Credit</span>` : `<span class="small muted">${esc(o.payment_method)}</span>`}
-          <span class="lc-open">Open ›</span></div>
+        <div class="lc-right"><b>${money(o.total)}</b></div>
       </div>
       ${copyButtons(o.id)}
     </div>`;
@@ -2652,8 +2651,8 @@ async function viewSettings() {
     <div class="card"><h3>Copy-paste messages</h3>
       ${area("msg_customer_header", "Customer message — first line")}
       ${area("msg_customer_footer", "Customer message — last line")}
-      ${area("msg_rider_location", "Rider location message")}
-      ${area("msg_rider_df", "Rider DF request message")}
+      ${area("msg_rider_location", "Loc Guide message (for the rider)")}
+      ${area("msg_rider_df", "Rider GCash message")}
       <p class="small muted">Changes save when you click away. The customer message is built as: first line, the items, delivery fee, total, last line.</p></div>
     <div class="card"><h3>Change PIN</h3>
       <form id="pinForm" class="grid3" onsubmit="changePin(event)">
