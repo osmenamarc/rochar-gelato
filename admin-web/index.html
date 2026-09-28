@@ -1387,17 +1387,7 @@ async function viewProducts() {
   const f = S.prodFilter || "All";
   const list = S.items.filter(i => f === "All" || i.category === f);
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Master products</h2></div>
-    <div class="card"><h3>Add a product</h3>
-      <form class="row" onsubmit="addProduct(event)" style="align-items:end">
-        <label class="field" style="flex:2;min-width:180px"><span>Product name</span><input name="name" required></label>
-        <label class="field"><span>Category</span><select name="category">${CATEGORIES.map(c => `<option>${c}</option>`).join("")}</select></label>
-        <label class="field" style="flex:1;min-width:110px"><span>Size / variant / unit</span><input name="variant" placeholder="e.g. Pint, 1 kg"></label>
-        <label class="field" style="width:110px"><span>Unit cost ₱</span><input name="unit_cost" type="number" step="any" min="0"></label>
-        <label class="field" style="width:110px"><span>Selling price ₱</span><input name="selling_price" type="number" step="any" min="0"></label>
-        <button class="btn" style="margin-bottom:10px">Add</button>
-      </form>
-      <p class="hint">Gelato items show up as buttons on the phone POS. Every active item shows up on the monthly count. Count raw materials in the same unit as their cost (e.g. cost per 1 kg bag → count bags).</p></div>
+    <div class="section-title"><h2 class="serif">Master products</h2><button class="btn" onclick="openProductModal()">+ Add product</button></div>
     <div class="chips">${["All", ...CATEGORIES].map(c => `<button class="${f === c ? "active" : ""}" onclick="S.prodFilter='${c}';refresh()">${c}</button>`).join("")}</div>
     <div class="card"><div class="table-wrap"><table>
       <thead><tr><th>ID</th><th>Product name</th><th>Category</th><th>Size / variant</th><th class="num">Unit cost</th><th class="num">Selling price</th><th class="num">Margin</th><th>Active</th><th></th></tr></thead>
@@ -1412,17 +1402,58 @@ async function viewProducts() {
         <td class="num">${m}</td>
         ${editable("td", i.active ? "Yes" : "No", { url: u, field: "active", value: i.active, type: "bool", after: reloadItems })}
         <td><button class="link red" onclick="deleteProduct(${i.id})">delete</button></td></tr>`; }).join("") || `<tr><td colspan="9" class="empty">No products yet.</td></tr>`}</tbody>
-    </table></div><p class="small muted">Click any cell to edit. Set Active to “No” to hide a discontinued item from the POS and the count without deleting it.</p></div>`;
+    </table></div><p class="small muted">Click any cell to edit. Set Active to “No” to hide a discontinued item from the POS and the count without deleting it.
+      Gelato items show up as buttons on the phone POS; every active item shows up on the monthly count.</p></div>`;
+}
+function openProductModal() {
+  const cat = CATEGORIES.includes(S.prodFilter) ? S.prodFilter : "Gelato";
+  openModal("Add product", `
+    <form id="productForm" onsubmit="addProduct(event)">
+      <div class="field"><span>Category</span>
+        <div class="chips" style="margin:0">${CATEGORIES.map(c => `<label><input type="radio" name="category" value="${c}" ${c === cat ? "checked" : ""} onchange="productCategoryChanged()"><span>${c}</span></label>`).join("")}</div></div>
+      <div class="grid2">
+        <label class="field"><span>Product name *</span><input name="name" required autocomplete="off" placeholder="e.g. Basque Burnt Cheesecake"></label>
+        <label class="field"><span>Size / variant / unit</span><input name="variant" autocomplete="off" placeholder="e.g. Pint, Mini 89ml, 1 kg bag"></label>
+        <label class="field"><span>Unit cost (₱)</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>
+        <label class="field" id="priceField"><span>Selling price (₱)</span><input name="selling_price" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>
+      </div>
+      <p class="hint" id="productHint"></p>
+      <div class="form-error" id="productError"></div>
+      <div class="row" style="justify-content:flex-end">
+        <span class="small muted" id="productAdded" style="margin-right:auto"></span>
+        <button type="submit" class="btn ghost" data-again="1">Save & add another</button>
+        <button type="submit" class="btn">Save</button>
+      </div>
+    </form>`);
+  productCategoryChanged();
+  $("#productForm [name=name]").focus();
+}
+function productCategoryChanged() {
+  const f = $("#productForm"); if (!f) return;
+  const cat = f.category.value, gel = cat === "Gelato";
+  $("#priceField").classList.toggle("hidden", !gel);
+  $("#productHint").textContent = gel
+    ? "Shows up as a button on the phone POS at this price. Unit cost is what one piece costs you to make (used to value the monthly count)."
+    : "Not sold — appears on the monthly count only. Count it in the same unit as the cost (cost per 1 kg bag → count bags).";
 }
 async function reloadItems() { await loadItems(); await refresh(); }
 async function addProduct(e) {
   e.preventDefault(); const f = e.target;
+  const again = e.submitter && e.submitter.dataset.again;
+  $("#productError").textContent = "";
+  const gel = f.category.value === "Gelato";
   try {
-    await api("/items", { method: "POST", body: { name: f.name.value, category: f.category.value, variant: f.variant.value,
-      unit_cost: Number(f.unit_cost.value || 0), selling_price: Number(f.selling_price.value || 0) } });
-    toast("Product added"); const cat = f.category.value; await loadItems(); await refresh();
-    const nf = $("form.row"); if (nf) { nf.category.value = cat; nf.name.focus(); }
-  } catch (err) { toast(err.message, true); }
+    need(f.name.value.trim(), "Product name is required.");
+    const item = await api("/items", { method: "POST", body: { name: f.name.value, category: f.category.value, variant: f.variant.value,
+      unit_cost: Number(f.unit_cost.value || 0), selling_price: gel ? Number(f.selling_price.value || 0) : 0 } });
+    await loadItems(); refresh();
+    const label = itemLabel(item.name, item.variant);
+    if (again) {
+      ["name", "variant", "unit_cost", "selling_price"].forEach(k => f[k].value = "");
+      $("#productAdded").textContent = `✓ Added ${label}`;
+      f.name.focus();
+    } else { closeModal(); toast(`${label} added`); }
+  } catch (err) { $("#productError").textContent = err.message; }
 }
 async function deleteProduct(id) {
   const i = S.items.find(x => x.id === id);
