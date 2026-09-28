@@ -437,6 +437,11 @@
   .field input, .field select, .field textarea, .lines input, .lines select {
     padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; width: 100%; min-width: 0; }
   .field textarea { min-height: 56px; resize: vertical; }
+  input[type="date"], input[type="datetime-local"], input[type="time"] {
+    -webkit-appearance: none; appearance: none; max-width: 100%; min-width: 0; box-sizing: border-box; }
+  .field input[type="date"], .field input[type="datetime-local"] { display: block; width: 100%; }
+  input[type="date"]::-webkit-date-and-time-value, input[type="datetime-local"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+  .field { min-width: 0; }
   body.mobile .field input, body.mobile .field select, body.mobile .field textarea, body.mobile .lines input, body.mobile .lines select { font-size: 16px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -473,12 +478,14 @@
   .boxy .line-head { margin-bottom: 8px; }
   .boxy .line { grid-template-columns: 1fr 76px 118px 52px; gap: 8px; margin-bottom: 10px; }
   .boxy .line.exp { grid-template-columns: 1fr 130px 52px; }
+  .boxy .line.prod { grid-template-columns: 1fr 96px 52px; }
   .boxy .line .rm { width: 52px; height: 52px; border-radius: 14px; background: var(--red-bg); color: var(--red); font-size: 22px; font-weight: 700;
     display: flex; align-items: center; justify-content: center; transition: transform .08s, background .2s; }
   .boxy .line .rm:active { transform: scale(.92); background: #f5d6d0; }
   @media (max-width: 520px) {
-    .boxy .line:not(.exp) { grid-template-columns: 1fr 1fr 52px; }
-    .boxy .line:not(.exp) > :first-child { grid-column: 1 / -1; }
+    .boxy .line:not(.exp):not(.prod) { grid-template-columns: 1fr 1fr 52px; }
+    .boxy .line:not(.exp):not(.prod) > :first-child { grid-column: 1 / -1; }
+    .boxy .line.prod { grid-template-columns: 1fr 52px; } .boxy .line.prod > :first-child { grid-column: 1 / -1; }
     .boxy .line { padding-bottom: 10px; border-bottom: 1px dashed #ebe0d3; }
   }
   .box-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 12px 14px;
@@ -1944,17 +1951,17 @@ function openLedgerForm(kind) {
 // PRODUCTION
 // ============================================================================
 function productionForm() {
-  return `<form onsubmit="submitProduction(event)">
+  return `<form class="boxy" onsubmit="submitProduction(event)">
     <label class="field"><span>Date & time</span><input type="datetime-local" name="when" value="${localInputNow()}"></label>
     <div class="lines"><div class="line-head">Product · Quantity produced</div><div id="rows_prod"></div>
-      <button type="button" class="link" onclick="addProdRow()">+ add another product</button></div>
+      <button type="button" class="box-btn" onclick="addProdRow()">+ Add product</button></div>
     <label class="field"><span>Notes (optional)</span><input name="notes"></label>
     <div class="form-error" id="err_prod"></div>
     <button class="btn block big" id="save_prod">Save production</button></form>`;
 }
 function addProdRow() {
   const row = document.createElement("div"); row.className = "line prod";
-  row.innerHTML = `<select name="item"><option value="">— product —</option>${sellables().map(i => `<option value="${i.id}">${esc(itemLabel(i.name, i.variant))}</option>`).join("")}</select>
+  row.innerHTML = `<select name="item"><option value="">Select a product</option>${sellables().map(i => `<option value="${i.id}">${esc(itemLabel(i.name, i.variant))}</option>`).join("")}</select>
     <input name="qty" type="number" inputmode="decimal" step="any" min="0" placeholder="Qty">
     <button type="button" class="rm" onclick="this.parentElement.remove()">×</button>`;
   $("#rows_prod").appendChild(row);
@@ -2040,7 +2047,7 @@ async function countChecklistHtml() {
       ${i.last_qty !== null && i.last_qty !== undefined ? `<br><span class="small muted">last count ${qty(i.last_qty)}</span>` : ""}</div>
       <input type="number" inputmode="decimal" step="any" min="0" placeholder="count" data-count="${i.item_id}" data-cost="${i.unit_cost}" value="${esc(v)}" oninput="saveDraft()"></div>`;
   }
-  return `<div class="card">
+  return `<div class="card boxy">
     <label class="field"><span>Count date (the last day of the month you're counting)</span><input type="date" id="countDate" value="${draft.date || manilaToday()}" onchange="saveDraft()"></label>
     <p class="hint">Count everything on hand: gelato in the freezer, raw materials, packaging. Your progress is kept on this device until you submit.</p>
     ${html}
