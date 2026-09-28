@@ -452,6 +452,41 @@
   .thumb .x { position: absolute; top: 1px; right: 3px; background: rgba(0,0,0,.55); color: #fff; border: none; border-radius: 99px; width: 18px; height: 18px; font-size: 12px; cursor: pointer; line-height: 1; }
   .upload { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border: 2px dashed var(--border); border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 22px; }
 
+  /* ---------- Boxy form (phone Stock In / Expense): big soft boxes, easy to tap ---------- */
+  .boxy .field { gap: 8px; margin-bottom: 16px; }
+  .boxy .field > span, .boxy .line-head { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .boxy .field input, .boxy .field select, .boxy .lines input, .boxy .lines select {
+    min-height: 52px; padding: 12px 14px; border: 2px solid #ebe0d3; border-radius: 14px; background: #faf6f1;
+    font-weight: 600; color: var(--accent); transition: border-color .2s, background .2s, box-shadow .2s; }
+  .boxy input::placeholder { color: #b4a594; font-weight: 600; }
+  .boxy .field input:focus, .boxy .lines input:focus, .boxy .field select:focus { outline: none; border-color: var(--gold); background: #fff; box-shadow: 0 0 0 4px rgba(118,81,1,.10); }
+  .boxy .lines { border: none; padding: 0; background: none; margin-bottom: 14px; }
+  .boxy .line-head { margin-bottom: 8px; }
+  .boxy .line { grid-template-columns: 1fr 76px 118px 52px; gap: 8px; margin-bottom: 10px; }
+  .boxy .line.exp { grid-template-columns: 1fr 130px 52px; }
+  .boxy .line .rm { width: 52px; height: 52px; border-radius: 14px; background: var(--red-bg); color: var(--red); font-size: 22px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; transition: transform .08s, background .2s; }
+  .boxy .line .rm:active { transform: scale(.92); background: #f5d6d0; }
+  @media (max-width: 520px) {
+    .boxy .line:not(.exp) { grid-template-columns: 1fr 1fr 52px; }
+    .boxy .line:not(.exp) > :first-child { grid-column: 1 / -1; }
+    .boxy .line { padding-bottom: 10px; border-bottom: 1px dashed #ebe0d3; }
+  }
+  .box-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 12px 14px;
+    border: 2px solid #ebe0d3; border-radius: 14px; background: #faf6f1; color: var(--accent); font-weight: 700; font-size: 15px; cursor: pointer;
+    transition: transform .08s, background .2s, border-color .2s; }
+  .box-btn:active { transform: scale(.98); background: var(--cream); border-color: #dccab4; }
+  .boxy .files:empty { display: none; }
+  .boxy .files { margin: 10px 0 0; }
+  .boxy .total-box { background: none; border-top: 2px solid #ebe0d3; border-radius: 0; padding: 14px 2px 4px; font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+  .boxy .chips { gap: 8px; }
+  .boxy .chips label { border: 2px solid #ebe0d3; border-radius: 14px; background: #faf6f1; transition: transform .08s; }
+  .boxy .chips label:active { transform: scale(.95); }
+  .boxy .chips label span { padding: 12px 16px; font-weight: 600; color: var(--accent); transition: background .2s, color .2s; }
+  .boxy .chips input:checked + span { background: var(--accent); color: #fff; }
+  .boxy .chips label:has(input:checked) { border-color: var(--accent); }
+  .boxy .btn.big { min-height: 56px; border-radius: 14px; font-size: 16px; font-weight: 700; }
+
   /* ---------- Order cards / POS ---------- */
   .ocard { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
   .ocard-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; background: var(--hover); border-bottom: 1px solid var(--border); }
@@ -1008,8 +1043,10 @@ async function prepareFile(file) {
 }
 // Attachment picker used in the purchase/expense forms
 const pickers = {};
-function filePicker(key) {
+function filePicker(key, boxy = false) {
   pickers[key] = [];
+  if (boxy) return `<label class="box-btn">📷 Add photo<input type="file" accept="image/*,application/pdf" multiple hidden onchange="addFiles('${key}', this)"></label>
+    <div class="files" id="files_${key}"></div>`;
   return `<div class="files" id="files_${key}"></div>
     <label class="upload" title="Add photo / file">＋<input type="file" accept="image/*,application/pdf" multiple hidden onchange="addFiles('${key}', this)"></label>
     <span class="small muted" style="margin-left:6px">Proof: take a photo or choose a file</span>`;
@@ -1645,17 +1682,17 @@ function purchaseItemOptions() {
 }
 function ledgerForm(kind) {
   const isP = kind === "purchase";
-  return `<form id="lf_${kind}" onsubmit="submitLedger(event, '${kind}')">
+  return `<form id="lf_${kind}" class="boxy" onsubmit="submitLedger(event, '${kind}')">
     <label class="field"><span>Date & time</span><input type="datetime-local" name="when" value="${localInputNow()}"></label>
     <div class="lines">
       <div class="line-head">${isP ? "Item · Qty · Amount (₱)" : "Particulars · Amount (₱)"}</div>
       <div id="rows_${kind}"></div>
-      <button type="button" class="link" onclick="addLedgerRow('${kind}')">+ add another ${isP ? "item" : "line"}</button>
+      <button type="button" class="box-btn" onclick="addLedgerRow('${kind}')">+ Add ${isP ? "item" : "line"}</button>
     </div>
     ${isP ? `<datalist id="itemList">${purchaseItemOptions().map(n => `<option value="${esc(n)}">`).join("")}</datalist>` : ""}
     <div class="total-box"><span>Total</span><span id="total_${kind}">₱0</span></div>
     <div class="field"><span>Payment method</span>${payChips("pay_" + kind)}</div>
-    <div class="field"><span>${isP ? "Proof of purchase" : "Proof of payment"}</span><div>${filePicker(kind)}</div></div>
+    <div class="field"><span>${isP ? "Receipt photos" : "Proof of payment"} (optional)</span><div>${filePicker(kind, true)}</div></div>
     <label class="field"><span>Notes (optional)</span><input name="notes"></label>
     <div class="form-error" id="err_${kind}"></div>
     <button class="btn block big" id="save_${kind}">Save ${isP ? "purchase" : "expense"}</button>
@@ -1713,7 +1750,7 @@ async function ledgerScreen(kind) {
   const data = await api(`/${L.path}?date_from=${addDays(manilaToday(), -13)}&date_to=${manilaToday()}`);
   S["ledger_" + kind] = data.entries;
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">${kind === "purchase" ? "Stock In — raw materials & packaging" : "Expense"}</h2></div>
+    <div class="section-title"><h2 class="serif">${kind === "purchase" ? "Stock In" : "Expense"}</h2></div>
     <div class="card">${ledgerForm(kind)}</div>
     <div class="card"><h3>Last 14 days · ${money(data.total)}</h3>
       ${data.entries.map(x => `<div class="list-item" onclick="editLedgerModal('${kind}', ${x.id})">
