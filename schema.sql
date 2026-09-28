@@ -309,3 +309,37 @@ UPDATE items SET category = CASE
 ALTER TABLE items ALTER COLUMN category SET DEFAULT 'Pint';
 ALTER TABLE items ADD CONSTRAINT items_category_check
     CHECK (category IN ('Mini', 'Pint', 'Cake', 'Raw Material', 'Packaging'));
+
+
+-- ============================================================================
+-- v5: RECIPES + automatic costing, PRODUCT PHOTOS
+--
+-- Materials get a recipe unit: base_unit (g / ml / pc) and content_qty =
+-- how many of those are in one purchase unit (a "1 kg bag" = 1000 g).
+-- A material's cost follows its latest purchase (amount ÷ qty bought);
+-- a product with a recipe gets its unit cost from the recipe automatically.
+-- ============================================================================
+ALTER TABLE items ADD COLUMN IF NOT EXISTS base_unit   TEXT NOT NULL DEFAULT '';
+ALTER TABLE items ADD COLUMN IF NOT EXISTS content_qty NUMERIC(14,4) NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS recipes (
+    product_id  INT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    yield_qty   NUMERIC(12,3) NOT NULL DEFAULT 1 CHECK (yield_qty > 0),   -- units one batch makes
+    notes       TEXT NOT NULL DEFAULT '',
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS recipe_lines (
+    id           SERIAL PRIMARY KEY,
+    product_id   INT NOT NULL REFERENCES recipes(product_id) ON DELETE CASCADE,
+    material_id  INT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    qty          NUMERIC(14,4) NOT NULL CHECK (qty > 0),                 -- in the material's base unit
+    UNIQUE (product_id, material_id)
+);
+
+-- Product photos (kept out of the items table so product lists stay small)
+CREATE TABLE IF NOT EXISTS item_images (
+    item_id     INT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    mime        TEXT NOT NULL,
+    data        BYTEA NOT NULL,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);

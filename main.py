@@ -352,19 +352,87 @@ class ItemPayload(BaseModel):
     unit_cost: float = 0
     selling_price: float = 0
     active: bool = True
+    base_unit: str = ""
+    content_qty: float = 1
+
+
+def as_content(v):
+    x = as_qty(v)
+    if x <= 0:
+        raise HTTPException(400, "The recipe-unit conversion must be more than 0.")
+    return x
 
 
 ITEM_FIELDS = {"name": as_text, "category": as_category, "variant": as_text, "unit_cost": as_money,
-               "selling_price": as_money, "active": as_bool, "sort_order": as_int}
+               "selling_price": as_money, "active": as_bool, "sort_order": as_int,
+               "base_unit": as_text, "content_qty": as_content}
 CATEGORY_ORDER = "CASE category WHEN 'Mini' THEN 0 WHEN 'Pint' THEN 1 WHEN 'Cake' THEN 2 WHEN 'Raw Material' THEN 3 ELSE 4 END"
 ITEM_ORDER = CATEGORY_ORDER + ", sort_order, name, variant"
+
+
+ITEM_LIST_SQL = f"""
+    SELECT i.*,
+           img.updated_at AS image_updated_at,
+           lp.unit_price AS latest_price, lp.purchased_at AS latest_price_at,
+           (r.product_id IS NOT NULL) AS has_recipe
+    FROM items i
+    LEFT JOIN item_images img ON img.item_id = i.id
+    LEFT JOIN recipes r ON r.product_id = i.id
+    LEFT JOIN LATERAL (
+        SELECT ROUND(l.amount / l.qty, 4) AS unit_price, p.purchased_at
+        FROM purchase_lines l JOIN purchases p ON p.id = l.purchase_id
+        WHERE l.item_id = i.id AND l.qty > 0
+        ORDER BY p.purchased_at DESC, l.id DESC LIMIT 1) lp ON true
+"""
 
 
 @api.get("/items")
 def list_items(include_inactive: bool = False):
     with db() as conn, conn.cursor() as cur:
-        cur.execute(f"SELECT * FROM items WHERE active OR %s ORDER BY {ITEM_ORDER};", (include_inactive,))
+        cur.execute(ITEM_LIST_SQL + f" WHERE i.active OR %s ORDER BY {ITEM_ORDER.replace('category', 'i.category').replace('sort_order', 'i.sort_order').replace(', name, variant', ', i.name, i.variant')};",
+                    (include_inactive,))
         return rows(cur)
+
+
+# ---- automatic costing ------------------------------------------------------
+
+def refresh_costs(cur):
+    """Materials take their unit cost from their latest purchase; products
+    with a recipe take theirs from the recipe. Runs after anything that can
+    change a price (purchases, recipes, material units)."""
+    cur.execute("""
+        UPDATE items i SET unit_cost = lp.unit_price
+        FROM (SELECT DISTINCT ON (l.item_id) l.item_id, ROUND(l.amount / l.qty, 2) AS unit_price
+                FROM purchase_lines l JOIN purchases p ON p.id = l.purchase_id
+               WHERE l.item_id IS NOT NULL AND l.qty > 0
+               ORDER BY l.item_id, p.purchased_at DESC, l.id DESC) lp
+        WHERE i.id = lp.item_id AND i.category IN ('Raw Material', 'Packaging') AND i.unit_cost <> lp.unit_price;
+    """)
+    cur.execute("""
+        UPDATE items i SET unit_cost = c.cost
+        FROM (SELECT r.product_id,
+                     ROUND(COALESCE(SUM(rl.qty * m.unit_cost / NULLIF(m.content_qty, 0)), 0) / r.yield_qty, 2) AS cost
+                FROM recipes r
+                LEFT JOIN recipe_lines rl ON rl.product_id = r.product_id
+                LEFT JOIN items m ON m.id = rl.material_id
+               GROUP BY r.product_id, r.yield_qty) c
+        WHERE i.id = c.product_id AND i.unit_cost <> c.cost;
+    """)
+
+
+def match_item(cur, name: str) -> Optional[int]:
+    """Links a typed purchase line (e.g. "Powdered milk (1 kg)") to its material."""
+    n = (name or "").strip().lower()
+    if not n:
+        return None
+    cur.execute("""
+        SELECT id FROM items
+        WHERE lower(CASE WHEN variant <> '' THEN name || ' (' || variant || ')' ELSE name END) = %s
+           OR (lower(name) = %s AND variant = '')
+        ORDER BY (category IN ('Raw Material', 'Packaging')) DESC, id LIMIT 1;
+    """, (n, n))
+    r = cur.fetchone()
+    return r["id"] if r else None
 
 
 @api.post("/items")
@@ -374,10 +442,10 @@ def create_item(p: ItemPayload):
     with db() as conn, conn.cursor() as cur:
         try:
             cur.execute("""
-                INSERT INTO items (name, category, variant, unit_cost, selling_price, active)
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING *;
+                INSERT INTO items (name, category, variant, unit_cost, selling_price, active, base_unit, content_qty)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING *;
             """, (p.name.strip(), as_category(p.category), p.variant.strip(), as_money(p.unit_cost),
-                  as_money(p.selling_price), p.active))
+                  as_money(p.selling_price), p.active, p.base_unit.strip(), as_content(p.content_qty or 1)))
         except psycopg.errors.UniqueViolation:
             raise HTTPException(409, "That product + size already exists.")
         return one(cur)
@@ -392,6 +460,7 @@ def patch_item(item_id: int, changes: dict = Body(...)):
             apply_patch(cur, "items", item_id, changes, ITEM_FIELDS)
         except psycopg.errors.UniqueViolation:
             raise HTTPException(409, "That product + size already exists.")
+        refresh_costs(cur)
         cur.execute("SELECT * FROM items WHERE id = %s;", (item_id,))
         return one(cur)
 
@@ -780,8 +849,9 @@ def create_purchase(p: PurchaseIn):
         pid = cur.fetchone()["id"]
         for l in lines:
             cur.execute("INSERT INTO purchase_lines (purchase_id, item_id, item_name, qty, amount) VALUES (%s,%s,%s,%s,%s);",
-                        (pid, l.item_id, l.item_name.strip(), as_qty(l.qty), as_money(l.amount)))
+                        (pid, l.item_id or match_item(cur, l.item_name), l.item_name.strip(), as_qty(l.qty), as_money(l.amount)))
         save_attachments(cur, "purchase", pid, p.attachments)
+        refresh_costs(cur)
         return fetch_ledger(cur, "purchase", pid)
 
 
@@ -828,6 +898,7 @@ def register_ledger_routes(kind: str):
     def patch_header(row_id: int, changes: dict = Body(...)):
         with db() as conn, conn.cursor() as cur:
             apply_patch(cur, L["table"], row_id, changes, L["header_fields"])
+            refresh_costs(cur)
             return fetch_ledger(cur, kind, row_id)
 
     def delete_entry(row_id: int):
@@ -836,6 +907,7 @@ def register_ledger_routes(kind: str):
             if not cur.fetchone():
                 raise HTTPException(404, "Not found.")
             cur.execute("DELETE FROM attachments WHERE owner_type = %s AND owner_id = %s;", (kind, row_id))
+            refresh_costs(cur)
         return {"ok": True}
 
     def add_line(row_id: int, line: dict = Body(...)):
@@ -843,8 +915,9 @@ def register_ledger_routes(kind: str):
             fetch_ledger(cur, kind, row_id)
             if kind == "purchase":
                 cur.execute("INSERT INTO purchase_lines (purchase_id, item_id, item_name, qty, amount) VALUES (%s,%s,%s,%s,%s);",
-                            (row_id, line.get("item_id"), as_text(line.get("item_name")) or "New item",
+                            (row_id, line.get("item_id") or match_item(cur, line.get("item_name")), as_text(line.get("item_name")) or "New item",
                              as_qty(line.get("qty", 1)), as_money(line.get("amount", 0))))
+                refresh_costs(cur)
             else:
                 cur.execute("INSERT INTO expense_lines (expense_id, particulars, amount) VALUES (%s,%s,%s);",
                             (row_id, as_text(line.get("particulars")) or "New line", as_money(line.get("amount", 0))))
@@ -859,6 +932,10 @@ def register_ledger_routes(kind: str):
             if not cur.fetchone():
                 raise HTTPException(404, "Line not found.")
             apply_patch(cur, L["lines"], line_id, changes, L["line_fields"])
+            if kind == "purchase":
+                if "item_name" in changes:
+                    cur.execute("UPDATE purchase_lines SET item_id = %s WHERE id = %s;", (match_item(cur, changes["item_name"]), line_id))
+                refresh_costs(cur)
             return fetch_ledger(cur, kind, row_id)
 
     def delete_line(row_id: int, line_id: int):
@@ -869,6 +946,7 @@ def register_ledger_routes(kind: str):
             cur.execute(f"DELETE FROM {L['lines']} WHERE id = %s AND {L['fk']} = %s RETURNING id;", (line_id, row_id))
             if not cur.fetchone():
                 raise HTTPException(404, "Line not found.")
+            refresh_costs(cur)
             return fetch_ledger(cur, kind, row_id)
 
     def add_files(row_id: int, files: List[AttachmentIn]):
@@ -1584,6 +1662,154 @@ def reconciliation_days(days: int = 21):
 def json_dumps(v):
     import json
     return json.dumps(v)
+
+
+# ----------------------------------------------------------------------------
+# Recipes — ingredient amounts per batch; cost follows the latest purchases
+# ----------------------------------------------------------------------------
+
+class RecipeLineIn(BaseModel):
+    material_id: int
+    qty: float = Field(gt=0)
+
+
+class RecipeIn(BaseModel):
+    yield_qty: float = Field(gt=0)
+    notes: str = ""
+    lines: List[RecipeLineIn]
+
+
+RECIPE_LINES_SQL = """
+    SELECT rl.id, rl.material_id, m.name, m.variant, m.category, m.base_unit, m.content_qty, rl.qty,
+           m.unit_cost AS material_cost,
+           ROUND(m.unit_cost / NULLIF(m.content_qty, 0), 4) AS cost_per_base,
+           ROUND(rl.qty * m.unit_cost / NULLIF(m.content_qty, 0), 2) AS line_cost,
+           lp.purchased_at AS price_from
+    FROM recipe_lines rl JOIN items m ON m.id = rl.material_id
+    LEFT JOIN LATERAL (
+        SELECT p.purchased_at FROM purchase_lines l JOIN purchases p ON p.id = l.purchase_id
+        WHERE l.item_id = m.id AND l.qty > 0 ORDER BY p.purchased_at DESC, l.id DESC LIMIT 1) lp ON true
+    WHERE rl.product_id = %s ORDER BY m.category, m.name;
+"""
+
+
+@api.get("/recipes")
+def list_recipes():
+    """Every finished product, with its recipe cost (if it has a recipe)."""
+    with db() as conn, conn.cursor() as cur:
+        refresh_costs(cur)
+        cur.execute(f"""
+            SELECT i.id AS product_id, i.name, i.variant, i.category, i.selling_price, i.unit_cost, i.active,
+                   r.yield_qty, r.notes, r.updated_at,
+                   (SELECT COUNT(*) FROM recipe_lines rl WHERE rl.product_id = i.id) AS line_count,
+                   (SELECT COUNT(*) FROM recipe_lines rl JOIN items m ON m.id = rl.material_id
+                     WHERE rl.product_id = i.id AND m.unit_cost = 0) AS missing_prices,
+                   (SELECT COALESCE(SUM(rl.qty * m.unit_cost / NULLIF(m.content_qty, 0)), 0)
+                      FROM recipe_lines rl JOIN items m ON m.id = rl.material_id WHERE rl.product_id = i.id) AS batch_cost
+            FROM items i LEFT JOIN recipes r ON r.product_id = i.id
+            WHERE i.category IN ('Mini', 'Pint', 'Cake')
+            ORDER BY {CATEGORY_ORDER.replace('category', 'i.category')}, i.name, i.variant;
+        """)
+        return rows(cur)
+
+
+@api.get("/recipes/{product_id}")
+def get_recipe(product_id: int):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id, name, variant, category, selling_price, unit_cost FROM items WHERE id = %s;", (product_id,))
+        prod = one(cur)
+        if not prod:
+            raise HTTPException(404, "Product not found.")
+        cur.execute("SELECT * FROM recipes WHERE product_id = %s;", (product_id,))
+        r = one(cur)
+        cur.execute(RECIPE_LINES_SQL, (product_id,))
+        lines = rows(cur)
+    batch = round(sum(l["line_cost"] or 0 for l in lines), 2)
+    y = r["yield_qty"] if r else 1
+    return {"product": prod, "exists": bool(r), "yield_qty": y, "notes": (r or {}).get("notes", ""),
+            "lines": lines, "batch_cost": batch, "cost_per_unit": round(batch / y, 2) if y else None}
+
+
+@api.put("/recipes/{product_id}")
+def save_recipe(product_id: int, p: RecipeIn):
+    ids = [l.material_id for l in p.lines]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(400, "The same material is listed twice.")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT category FROM items WHERE id = %s;", (product_id,))
+        prod = cur.fetchone()
+        if not prod or prod["category"] not in SELL_CATEGORIES:
+            raise HTTPException(400, "Recipes are for finished products (Mini / Pint / Cake).")
+        for mid in ids:
+            cur.execute("SELECT category FROM items WHERE id = %s;", (mid,))
+            m = cur.fetchone()
+            if not m or m["category"] not in MATERIAL_CATEGORIES:
+                raise HTTPException(400, "Recipe ingredients must come from Materials.")
+        cur.execute("""INSERT INTO recipes (product_id, yield_qty, notes) VALUES (%s, %s, %s)
+                       ON CONFLICT (product_id) DO UPDATE SET yield_qty = EXCLUDED.yield_qty, notes = EXCLUDED.notes, updated_at = now();""",
+                    (product_id, p.yield_qty, p.notes.strip()))
+        cur.execute("DELETE FROM recipe_lines WHERE product_id = %s;", (product_id,))
+        for l in p.lines:
+            cur.execute("INSERT INTO recipe_lines (product_id, material_id, qty) VALUES (%s, %s, %s);",
+                        (product_id, l.material_id, l.qty))
+        refresh_costs(cur)
+    return get_recipe(product_id)
+
+
+@api.delete("/recipes/{product_id}")
+def delete_recipe(product_id: int):
+    """Removes the recipe; the product keeps its last cost (editable by hand again)."""
+    with db() as conn:
+        r = conn.execute("DELETE FROM recipes WHERE product_id = %s RETURNING product_id;", (product_id,)).fetchone()
+    if not r:
+        raise HTTPException(404, "No recipe to remove.")
+    return {"ok": True}
+
+
+# ----------------------------------------------------------------------------
+# Product photos
+# ----------------------------------------------------------------------------
+
+class ImageIn(BaseModel):
+    mime: str
+    data_b64: str
+
+
+@api.put("/items/{item_id}/image")
+def set_item_image(item_id: int, p: ImageIn):
+    if not p.mime.startswith("image/"):
+        raise HTTPException(400, "Only photos can be used.")
+    try:
+        data = base64.b64decode(p.data_b64.split(",")[-1])
+    except Exception:
+        raise HTTPException(400, "Couldn't read that photo.")
+    if len(data) > 2 * 1024 * 1024:
+        raise HTTPException(400, "Photo is too large (max 2 MB).")
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM items WHERE id = %s;", (item_id,)).fetchone():
+            raise HTTPException(404, "Product not found.")
+        conn.execute("""INSERT INTO item_images (item_id, mime, data) VALUES (%s, %s, %s)
+                        ON CONFLICT (item_id) DO UPDATE SET mime = EXCLUDED.mime, data = EXCLUDED.data, updated_at = now();""",
+                     (item_id, p.mime, data))
+    return {"ok": True}
+
+
+@api.delete("/items/{item_id}/image")
+def delete_item_image(item_id: int):
+    with db() as conn:
+        conn.execute("DELETE FROM item_images WHERE item_id = %s;", (item_id,))
+    return {"ok": True}
+
+
+@app.get("/item-images/{item_id}")
+def get_item_image(item_id: int):
+    """Product photos are public (they're just menu pictures) so they can be cached."""
+    with db() as conn:
+        r = conn.execute("SELECT mime, data FROM item_images WHERE item_id = %s;", (item_id,)).fetchone()
+    if not r:
+        raise HTTPException(404, "No photo.")
+    return Response(content=bytes(r["data"]), media_type=r["mime"],
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 # ----------------------------------------------------------------------------
