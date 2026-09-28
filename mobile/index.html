@@ -1306,7 +1306,7 @@ async function countChecklistHtml() {
     if (i.category !== cat) { cat = i.category; html += `<h3 style="margin:16px 0 4px">${esc(cat)}</h3>`; }
     const v = draft.qty?.[i.item_id] ?? "";
     html += `<div class="count-item"><div>${esc(i.name)}${i.variant ? ` <span class="muted">(${esc(i.variant)})</span>` : ""}<br>
-      <span class="small muted">${money(i.unit_cost)} each${i.last_qty !== null && i.last_qty !== undefined ? ` · last count ${qty(i.last_qty)}` : ""}</span></div>
+      <span class="small muted">${Number(i.unit_cost) ? money(i.unit_cost) + " each" : `<span class="badge b-amber">no unit cost — valued at ₱0</span>`}${i.last_qty !== null && i.last_qty !== undefined ? ` · last count ${qty(i.last_qty)}` : ""}</span></div>
       <input type="number" inputmode="decimal" step="any" min="0" placeholder="count" data-count="${i.item_id}" data-cost="${i.unit_cost}" value="${esc(v)}" oninput="saveDraft()"></div>`;
   }
   return `<div class="card">
@@ -1320,6 +1320,8 @@ async function submitCount() {
   const inputs = $$("[data-count]");
   const blanks = inputs.filter(i => i.value === "").length;
   if (blanks && !confirm(`${blanks} item${blanks === 1 ? " is" : "s are"} blank and will be counted as 0. Submit anyway?`)) return;
+  const noCost = inputs.filter(i => Number(i.value) > 0 && !Number(i.dataset.cost)).length;
+  if (noCost && !confirm(`${noCost} counted item${noCost === 1 ? " has" : "s have"} no unit cost yet, so ${noCost === 1 ? "it's" : "they're"} valued at ₱0 and your COGS will be off. Add the costs in Products first (you can fix this count afterwards too). Submit anyway?`)) return;
   const lines = inputs.map(i => ({ item_id: Number(i.dataset.count), qty: Number(i.value || 0) }));
   const date = $("#countDate").value;
   if (!confirm(`Submit the count for ${fmtDate(date, false)}? It becomes this period's Ending Inventory and next period's Beginning Inventory.`)) return;
@@ -1392,12 +1394,12 @@ async function viewProducts() {
     <div class="card"><div class="table-wrap"><table>
       <thead><tr><th>ID</th><th>Product name</th><th>Category</th><th>Size / variant</th><th class="num">Unit cost</th><th class="num">Selling price</th><th class="num">Margin</th><th>Active</th><th></th></tr></thead>
       <tbody>${list.map(i => { const u = `/items/${i.id}`, gel = i.category === "Gelato";
-        const m = gel && i.selling_price ? Math.round((1 - i.unit_cost / i.selling_price) * 100) + "%" : "";
+        const m = gel && i.selling_price && i.unit_cost ? Math.round((1 - i.unit_cost / i.selling_price) * 100) + "%" : "";
         return `<tr style="${i.active ? "" : "opacity:.5"}"><td class="muted">${i.id}</td>
         ${editable("td", esc(i.name), { url: u, field: "name", value: i.name, after: reloadItems })}
         ${editable("td", esc(i.category), { url: u, field: "category", value: i.category, type: "select", options: CATEGORIES, after: reloadItems })}
         ${editable("td", esc(i.variant) || `<span class="muted">—</span>`, { url: u, field: "variant", value: i.variant, after: reloadItems })}
-        ${editable("td", money(i.unit_cost), { url: u, field: "unit_cost", value: i.unit_cost, type: "money", after: reloadItems }, "num")}
+        ${editable("td", Number(i.unit_cost) ? money(i.unit_cost) : `<span class="badge b-amber">not set</span>`, { url: u, field: "unit_cost", value: i.unit_cost, type: "money", after: reloadItems }, "num")}
         ${editable("td", gel ? money(i.selling_price) : `<span class="muted">—</span>`, { url: u, field: "selling_price", value: i.selling_price, type: "money", after: reloadItems }, "num")}
         <td class="num">${m}</td>
         ${editable("td", i.active ? "Yes" : "No", { url: u, field: "active", value: i.active, type: "bool", after: reloadItems })}
@@ -1414,7 +1416,7 @@ function openProductModal() {
       <div class="grid2">
         <label class="field"><span>Product name *</span><input name="name" required autocomplete="off" placeholder="e.g. Basque Burnt Cheesecake"></label>
         <label class="field"><span>Size / variant / unit</span><input name="variant" autocomplete="off" placeholder="e.g. Pint, Mini 89ml, 1 kg bag"></label>
-        <label class="field"><span>Unit cost (₱)</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>
+        <label class="field"><span>Unit cost (₱) · optional</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="add later"></label>
         <label class="field" id="priceField"><span>Selling price (₱)</span><input name="selling_price" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>
       </div>
       <p class="hint" id="productHint"></p>
@@ -1433,8 +1435,8 @@ function productCategoryChanged() {
   const cat = f.category.value, gel = cat === "Gelato";
   $("#priceField").classList.toggle("hidden", !gel);
   $("#productHint").textContent = gel
-    ? "Shows up as a button on the phone POS at this price. Unit cost is what one piece costs you to make (used to value the monthly count)."
-    : "Not sold — appears on the monthly count only. Count it in the same unit as the cost (cost per 1 kg bag → count bags).";
+    ? "Shows up as a button on the phone POS at this price. Unit cost (what one piece costs you to make) can be added later — it's only needed to value the monthly count."
+    : "Not sold — appears on the monthly count only. Unit cost can be added later, but set it before your count; count in the same unit as the cost (cost per 1 kg bag → count bags).";
 }
 async function reloadItems() { await loadItems(); await refresh(); }
 async function addProduct(e) {
