@@ -159,13 +159,15 @@
   /* copy buttons: big, obvious "Copied ✓" state */
   .copy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
   .copy-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 76px; padding: 10px 6px;
-    border: 1.5px solid #cdd9ea; background: var(--blue-bg); color: var(--blue); border-radius: 14px; cursor: pointer; text-align: center;
-    font-weight: 600; font-size: 13px; line-height: 1.2; transition: transform .08s, background .25s, border-color .25s, color .25s; }
+    border: 1.5px solid #b9cbe3; background: var(--blue-bg); color: var(--blue); border-radius: 14px; cursor: pointer; text-align: center;
+    font-weight: 600; font-size: 13px; line-height: 1.2; position: relative; top: 0;
+    box-shadow: 0 5px 0 #b3c5de, 0 7px 12px rgba(44,90,147,.12);
+    transition: top .06s, box-shadow .06s, background .2s, border-color .2s, color .2s; touch-action: manipulation; }
   .copy-btn small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .75; margin-bottom: 2px; }
-  .copy-btn:active { transform: scale(.93); filter: brightness(.9); }
-  .copy-btn.done { background: var(--green); border-color: var(--green); color: #fff; }
-  .copy-btn.flash { animation: copyflash .45s ease; }
-  @keyframes copyflash { 0% { transform: scale(.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  .copy-btn:active { top: 5px; box-shadow: 0 0 0 #b3c5de, 0 1px 3px rgba(44,90,147,.15); }
+  .copy-btn.hit { background: var(--green); border-color: var(--green); color: #fff; box-shadow: 0 5px 0 #17522b, 0 7px 12px rgba(34,115,61,.2); }
+  .copy-btn.hit:active { box-shadow: 0 0 0 #17522b; }
+  .live-card .copy-grid, .copy-grid { padding-bottom: 5px; }
   /* Schedule */
   .sched-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 4px 0 14px; }
   .sd { border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px;
@@ -1235,33 +1237,26 @@ function setPay(orderId, field, value) {
   o[field] = value; drawOrderCard(orderId);
   enqueue(orderId, () => api(`/orders/${orderId}`, { method: "PATCH", body: { [field]: value } }));
 }
-// Which copy buttons were already pressed, per open order (so you can see at a glance what's been sent).
-let COPIED = {};
-try { COPIED = JSON.parse(localStorage.getItem("rochar_copied") || "{}"); } catch (e) {}
-function saveCopied() { try { localStorage.setItem("rochar_copied", JSON.stringify(COPIED)); } catch (e) {} }
+// Copy buttons behave like physical buttons: press → it pushes down, flashes "Copied ✓" for a moment, then pops back.
 const COPY_KINDS = [["customer", "Customer", "message"], ["location", "Rider", "location"], ["df", "Rider", "DF request"]];
 const COPY_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>`;
 const CHECK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
 function copyButtons(id) {
-  const done = COPIED[id] || {};
   return `<div class="copy-grid">${COPY_KINDS.map(([k, a, b]) => `
-    <button type="button" class="copy-btn ${done[k] ? "done" : ""}" data-copy="${k}" onclick="copyOrder(${id}, '${k}', this)">
-      <span class="cb-ic">${done[k] ? CHECK_ICON : COPY_ICON}</span>
-      <span class="cb-txt"><small>${done[k] ? "Copied" : "Copy"}</small>${a} ${b}</span></button>`).join("")}</div>`;
+    <button type="button" class="copy-btn" onclick="copyOrder(${id}, '${k}', this)">
+      <span class="cb-ic">${COPY_ICON}</span>
+      <span class="cb-txt"><small>Copy</small>${a} ${b}</span></button>`).join("")}</div>`;
 }
 async function copyOrder(id, which, el) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
   if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), "Customer message"); }
   if (which === "location") await copyText(S.settings.msg_rider_location || "", "Rider location");
   if (which === "df") await copyText(S.settings.msg_rider_df || "", "Rider DF request");
-  (COPIED[id] = COPIED[id] || {})[which] = true; saveCopied();
-  if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
-  // mark every copy of this button on screen (list card + open sheet)
-  $$(`.copy-btn[data-copy="${which}"]`).forEach(b => {
-    if (!b.closest(`[data-order="${id}"]`) && b !== el && !b.closest("#oc" + id)) return;
-    b.classList.add("done"); $(".cb-ic", b).innerHTML = CHECK_ICON; $(".cb-txt small", b).textContent = "Copied";
-    b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash");
-  });
+  if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
+  if (!el) return;
+  clearTimeout(el._t);
+  el.classList.add("hit"); $(".cb-ic", el).innerHTML = CHECK_ICON; $(".cb-txt small", el).textContent = "Copied";
+  el._t = setTimeout(() => { el.classList.remove("hit"); $(".cb-ic", el).innerHTML = COPY_ICON; $(".cb-txt small", el).textContent = "Copy"; }, 1100);
 }
 
 // ---- Schedule: every live + finished order by delivery day
@@ -1328,8 +1323,7 @@ async function viewLiveOrders() {
   }
   if (!busy()) S.orders = await api("/orders/open");
   S.openCount = S.orders.length; renderTabs();
-  for (const k of Object.keys(COPIED)) if (!S.orders.some(o => o.id === Number(k))) delete COPIED[k];
-  saveCopied();
+  try { localStorage.removeItem("rochar_copied"); } catch (e) {}
   const cards = S.orders.slice().reverse().map(o => {
     const n = o.items.reduce((s, i) => s + Number(i.qty), 0);
     return `<div class="live-card" data-order="${o.id}">
