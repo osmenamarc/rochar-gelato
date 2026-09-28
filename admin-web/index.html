@@ -488,6 +488,9 @@
     .boxy .line.prod { grid-template-columns: 1fr 52px; } .boxy .line.prod > :first-child { grid-column: 1 / -1; }
     .boxy .line { padding-bottom: 10px; border-bottom: 1px dashed #ebe0d3; }
   }
+  .add-link { background: none; border: none; padding: 6px 2px; color: var(--gold); font-weight: 700; font-size: 14px; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px; transition: opacity .15s; }
+  .add-link:active { opacity: .5; }
   .box-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 12px 14px;
     border: 2px solid #ebe0d3; border-radius: 14px; background: #faf6f1; color: var(--accent); font-weight: 700; font-size: 15px; cursor: pointer;
     transition: transform .08s, background .2s, border-color .2s; }
@@ -1728,7 +1731,7 @@ function ledgerForm(kind) {
     <div class="lines">
       <div class="line-head">${isP ? "Item · Qty · Amount (₱)" : "Particulars · Amount (₱)"}</div>
       <div id="rows_${kind}"></div>
-      <button type="button" class="box-btn" onclick="addLedgerRow('${kind}')">+ Add ${isP ? "item" : "line"}</button>
+      <button type="button" class="add-link" onclick="addLedgerRow('${kind}')">+ add another ${isP ? "item" : "line"}</button>
     </div>
     <div class="total-box"><span>Total</span><span id="total_${kind}">₱0</span></div>
     <div class="field"><span>Payment method</span>${payChips("pay_" + kind)}</div>
@@ -1954,7 +1957,7 @@ function productionForm() {
   return `<form class="boxy" onsubmit="submitProduction(event)">
     <label class="field"><span>Date & time</span><input type="datetime-local" name="when" value="${localInputNow()}"></label>
     <div class="lines"><div class="line-head">Product · Quantity produced</div><div id="rows_prod"></div>
-      <button type="button" class="box-btn" onclick="addProdRow()">+ Add product</button></div>
+      <button type="button" class="add-link" onclick="addProdRow()">+ add another product</button></div>
     <label class="field"><span>Notes (optional)</span><input name="notes"></label>
     <div class="form-error" id="err_prod"></div>
     <button class="btn block big" id="save_prod">Save production</button></form>`;
