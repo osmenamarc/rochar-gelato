@@ -76,8 +76,7 @@ DELETE FROM settings WHERE key IN ('alert_emails', 'order_alert_days', 'alerts_e
 CREATE TABLE IF NOT EXISTS items (
     id             SERIAL PRIMARY KEY,
     name           TEXT NOT NULL,
-    category       TEXT NOT NULL DEFAULT 'Gelato'
-                   CHECK (category IN ('Gelato', 'Raw Material', 'Packaging')),
+    category       TEXT NOT NULL DEFAULT 'Pint',   -- Mini / Pint / Cake (sold) or Raw Material / Packaging (count only)
     variant        TEXT NOT NULL DEFAULT '',        -- size / variant / unit, e.g. "Pint 475ml", "1 kg bag"
     unit_cost      NUMERIC(12,2) NOT NULL DEFAULT 0,
     selling_price  NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -294,3 +293,19 @@ ALTER TABLE purchases ADD COLUMN IF NOT EXISTS settled_at TIMESTAMPTZ;
 ALTER TABLE purchases ADD COLUMN IF NOT EXISTS settled_method TEXT;
 ALTER TABLE expenses  ADD COLUMN IF NOT EXISTS settled_at TIMESTAMPTZ;
 ALTER TABLE expenses  ADD COLUMN IF NOT EXISTS settled_method TEXT;
+
+
+-- ============================================================================
+-- v4: product categories. Finished goods are Mini / Pint / Cake (shown on the
+-- POS); Raw Material / Packaging live on the separate Materials page and only
+-- feed the monthly count. Old "Gelato" items are sorted by their size text.
+-- ============================================================================
+ALTER TABLE items DROP CONSTRAINT IF EXISTS items_category_check;
+UPDATE items SET category = CASE
+    WHEN variant ILIKE '%mini%' OR name ILIKE '%mini%' THEN 'Mini'
+    WHEN variant ILIKE '%cake%' OR name ILIKE '%cake%' AND name NOT ILIKE '%cheesecake%' THEN 'Cake'
+    ELSE 'Pint' END
+  WHERE category = 'Gelato';
+ALTER TABLE items ALTER COLUMN category SET DEFAULT 'Pint';
+ALTER TABLE items ADD CONSTRAINT items_category_check
+    CHECK (category IN ('Mini', 'Pint', 'Cake', 'Raw Material', 'Packaging'));

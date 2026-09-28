@@ -160,6 +160,71 @@
   tr.clickable { cursor: pointer; }
   tr.clickable:hover td { background: var(--hover); }
   .var-pos { color: var(--amber); } .var-neg { color: var(--red); } .var-zero { color: var(--green); }
+  /* POS (tap → ticket → Charge) */
+  .pos-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .ticket-lbl { font-weight: 700; letter-spacing: .12em; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+  .tk-count { min-width: 28px; height: 28px; border-radius: 99px; background: var(--cream); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; padding: 0 8px; transition: background .2s, color .2s; }
+  .tk-count.on { background: var(--gold); color: #fff; }
+  .btn.caps { text-transform: uppercase; letter-spacing: .1em; font-weight: 600; font-size: 12px; padding: 8px 14px; }
+  .charge { width: 100%; border: none; border-radius: 16px; padding: 20px; font-size: 20px; font-weight: 700; cursor: pointer; margin-bottom: 14px;
+    background: var(--accent); color: #fff; box-shadow: 0 8px 24px rgba(68,49,40,.22); transition: background .2s, opacity .2s, transform .1s; }
+  .charge:active:not(:disabled) { transform: scale(.985); }
+  .charge:disabled { background: var(--cream); color: var(--muted); box-shadow: none; cursor: default; }
+  .charge span { margin-left: 6px; }
+  .open-strip { display: flex; gap: 8px; align-items: center; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; scrollbar-width: none; }
+  .open-strip::-webkit-scrollbar { display: none; }
+  .open-chip { white-space: nowrap; background: #fff; border: 1px solid var(--gold); color: var(--ink); border-radius: 99px; padding: 8px 14px; cursor: pointer; }
+  .menu { background: #fff; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+  .menu-grp { font-size: 12px; font-weight: 700; letter-spacing: .14em; color: var(--gold); padding: 18px 18px 6px; }
+  .menu-row { display: grid; grid-template-columns: 46px 1fr auto; gap: 14px; align-items: center; padding: 14px 18px; border-top: 1px solid var(--border);
+    cursor: pointer; position: relative; user-select: none; -webkit-user-select: none; transition: background .15s; }
+  .menu-grp + .menu-row { border-top: none; }
+  .menu-row:active { background: var(--hover); }
+  .menu-row.in { background: #fffaf2; }
+  .menu-row.tap { animation: tapflash .35s ease; }
+  @keyframes tapflash { 0% { background: var(--gold-soft); } 100% { background: #fffaf2; } }
+  .menu-thumb { width: 46px; height: 46px; border-radius: 12px; background: var(--cream); color: var(--gold); display: flex; align-items: center; justify-content: center;
+    font: 600 16px "Playfair Display", Georgia, serif; border: 1px solid #eadcc6; }
+  .menu-name { font-weight: 600; font-size: 16px; color: var(--accent); line-height: 1.25; }
+  .menu-name small { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); }
+  .menu-price { font-weight: 700; color: var(--gold); white-space: nowrap; text-align: right; }
+  .menu-price small { font-weight: 500; }
+  .menu-q { position: absolute; left: 50px; top: 8px; background: var(--accent); color: #fff; border-radius: 99px; font-size: 11.5px; font-weight: 700; padding: 1px 7px; }
+  .menu-q:empty { display: none; }
+  .menu-minus { display: none; position: absolute; right: 18px; bottom: 6px; border: 1px solid var(--border); background: #fff; color: var(--red); border-radius: 8px; width: 30px; height: 22px; font-size: 16px; line-height: 1; cursor: pointer; }
+  .menu-row.in .menu-minus { display: block; }
+  .menu-row.in .menu-price { transform: translateY(-8px); }
+  #orderCards.in-sheet .ocard { border: none; margin: 0; }
+  #orderCards.in-sheet .ocard-head { display: none; }
+  #orderCards.in-sheet .ocard-body { padding: 0; }
+  details.addmore { margin: 10px 0 14px; }
+  details.addmore summary { cursor: pointer; color: var(--blue); font-size: 13px; margin-bottom: 8px; }
+
+  /* row selection + edit pencil */
+  .sel-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: -4px 0 10px; min-height: 38px; }
+  .sel-hint { font-size: 12px; color: var(--muted); transition: color .2s; }
+  .sel-hint.on { color: var(--gold); font-weight: 600; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--muted);
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 auto;
+    transition: background .2s, color .2s, transform .2s var(--ease), opacity .2s, box-shadow .2s; }
+  .icon-btn:disabled { opacity: .35; cursor: default; }
+  .icon-btn.go { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(68,49,40,.25); animation: pop .3s var(--ease); }
+  .icon-btn.go:hover { background: var(--accent-2); }
+  .icon-btn.danger { color: var(--red); border-color: #efc9c3; }
+  .icon-btn.danger:hover { background: var(--red-bg); }
+  .icon-btn.sm { width: 30px; height: 30px; border-radius: 8px; }
+  @keyframes pop { 0% { transform: scale(.8); } 60% { transform: scale(1.08); } 100% { transform: none; } }
+  .sel-card tr[data-row] { cursor: pointer; }
+  .sel-card tr[data-row]:hover td { background: var(--hover); }
+  .sel-card tr.selected td { background: var(--gold-soft) !important; }
+  .sel-card tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+  .edit-actions { margin-top: 14px; align-items: center; }
+  .edit-lines .eline { display: grid; grid-template-columns: 1fr 80px 120px 30px; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .edit-lines.exp .eline { grid-template-columns: 1fr 120px 30px; }
+  .edit-lines input { padding: 8px 9px; border: 1px solid var(--border); border-radius: 8px; width: 100%; min-width: 0; }
+  .eline.removed { opacity: .4; } .eline.removed input { text-decoration: line-through; }
+  .proof-grid { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+  .proof-grid .thumb { width: 84px; height: 84px; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
   }
@@ -353,14 +418,17 @@ const MODE = new URLSearchParams(location.search).get("mode") || (location.hostn
 const OTHER_SITE = MODE === "mobile" ? ["https://admin.rochargelato.com", "Web admin"] : ["https://app.rochargelato.com", "Phone app"];
 const PAYMENTS = ["Cash", "GCash", "Gino", "Credit Card", "Check"];
 const DEFAULT_PAYMENT = "Gino";
-const CATEGORIES = ["Gelato", "Raw Material", "Packaging"];
+const SELL_CATS = ["Mini", "Pint", "Cake"];              // finished goods — on the POS
+const MAT_CATS = ["Raw Material", "Packaging"];          // bought materials — Materials page + count
+const CATEGORIES = [...SELL_CATS, ...MAT_CATS];
+const isSellable = i => SELL_CATS.includes(i.category);
 const REFRESH_MS = 15000;
 
 const NAV_GROUPS = [
   ["DASHBOARD", [["dashboard", "Dashboard"], ["sales", "Sales"]]],
   ["CLIENTS", [["customers", "Customers"], ["resellers", "Resellers"]]],
   ["FINANCE", [["reconciliation", "Reconciliation"], ["receivables", "Receivables"], ["liabilities", "Liabilities"]]],
-  ["OPERATIONS", [["products", "Products"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["inventory", "Inventory"]]],
+  ["OPERATIONS", [["products", "Products"], ["materials", "Materials"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["inventory", "Inventory"]]],
 ];
 const TABS = MODE === "mobile"
   ? [["orders", "Orders"], ["sales", "Sales"], ["buy", "Buy"], ["expense", "Expense"], ["make", "Make"], ["count", "Count"]]
@@ -370,7 +438,7 @@ const SALE_METHODS = ["Cash", "GCash", "Bank"];
 // ---------------------------------------------------------------- helpers
 let TOKEN = null;
 try { TOKEN = localStorage.getItem("rochar_token"); } catch (e) {}
-const S = { tab: TABS[0][0], items: [], settings: {}, orders: [], openCount: 0, customers: [], prices: {} };
+const S = { tab: TABS[0][0], items: [], settings: {}, orders: [], openCount: 0, customers: [], prices: {}, addMore: {} };
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -453,7 +521,7 @@ function closeModal() {
 }
 $("#modal").addEventListener("cancel", e => { e.preventDefault(); closeModal(); });   // Esc key
 $("#modal").addEventListener("click", e => { if (e.target === $("#modal")) closeModal(); });   // click outside
-$("#modal").addEventListener("close", () => { $("#modalBody").innerHTML = ""; });
+$("#modal").addEventListener("close", () => { $("#modalBody").innerHTML = ""; if (S.tab === "orders") setTimeout(refresh, 50); });
 
 // ---------------------------------------------------------------- login
 async function showLogin(msg) {
@@ -510,6 +578,7 @@ const ICON_PATHS = {
   reconciliation: '<path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 006 0zM19 7l-3 7a3 3 0 006 0z"/>',
   receivables: '<path d="M12 3v11M7.5 9.5L12 14l4.5-4.5"/><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4"/>',
   liabilities: '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6 15h4"/>',
+  materials: '<path d="M4 20h16M6 20V10l6-6 6 6v10"/><path d="M10 20v-5h4v5"/>',
   inventory: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.8h6V4M9 10l1.5 1.5L14 8M9 16h6"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
 };
@@ -545,6 +614,7 @@ async function loadCustomers() {
 const priceFor = (o, item) => (o.customer_id && S.prices[o.customer_id] && S.prices[o.customer_id][item.id] !== undefined)
   ? S.prices[o.customer_id][item.id] : item.selling_price;
 const activeItems = cat => S.items.filter(i => i.active && (!cat || i.category === cat));
+const sellables = () => S.items.filter(i => i.active && isSellable(i));
 
 // "Real-time" sync: every 15 s (and whenever the app comes back to the
 // foreground) the live screens reload — unless you're in the middle of typing.
@@ -574,9 +644,9 @@ async function start() {
 const EDITS = {}; let editSeq = 0;
 function editable(tag, display, cfg, cls = "") {
   const id = "e" + (++editSeq); EDITS[id] = cfg;
-  return `<${tag} class="ed ${cls}" data-eid="${id}" title="Click to edit">${display}</${tag}>`;
+  return `<${tag} class="ed ${cls}" data-eid="${id}" title="Double-click to edit here">${display}</${tag}>`;
 }
-document.addEventListener("click", e => {
+document.addEventListener("dblclick", e => {
   const cell = e.target.closest(".ed");
   if (!cell || cell.classList.contains("editing")) return;
   const cfg = EDITS[cell.dataset.eid]; if (!cfg) return;
@@ -621,6 +691,92 @@ document.addEventListener("click", e => {
   input.addEventListener("blur", () => finish(true));
   if (input.tagName === "SELECT") input.addEventListener("change", () => input.blur());
 });
+
+// ---------------------------------------------------------------- row selection → pencil → edit pop-up
+// Click a row to select it; the pencil at the top right of that table
+// lights up. Pencil (or double-click a row) opens the edit pop-up, which
+// is also where removing lives (trash icon). Esc clears the selection.
+const ICON_PENCIL = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 013 3L8 18l-4 1 1-4z"/><path d="M14.5 5.5l3 3"/></svg>`;
+const ICON_TRASH = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 001 1h10a1 1 0 001-1l1-13M9 7V4h6v3"/></svg>`;
+const SEL = {};
+function selCard(key, onEdit, inner, hint = "Click a row to select it") {
+  SEL[key] = { onEdit, selected: null, hint };
+  return `<div class="card sel-card" data-table="${key}">
+    <div class="sel-bar"><span class="sel-hint">${hint}</span>
+      <button type="button" class="icon-btn" disabled title="Edit selected row" onclick="editSelected('${key}')">${ICON_PENCIL}</button></div>
+    ${inner}</div>`;
+}
+function selectRow(card, id) {
+  const st = SEL[card.dataset.table]; if (!st) return;
+  $$("tr.selected", card).forEach(r => r.classList.remove("selected"));
+  st.selected = id;
+  if (id !== null) $$(`tr[data-row="${id}"]`, card).forEach(r => r.classList.add("selected"));
+  const btn = $(".sel-bar .icon-btn", card), hint = $(".sel-hint", card);
+  btn.disabled = id === null; btn.classList.toggle("go", id !== null);
+  hint.classList.toggle("on", id !== null);
+  hint.textContent = id === null ? st.hint : "1 row selected — tap the pencil to edit";
+}
+function editSelected(key) { const st = SEL[key]; if (st && st.selected !== null) st.onEdit(st.selected); }
+document.addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-row]"), card = tr && tr.closest(".sel-card");
+  if (!card || e.target.closest("a, button, input, select, label, .ed.editing")) return;
+  const st = SEL[card.dataset.table]; if (!st) return;
+  selectRow(card, st.selected === tr.dataset.row ? null : tr.dataset.row);
+});
+document.addEventListener("dblclick", e => {
+  const tr = e.target.closest("tr[data-row]"), card = tr && tr.closest(".sel-card");
+  if (!card || e.target.closest(".ed, a, button, input, select, label")) return;
+  selectRow(card, tr.dataset.row); editSelected(card.dataset.table);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#modal").open) $$(".sel-card").forEach(c => SEL[c.dataset.table] && selectRow(c, null)); });
+
+// Generic edit pop-up: fields → PATCH only what changed; optional trash (remove).
+function fieldInput(f, v) {
+  const n = `name="${f.name}"`;
+  if (f.type === "select") return `<select ${n}>${f.options.map(o => { const [val, lab] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(val)}" ${String(val) === String(v) ? "selected" : ""}>${esc(lab)}</option>`; }).join("")}</select>`;
+  if (f.type === "bool") return `<select ${n}><option value="true" ${v ? "selected" : ""}>Yes</option><option value="false" ${!v ? "selected" : ""}>No</option></select>`;
+  if (f.type === "textarea") return `<textarea ${n} rows="2">${esc(v)}</textarea>`;
+  if (f.type === "datetime") return `<input ${n} type="datetime-local" value="${v ? toManilaInput(v) : ""}">`;
+  if (f.type === "date") return `<input ${n} type="date" value="${esc(String(v || "").slice(0, 10))}">`;
+  if (f.type === "money" || f.type === "qty") return `<input ${n} type="number" step="any" min="0" inputmode="decimal" value="${v === null || v === undefined ? "" : Number(v)}">`;
+  return `<input ${n} value="${esc(v)}" autocomplete="off">`;
+}
+function readInput(form, f) {
+  const v = form.elements[f.name].value;
+  if (f.type === "bool") return v === "true";
+  if (f.type === "money" || f.type === "qty") return v === "" ? 0 : Number(v);
+  if (f.type === "datetime") return fromManilaInput(v);
+  return v;
+}
+function sameValue(f, a, b) {
+  if (f.type === "datetime") return toManilaInput(a) === toManilaInput(b);
+  if (f.type === "money" || f.type === "qty") return Number(a || 0) === Number(b || 0);
+  if (f.type === "date") return String(a || "").slice(0, 10) === String(b || "").slice(0, 10);
+  return String(a ?? "") === String(b ?? "");
+}
+let EDIT = null;
+function editModal({ title, url, fields, obj, top = "", buttons = "", onRemove = null, removeConfirm = "", after = null }) {
+  EDIT = { url, fields, obj, onRemove, removeConfirm, after };
+  openModal(title, `<form id="editForm" onsubmit="saveEdit(event)">${top}
+    <div class="grid2">${fields.map(f => `<label class="field" style="${f.full || f.type === "textarea" ? "grid-column:1/-1" : ""}"><span>${f.label}</span>${fieldInput(f, obj[f.name])}</label>`).join("")}</div>
+    <div class="form-error" id="editError"></div>
+    <div class="row edit-actions">
+      ${onRemove ? `<button type="button" class="icon-btn danger" title="Remove" onclick="removeEdit()">${ICON_TRASH}</button>` : ""}
+      ${buttons}<span style="flex:1"></span>
+      <button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Save</button></div></form>`);
+}
+async function saveEdit(e) {
+  e.preventDefault(); const f = e.target, E = EDIT, changes = {};
+  E.fields.forEach(fd => { const v = readInput(f, fd); if (!sameValue(fd, v, E.obj[fd.name])) changes[fd.name] = v; });
+  if (!Object.keys(changes).length) return closeModal();
+  try { await api(E.url, { method: "PATCH", body: changes }); closeModal(); toast("Saved"); await (E.after || refresh)(); }
+  catch (err) { $("#editError").textContent = err.message; }
+}
+async function removeEdit() {
+  const E = EDIT; if (!confirm(E.removeConfirm)) return;
+  try { await E.onRemove(); closeModal(); toast("Removed"); await (E.after || refresh)(); }
+  catch (err) { $("#editError").textContent = err.message; }
+}
 
 // ---------------------------------------------------------------- shared form bits
 function payChips(name, selected = DEFAULT_PAYMENT) {
@@ -711,25 +867,89 @@ function replaceOrder(o) {
   drawOrderCard(o.id);
 }
 
+// ---- POS: tap products into a ticket → Charge → finish the order in a sheet
+let TICKET = {};
+try { TICKET = JSON.parse(localStorage.getItem("rochar_ticket") || "{}"); } catch (e) {}
+function saveTicket() { try { localStorage.setItem("rochar_ticket", JSON.stringify(TICKET)); } catch (e) {} }
+function ticketTotals() {
+  let n = 0, total = 0;
+  for (const [id, q] of Object.entries(TICKET)) { const it = S.items.find(i => i.id === Number(id)); if (it && it.active) { n += q; total += q * it.selling_price; } }
+  return { n, total };
+}
+const initials = name => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
 async function viewOrders() {
   if (!busy()) [S.orders] = await Promise.all([api("/orders/open"), loadCustomers()]);
   S.openCount = S.orders.length; renderTabs();
-  const gelato = activeItems("Gelato");
+  for (const id of Object.keys(TICKET)) if (!S.items.some(i => i.id === Number(id) && i.active)) delete TICKET[id];
+  const gelato = sellables();
+  const groups = {};
+  SELL_CATS.forEach(c => { const list = gelato.filter(i => i.category === c); if (list.length) groups[c.toUpperCase()] = list; });
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Ongoing orders</h2>
-      <button class="btn" onclick="newOrder()">+ New order</button></div>
-    ${gelato.length ? "" : `<div class="card"><b>No gelato products yet.</b> <span class="muted">Add them in the web admin → Products (category “Gelato”) and they'll appear here as buttons.</span></div>`}
-    <div id="orderCards">${S.orders.length ? "" : `<div class="card empty">No open orders. Tap “+ New order” when a customer messages.</div>`}</div>`;
-  S.orders.forEach(o => drawOrderCard(o.id));
+    <div class="pos-top">
+      <div class="ticket-lbl">TICKET <span class="tk-count" id="tkCount">0</span></div>
+      <div class="row"><button class="btn ghost sm caps" onclick="go('sales')">History</button>
+        <button class="btn ghost sm caps" id="tkClear" onclick="clearTicket()">Clear</button></div>
+    </div>
+    <button class="charge" id="chargeBtn" onclick="charge()">Charge <span id="chargeAmt">₱0</span></button>
+    ${S.orders.length ? `<div class="open-strip"><span class="small muted">Open orders</span>
+      ${S.orders.map(o => `<button class="open-chip" onclick="openOrderSheet(${o.id})"><b>#${o.id}</b> ${esc(o.customer_name || "—")} · ${money(o.total)}${o.payment_status === "credit" ? ` <span class="badge b-amber">credit</span>` : ""}</button>`).join("")}</div>` : ""}
+    <div class="menu">
+      ${gelato.length ? Object.entries(groups).map(([g, list]) => `<div class="menu-grp">${esc(g)}</div>` + list.map(i => `
+        <div class="menu-row" id="mr${i.id}" onclick="tapItem(${i.id})">
+          <span class="menu-thumb">${esc(initials(i.name))}</span>
+          <span class="menu-name">${esc(i.name)}${i.variant ? `<small>${esc(i.variant)}</small>` : ""}</span>
+          <span class="menu-price">${money(i.selling_price)} <small>/ pc</small></span>
+          <span class="menu-q" id="mq${i.id}"></span>
+          <button type="button" class="menu-minus" id="mm${i.id}" onclick="event.stopPropagation(); tapItem(${i.id}, -1)" aria-label="Remove one">−</button>
+        </div>`).join("")).join("")
+      : `<div class="empty">No products yet. Add them in the web admin → Products (Mini, Pint or Cake).</div>`}
+    </div>`;
+  drawTicket();
 }
+function drawTicket() {
+  const { n, total } = ticketTotals();
+  if (!$("#chargeBtn")) return;
+  $("#tkCount").textContent = n; $("#tkCount").classList.toggle("on", n > 0);
+  $("#chargeAmt").textContent = money(total);
+  $("#chargeBtn").disabled = !n; $("#tkClear").disabled = !n;
+  $$(".menu-row").forEach(r => {
+    const id = Number(r.id.slice(2)), q = TICKET[id] || 0;
+    $("#mq" + id).textContent = q ? "×" + q : ""; r.classList.toggle("in", q > 0);
+  });
+}
+function tapItem(id, delta = 1) {
+  TICKET[id] = Math.max(0, (TICKET[id] || 0) + delta); if (!TICKET[id]) delete TICKET[id];
+  saveTicket(); drawTicket();
+  const r = $("#mr" + id); if (r && delta > 0) { r.classList.remove("tap"); void r.offsetWidth; r.classList.add("tap"); }
+  if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {}
+}
+function clearTicket() {
+  if (!ticketTotals().n || !confirm("Clear the ticket?")) return;
+  TICKET = {}; saveTicket(); drawTicket();
+}
+async function charge() {
+  const items = Object.entries(TICKET).map(([id, q]) => ({ item_id: Number(id), qty: q })).filter(x => x.qty > 0);
+  if (!items.length) return;
+  const btn = $("#chargeBtn"); btn.disabled = true;
+  try {
+    const o = await api("/orders", { method: "POST", body: { items } });
+    TICKET = {}; saveTicket();
+    S.orders.push(o); S.openCount = S.orders.length; renderTabs();
+    openOrderSheet(o.id);
+    refresh();
+  } catch (err) { toast(err.message, true); btn.disabled = false; }
+}
+function openOrderSheet(id) {
+  const o = S.orders.find(x => x.id === id); if (!o) return;
+  delete collapsed[id];
+  openModal(`Order #${id}`, `<div id="orderCards" class="in-sheet"></div>`);
+  drawOrderCard(id);
+}
+// the old "+ New order" (web / fallback): an empty order straight into the sheet
 async function newOrder() {
   try {
     const o = await api("/orders", { method: "POST" });
-    delete collapsed[o.id]; saveCollapsed();
-    if (!S.orders.length) $("#orderCards").innerHTML = "";
-    S.orders.push(o); S.openCount = S.orders.length; renderTabs();
-    S.animateNew = o.id; drawOrderCard(o.id);
-    document.getElementById("oc" + o.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    S.orders.push(o); S.openCount = S.orders.length; renderTabs(); openOrderSheet(o.id);
   } catch (err) { toast(err.message, true); }
 }
 function orderMessage(o) {
@@ -762,6 +982,18 @@ function drawOrderCard(id) {
       <div class="row"><b class="oc-total">${money(o.total)}</b><span class="muted chev">▾</span></div>
     </div>
     <div class="ocard-body-wrap"><div><div class="ocard-body">
+      <details class="addmore" ${S.addMore[id] ? "open" : ""} ontoggle="S.addMore[${id}]=this.open"><summary>+ Add more items</summary>
+      <div class="pos">${sellables().map(i => `<button type="button" onclick="bump(${id}, ${i.id}, 1)">
+        <b>${esc(i.name)}</b><span>${esc(i.variant)}${i.variant ? " · " : ""}${money(priceFor(o, i))}</span>
+        ${qtyOf(i.id) ? `<span class="q">${qtyOf(i.id)}</span>` : ""}</button>`).join("")}</div></details>
+      ${o.items.length ? o.items.map(i => `<div class="oline"><div>${esc(itemLabel(i.name, i.variant))}<br><span class="small muted">${money(i.unit_price)} each</span></div>
+          <div class="stepper"><button type="button" onclick="bump(${id}, ${i.item_id}, -1)">−</button><span>${qty(i.qty)}</span><button type="button" onclick="bump(${id}, ${i.item_id}, 1)">+</button></div>
+          <b>${money(i.amount)}</b></div>`).join("") : `<p class="muted small">Tap the flavors above to add them.</p>`}
+      <div class="sums">
+        <div><span>Items</span><span>${money(o.subtotal)}</span></div>
+        <div><span>Delivery fee</span><span class="oc-df">${money(o.delivery_fee)}</span></div>
+        <div class="grand"><span>Total</span><span class="oc-grand">${money(o.total)}</span></div>
+      </div>
       <div class="field"><span>Customer</span>
         <div class="typeahead">
           <input data-f="customer_name" data-search="${id}" autocomplete="off" placeholder="Type 2–3 letters to search clients…" value="${esc(o.customer_name)}">
@@ -771,17 +1003,6 @@ function drawOrderCard(id) {
           ? `<span class="badge ${o.customer_tier === "Reseller" ? "b-blue" : "b-gray"}">${esc(o.customer_tier || "Retail")} · saved client</span>
              ${o.customer_tier === "Reseller" ? `<span class="muted">reseller prices applied</span>` : ""} <button type="button" class="link" onclick="linkCustomer(${id}, null)">unlink</button>`
           : (o.customer_name ? `<span class="muted">New client — saved when the order is finished</span>` : "")}</div>
-      </div>
-      <div class="pos">${activeItems("Gelato").map(i => `<button type="button" onclick="bump(${id}, ${i.id}, 1)">
-        <b>${esc(i.name)}</b><span>${esc(i.variant)}${i.variant ? " · " : ""}${money(priceFor(o, i))}</span>
-        ${qtyOf(i.id) ? `<span class="q">${qtyOf(i.id)}</span>` : ""}</button>`).join("")}</div>
-      ${o.items.length ? o.items.map(i => `<div class="oline"><div>${esc(itemLabel(i.name, i.variant))}<br><span class="small muted">${money(i.unit_price)} each</span></div>
-          <div class="stepper"><button type="button" onclick="bump(${id}, ${i.item_id}, -1)">−</button><span>${qty(i.qty)}</span><button type="button" onclick="bump(${id}, ${i.item_id}, 1)">+</button></div>
-          <b>${money(i.amount)}</b></div>`).join("") : `<p class="muted small">Tap the flavors above to add them.</p>`}
-      <div class="sums">
-        <div><span>Items</span><span>${money(o.subtotal)}</span></div>
-        <div><span>Delivery fee</span><span class="oc-df">${money(o.delivery_fee)}</span></div>
-        <div class="grand"><span>Total</span><span class="oc-grand">${money(o.total)}</span></div>
       </div>
       <div class="field"><span>Payment</span>
         <div class="row">
@@ -807,7 +1028,7 @@ function drawOrderCard(id) {
       <button type="button" class="btn green block big" onclick="finishOrder(${id})">Order finished</button>
       <div class="row spread" style="margin-top:10px">
         <span class="small muted">Saved automatically</span>
-        <button type="button" class="link red" onclick="cancelOrder(${id})">${o.items.length ? "Void order" : "Delete"}</button>
+        <button type="button" class="link red" onclick="cancelOrder(${id})">${o.items.length ? "Void order" : "Cancel order"}</button>
       </div>
     </div></div></div>`;
   if (!card) {
@@ -941,7 +1162,7 @@ async function finishOrder(id) {
     await flushOrder(id);
     const done = await api(`/orders/${id}/finish`, { method: "POST" });
     S.orders = S.orders.filter(x => x.id !== id); S.openCount = S.orders.length; renderTabs();
-    drawOrderCard(id); toast(`Order #${id} finished — ${money(done.total)}`);
+    toast(`Order #${id} finished — ${money(done.total)}`); if ($("#modal").open) closeModal(); refresh();
     loadCustomers().catch(() => {});   // pick up a newly saved client
   } catch (err) { toast(err.message, true); }
 }
@@ -949,15 +1170,15 @@ async function cancelOrder(id) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
   try {
     if (!o.items.length) {
-      if (!confirm(`Delete empty order #${id}?`)) return;
+      if (!confirm(`Cancel empty order #${id}?`)) return;
       await queues[id]; await api(`/orders/${id}`, { method: "DELETE" });
     } else {
       const reason = prompt(`Void order #${id}? It stays in Sales history, crossed out.\nReason (optional):`, "");
       if (reason === null) return;
       await queues[id]; await api(`/orders/${id}/void`, { method: "POST", body: { reason } });
     }
-    S.orders = S.orders.filter(x => x.id !== id); S.openCount = S.orders.length; renderTabs(); drawOrderCard(id);
-    toast(o.items.length ? `Order #${id} voided` : "Deleted");
+    S.orders = S.orders.filter(x => x.id !== id); S.openCount = S.orders.length; renderTabs();
+    toast(o.items.length ? `Order #${id} voided` : "Order cancelled"); if ($("#modal").open) closeModal(); refresh();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -990,7 +1211,7 @@ async function viewSales() {
     }
     body = `<div class="card">${html || `<div class="empty">No sales in this range.</div>`}</div>`;
   } else {
-    body = `<div class="card"><div class="table-wrap"><table>
+    body = selCard("sales", editSaleModal, `<div class="table-wrap"><table>
       <thead><tr><th>Order</th><th>Date / time</th><th>Customer</th><th>Items sold</th>
         <th class="num">Items</th><th class="num">DF</th><th class="num">Total</th><th>Payment</th><th>Rider</th><th>Status</th></tr></thead>
       <tbody>${h.orders.map(o => {
@@ -1001,7 +1222,7 @@ async function viewSales() {
                 { url: u, field: "payment_status", value: o.payment_status, type: "select", options: ["paid", "credit"] })}
              ${o.payment_status === "paid" ? editable("span", esc(o.payment_method), { url: u, field: "payment_method", value: o.payment_method, type: "select", options: SALE_METHODS })
                : `<span class="small muted">${o.receivable_status}${o.balance > 0 ? " · owes " + money(o.balance) : ""}</span>`}</td>`;
-        return `<tr class="clickable ${v ? "voided" : ""}" onclick="if (!event.target.closest('.ed, button, input, select')) showSale(${o.id})">
+        return `<tr data-row="${o.id}" class="${v ? "voided" : ""}">
           <td><b>#${o.id}</b></td>
           ${v ? `<td class="strike">${fmtDateTime(o.voided_at)}</td>` : ed("completed_at", fmtDateTime(o.completed_at), "datetime")}
           ${ed("customer_name", (esc(o.customer_name) || "—") + (o.customer_tier === "Reseller" ? ` <span class="badge b-blue">R</span>` : ""))}
@@ -1011,7 +1232,7 @@ async function viewSales() {
           <td>${v ? `<span class="badge b-red" title="${esc(o.void_reason || "")}">VOIDED</span>` : `<span class="badge b-gray">Completed</span>`}</td></tr>`; }).join("")
         || `<tr><td colspan="10" class="empty">No sales in this range.</td></tr>`}</tbody>
       ${h.orders.length ? `<tfoot><tr><td colspan="4">Totals (voided excluded)</td><td class="num">${money(t.items_subtotal)}</td><td class="num">${money(t.delivery_fees)}</td><td class="num">${money(t.grand_total)}</td><td colspan="3">${t.on_credit ? `<span class="small muted">${money(t.on_credit)} on credit</span>` : ""}</td></tr></tfoot>` : ""}
-    </table></div><p class="small muted">Click a row for full details and the VOID button. Click a date, customer, DF, payment or rider to fix it.</p></div>`;
+    </table></div><p class="small muted">Select an order and tap the pencil to see full details, fix it, or void it.</p>`);
   }
   $("#view").innerHTML = `<div class="section-title"><h2 class="serif">Sales history</h2></div>${hdr}${tiles}${body}`;
 }
@@ -1035,6 +1256,23 @@ function showSale(id) {
       <button class="btn ghost" onclick="copySaleMessage(${o.id})">Copy customer message</button>
       ${v ? "" : `<button class="btn danger" onclick="voidSale(${o.id})">Void order</button>`}
     </div>`);
+}
+function editSaleModal(id) {
+  const o = (S.history || []).find(x => x.id === Number(id)); if (!o) return;
+  if (o.status === "voided") return showSale(o.id);
+  editModal({ title: `Order #${o.id}`, url: `/orders/${o.id}`, obj: o,
+    top: `<table style="margin-bottom:12px"><tbody>${o.items.map(i => `<tr><td>${qty(i.qty)}× ${esc(itemLabel(i.name, i.variant))}</td><td class="num">${money(i.amount)}</td></tr>`).join("")}
+      <tr><td>Items subtotal</td><td class="num">${money(o.subtotal)}</td></tr>
+      <tr><td><b>Grand total</b> <span class="small muted">incl. delivery fee</span></td><td class="num"><b>${money(o.total)}</b></td></tr></tbody></table>
+      ${o.payment_status === "credit" ? `<p class="small"><span class="badge b-amber">On credit</span> paid ${money(o.amount_paid)} · balance ${money(o.balance)}</p>` : ""}`,
+    fields: [{ name: "customer_name", label: "Customer" }, { name: "phone", label: "Phone" },
+      { name: "address", label: "Delivery address", full: true }, { name: "notes", label: "Special notes", full: true },
+      { name: "delivery_fee", label: "Delivery fee (₱)", type: "money" }, { name: "rider_name", label: "Rider" },
+      { name: "payment_status", label: "Payment", type: "select", options: [["paid", "Paid"], ["credit", "On credit"]] },
+      { name: "payment_method", label: "Paid via", type: "select", options: SALE_METHODS },
+      { name: "completed_at", label: "Date & time finished", type: "datetime", full: true }],
+    buttons: `<button type="button" class="btn ghost sm" onclick="copySaleMessage(${o.id})">Copy customer message</button>
+      <button type="button" class="btn danger sm" onclick="voidSale(${o.id})">Void order</button>` });
 }
 function copySaleMessage(id) { const o = (S.history || []).find(x => x.id === id); if (o) copyText(orderMessage(o), "Customer message"); }
 async function voidSale(id) {
@@ -1127,34 +1365,99 @@ async function ledgerScreen(kind) {
     <div class="section-title"><h2 class="serif">${kind === "purchase" ? "Buy — raw materials & packaging" : "Expense"}</h2></div>
     <div class="card">${ledgerForm(kind)}</div>
     <div class="card"><h3>Last 14 days · ${money(data.total)}</h3>
-      ${data.entries.map(x => `<div class="list-item" onclick="showLedger('${kind}', ${x.id})">
+      ${data.entries.map(x => `<div class="list-item" onclick="editLedgerModal('${kind}', ${x.id})">
         <div>${x.lines.map(l => esc(l[L.lineName])).join(", ")}<br><span class="small muted">${fmtDateTime(x[L.when])} · ${esc(x.payment_method)}${x.attachments.length ? ` · 📎${x.attachments.length}` : ""}</span></div>
         <div class="r"><b>${money(x.total)}</b></div></div>`).join("") || `<div class="empty">Nothing yet.</div>`}
     </div>`;
   initLedgerForm(kind);
 }
-function showLedger(kind, id) {
-  const L = LEDGER[kind], x = (S["ledger_" + kind] || []).find(e => e.id === id); if (!x) return;
-  openModal(`${L.title} · ${fmtDateTime(x[L.when])}`, `
-    <table><tbody>${x.lines.map(l => `<tr><td>${esc(l[L.lineName])}${kind === "purchase" ? ` <span class="muted">× ${qty(l.qty)}</span>` : ""}</td><td class="num">${money(l.amount)}</td></tr>`).join("")}
-      <tr><td><b>Total</b> <span class="muted small">· ${esc(x.payment_method)}</span></td><td class="num"><b>${money(x.total)}</b></td></tr></tbody></table>
-    ${x.notes ? `<p class="muted">${esc(x.notes)}</p>` : ""}
-    <div style="margin-top:12px">${attachmentsHtml(x.attachments) || `<p class="small muted">No proof attached.</p>`}</div>
-    <div class="row spread" style="margin-top:12px">
-      <label class="btn ghost sm">📎 Add proof<input type="file" accept="image/*,application/pdf" multiple hidden onchange="uploadMore('${kind}', ${id}, this)"></label>
-      <button class="btn danger sm" onclick="deleteLedger('${kind}', ${id})">Delete entry</button></div>`);
+function editLedgerModal(kind, id) {
+  const L = LEDGER[kind], isP = kind === "purchase";
+  const x = (S["ledger_" + kind] || []).find(e => e.id === Number(id)); if (!x) return;
+  S.editLedger = { kind, x };
+  openModal(`Edit ${L.title.toLowerCase()}`, `
+    <form id="ledgerEdit" onsubmit="saveLedgerEdit(event)">
+      <label class="field"><span>Date & time</span><input name="when" type="datetime-local" value="${toManilaInput(x[L.when])}"></label>
+      ${isP ? `<datalist id="itemList">${purchaseItemOptions().map(n => `<option value="${esc(n)}">`).join("")}</datalist>` : ""}
+      <div class="lines edit-lines ${isP ? "" : "exp"}"><div class="line-head">${isP ? "Item · Qty · Amount (₱)" : "Particulars · Amount (₱)"}</div>
+        <div id="elines">${x.lines.map(l => ledgerEditLine(kind, l)).join("")}</div>
+        <button type="button" class="link" onclick="$('#elines').insertAdjacentHTML('beforeend', ledgerEditLine('${kind}', {}))">+ add another ${isP ? "item" : "line"}</button></div>
+      <div class="field"><span>Payment method</span>${payChips("editpay", x.payment_method)}</div>
+      <label class="field"><span>Notes</span><input name="notes" value="${esc(x.notes)}"></label>
+      <div class="field"><span>Proof</span><div class="proof-grid" id="eproof">${proofThumbs(x)}
+        <label class="upload" title="Add photo / file">＋<input type="file" accept="image/*,application/pdf" multiple hidden onchange="uploadMore('${kind}', ${x.id}, this)"></label></div></div>
+      <div class="form-error" id="editError"></div>
+      <div class="row edit-actions">
+        <button type="button" class="icon-btn danger" title="Remove this ${L.title.toLowerCase()}" onclick="deleteLedger('${kind}', ${x.id})">${ICON_TRASH}</button>
+        <span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Save</button></div>
+    </form>`);
+}
+function proofThumbs(x) {
+  return x.attachments.map(a => `<div class="thumb"><a href="${fileUrl(a.id)}" target="_blank">${a.mime === "application/pdf" ? "PDF" : `<img src="${fileUrl(a.id)}" loading="lazy">`}</a>
+    <button type="button" class="x" title="Remove this photo" onclick="removeProof(${a.id})">×</button></div>`).join("");
+}
+function ledgerEditLine(kind, l) {
+  const isP = kind === "purchase";
+  return `<div class="eline" data-line="${l.id || ""}">
+    <input data-k="${isP ? "item_name" : "particulars"}" value="${esc(l.item_name ?? l.particulars ?? "")}" placeholder="${isP ? "Item" : "Particulars"}" ${isP ? `list="itemList"` : ""}>
+    ${isP ? `<input data-k="qty" type="number" step="any" min="0" inputmode="decimal" value="${l.qty ?? 1}">` : ""}
+    <input data-k="amount" type="number" step="any" min="0" inputmode="decimal" value="${l.amount ?? ""}" placeholder="₱">
+    <button type="button" class="rm" title="Remove line" onclick="const r=this.parentElement; if (r.dataset.line) r.classList.toggle('removed'); else r.remove();">×</button></div>`;
+}
+async function saveLedgerEdit(e) {
+  e.preventDefault(); const f = e.target, { kind, x } = S.editLedger, L = LEDGER[kind], isP = kind === "purchase";
+  const base = `/${L.path}/${x.id}`, err = $("#editError"); err.textContent = "";
+  try {
+    const header = {};
+    const when = fromManilaInput(f.when.value); if (toManilaInput(when) !== toManilaInput(x[L.when])) header[L.when] = when;
+    const pay = f.querySelector("[name=editpay]:checked").value; if (pay !== x.payment_method) header.payment_method = pay;
+    if (f.notes.value !== (x.notes || "")) header.notes = f.notes.value;
+    const rows = $$("#elines .eline").map(r => {
+      const o = { id: Number(r.dataset.line) || null, removed: r.classList.contains("removed") };
+      $$("[data-k]", r).forEach(i => o[i.dataset.k] = i.dataset.k === L.lineName ? i.value.trim() : Number(i.value || 0));
+      return o;
+    });
+    const keep = rows.filter(r => !r.removed && (r.id || r[L.lineName]));
+    need(keep.length, "An entry needs at least one line — use the trash icon to remove the whole entry instead.");
+    keep.forEach(r => need(r[L.lineName], "Every line needs a name."));
+    if (Object.keys(header).length) await api(base, { method: "PATCH", body: header });
+    for (const r of keep.filter(r => !r.id)) {
+      const match = isP ? S.items.find(i => itemLabel(i.name, i.variant).toLowerCase() === r.item_name.toLowerCase()) : null;
+      await api(`${base}/lines`, { method: "POST", body: { ...r, item_id: match ? match.id : null } });
+    }
+    for (const r of keep.filter(r => r.id)) {
+      const old = x.lines.find(l => l.id === r.id), ch = {};
+      for (const k of isP ? ["item_name", "qty", "amount"] : ["particulars", "amount"]) if (String(r[k]) !== String(old[k])) ch[k] = r[k];
+      if (Object.keys(ch).length) await api(`${base}/lines/${r.id}`, { method: "PATCH", body: ch });
+    }
+    for (const r of rows.filter(r => r.removed && r.id)) await api(`${base}/lines/${r.id}`, { method: "DELETE" });
+    closeModal(); toast("Saved"); refresh();
+  } catch (e2) { err.textContent = e2.message; }
+}
+async function removeProof(attId) {
+  if (!confirm("Remove this proof photo/file?")) return;
+  try {
+    await api(`/attachments/${attId}`, { method: "DELETE" });
+    const { x } = S.editLedger; x.attachments = x.attachments.filter(a => a.id !== attId);
+    $$("#eproof .thumb").forEach(t => t.remove()); $("#eproof").insertAdjacentHTML("afterbegin", proofThumbs(x));
+    toast("Photo removed"); refresh();
+  } catch (err) { toast(err.message, true); }
 }
 async function uploadMore(kind, id, input) {
   try {
     const files = [];
     for (const f of input.files) { const { preview, ...a } = await prepareFile(f); files.push(a); }
-    await api(`/${LEDGER[kind].path}/${id}/attachments`, { method: "POST", body: files });
-    toast("Proof attached"); closeModal(); refresh();
+    const fresh = await api(`/${LEDGER[kind].path}/${id}/attachments`, { method: "POST", body: files });
+    toast("Proof attached");
+    if (S.editLedger && S.editLedger.x.id === id && $("#eproof")) {
+      S.editLedger.x.attachments = fresh.attachments; $$("#eproof .thumb").forEach(t => t.remove()); $("#eproof").insertAdjacentHTML("afterbegin", proofThumbs(S.editLedger.x));
+    } else closeModal();
+    refresh();
   } catch (err) { toast(err.message, true); }
 }
 async function deleteLedger(kind, id) {
-  if (!confirm(`Delete this ${LEDGER[kind].title.toLowerCase()} and its proof photos? This can't be undone.`)) return;
-  try { await api(`/${LEDGER[kind].path}/${id}`, { method: "DELETE" }); closeModal(); toast("Deleted"); refresh(); }
+  if (!confirm(`Remove this ${LEDGER[kind].title.toLowerCase()} and its proof photos for good?`)) return;
+  try { await api(`/${LEDGER[kind].path}/${id}`, { method: "DELETE" }); closeModal(); toast("Removed"); refresh(); }
   catch (err) { toast(err.message, true); }
 }
 
@@ -1169,23 +1472,20 @@ async function ledgerTable(kind) {
   const cols = isP ? 5 : 4;
   const body = data.entries.map(x => {
     const u = `/${L.path}/${x.id}`;
-    const head = `<tr class="group">
+    const head = `<tr class="group" data-row="${x.id}">
       ${editable("td", `<b>${fmtDateTime(x[L.when])}</b>`, { url: u, field: L.when, value: x[L.when], type: "datetime" })}
       <td colspan="${isP ? 2 : 1}">${editable("span", esc(x.payment_method), { url: u, field: "payment_method", value: x.payment_method, type: "select", options: PAYMENTS })}
         ${["Gino", "Credit Card"].includes(x.payment_method) ? (x.settled_at ? `<span class="badge b-green">settled</span>` : `<a href="#liabilities" class="badge b-red" style="text-decoration:none">unpaid</a>`) : ""}
         · ${editable("span", x.notes ? esc(x.notes) : `<span class="muted">add note</span>`, { url: u, field: "notes", value: x.notes })}</td>
       <td class="num"><b>${money(x.total)}</b></td>
-      <td style="white-space:nowrap">${attachmentLinks(x.attachments)}
-        <label class="link" style="margin-left:4px">＋proof<input type="file" accept="image/*,application/pdf" multiple hidden onchange="uploadMore('${kind}', ${x.id}, this)"></label>
-        · <button class="link" onclick="addLineWeb('${kind}', ${x.id})">＋line</button>
-        · <button class="link red" onclick="deleteLedger('${kind}', ${x.id})">delete</button></td></tr>`;
+      <td style="white-space:nowrap">${attachmentLinks(x.attachments) || `<span class="small muted">no proof</span>`}</td></tr>`;
     const lines = x.lines.map(l => {
       const lu = `${u}/lines/${l.id}`;
-      return `<tr><td></td>
+      return `<tr data-row="${x.id}"><td></td>
         ${editable("td", esc(l[L.lineName]), { url: lu, field: L.lineName, value: l[L.lineName] })}
         ${isP ? editable("td", qty(l.qty), { url: lu, field: "qty", value: l.qty, type: "qty" }, "num") : ""}
         ${editable("td", money(l.amount), { url: lu, field: "amount", value: l.amount, type: "money" }, "num")}
-        <td>${x.lines.length > 1 ? `<button class="link red" onclick="deleteLine('${kind}', ${x.id}, ${l.id})">remove</button>` : ""}</td></tr>`;
+        <td></td></tr>`;
     }).join("");
     return head + lines;
   }).join("");
@@ -1194,23 +1494,15 @@ async function ledgerTable(kind) {
       <button class="btn" onclick="openLedgerForm('${kind}')">+ New ${isP ? "purchase" : "expense"}</button></div>
     ${hdr}
     ${isP ? "" : `<p class="small muted" style="margin-top:-4px">Overheads only (electricity, rent, marketing, internet, rider top-ups). Raw materials & packaging go in Purchases.</p>`}
-    <div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>Date / time</th><th>${isP ? "Item" : "Particulars"}</th>${isP ? `<th class="num">Qty</th>` : ""}<th class="num">Amount</th><th>Proof / actions</th></tr></thead>
+    ${selCard("ledger_" + kind, rid => editLedgerModal(kind, rid), `<div class="table-wrap"><table>
+      <thead><tr><th>Date / time</th><th>${isP ? "Item" : "Particulars"}</th>${isP ? `<th class="num">Qty</th>` : ""}<th class="num">Amount</th><th>Proof</th></tr></thead>
       <tbody>${body || `<tr><td colspan="${cols}" class="empty">Nothing in this range.</td></tr>`}</tbody>
       ${data.entries.length ? `<tfoot><tr><td colspan="${isP ? 3 : 2}">Total</td><td class="num">${money(data.total)}</td><td></td></tr></tfoot>` : ""}
-    </table></div><p class="small muted">Click any date, payment, note, item, qty or amount to edit it.</p></div>`;
+    </table></div><p class="small muted">Select an entry and tap the pencil to edit its items, proof photos or payment method — or remove it.</p>`)}`;
 }
 function openLedgerForm(kind) {
   openModal(`New ${LEDGER[kind].title.toLowerCase()}`, ledgerForm(kind));
   initLedgerForm(kind);
-}
-async function addLineWeb(kind, id) {
-  try { await api(`/${LEDGER[kind].path}/${id}/lines`, { method: "POST", body: {} }); toast("Line added — click it to edit"); refresh(); }
-  catch (err) { toast(err.message, true); }
-}
-async function deleteLine(kind, id, lineId) {
-  try { await api(`/${LEDGER[kind].path}/${id}/lines/${lineId}`, { method: "DELETE" }); toast("Line removed"); refresh(); }
-  catch (err) { toast(err.message, true); }
 }
 
 // ============================================================================
@@ -1227,7 +1519,7 @@ function productionForm() {
 }
 function addProdRow() {
   const row = document.createElement("div"); row.className = "line prod";
-  row.innerHTML = `<select name="item"><option value="">— product —</option>${activeItems("Gelato").map(i => `<option value="${i.id}">${esc(itemLabel(i.name, i.variant))}</option>`).join("")}</select>
+  row.innerHTML = `<select name="item"><option value="">— product —</option>${sellables().map(i => `<option value="${i.id}">${esc(itemLabel(i.name, i.variant))}</option>`).join("")}</select>
     <input name="qty" type="number" inputmode="decimal" step="any" min="0" placeholder="Qty">
     <button type="button" class="rm" onclick="this.parentElement.remove()">×</button>`;
   $("#rows_prod").appendChild(row);
@@ -1250,37 +1542,41 @@ async function submitProduction(e) {
 }
 async function viewMake() {
   const data = await api(`/production?date_from=${addDays(manilaToday(), -13)}&date_to=${manilaToday()}`);
+  S.production = data.entries;
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">Make — production</h2></div>
     <div class="card">${productionForm()}</div>
     <div class="card"><h3>Last 14 days</h3>
-      ${data.entries.map(p => `<div class="list-item" style="cursor:default"><div>${esc(itemLabel(p.item_name, p.variant))}<br><span class="small muted">${fmtDateTime(p.produced_at)}${p.notes ? " · " + esc(p.notes) : ""}</span></div>
-        <div class="r"><b>${qty(p.qty)}</b><br><button class="link red" onclick="deleteProduction(${p.id})">delete</button></div></div>`).join("") || `<div class="empty">Nothing yet.</div>`}
+      ${data.entries.map(p => `<div class="list-item" onclick="editProductionModal(${p.id})"><div>${esc(itemLabel(p.item_name, p.variant))}<br><span class="small muted">${fmtDateTime(p.produced_at)}${p.notes ? " · " + esc(p.notes) : ""}</span></div>
+        <div class="r"><b>${qty(p.qty)}</b></div></div>`).join("") || `<div class="empty">Nothing yet.</div>`}
     </div>`;
   addProdRow();
 }
 async function viewProduction() {
   const hdr = dateRangeFilter("prodRange", 30);
   const data = await api(`/production?${rangeQuery("prodRange")}`);
+  S.production = data.entries;
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">Production log</h2><button class="btn" onclick="openModal('Log production', productionForm()); addProdRow()">+ Log production</button></div>
     ${hdr}
-    <div class="grid2"><div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>Date / time</th><th>Product</th><th class="num">Qty</th><th>Notes</th><th></th></tr></thead>
-      <tbody>${data.entries.map(p => { const u = `/production/${p.id}`; return `<tr>
+    <div class="grid2">${selCard("production", editProductionModal, `<div class="table-wrap"><table>
+      <thead><tr><th>Date / time</th><th>Product</th><th class="num">Qty</th><th>Notes</th></tr></thead>
+      <tbody>${data.entries.map(p => { const u = `/production/${p.id}`; return `<tr data-row="${p.id}">
         ${editable("td", fmtDateTime(p.produced_at), { url: u, field: "produced_at", value: p.produced_at, type: "datetime" })}
         <td>${esc(itemLabel(p.item_name, p.variant))}</td>
         ${editable("td", qty(p.qty), { url: u, field: "qty", value: p.qty, type: "qty" }, "num")}
         ${editable("td", esc(p.notes), { url: u, field: "notes", value: p.notes })}
-        <td><button class="link red" onclick="deleteProduction(${p.id})">delete</button></td></tr>`; }).join("") || `<tr><td colspan="5" class="empty">Nothing in this range.</td></tr>`}</tbody>
-    </table></div></div>
+        </tr>`; }).join("") || `<tr><td colspan="4" class="empty">Nothing in this range.</td></tr>`}</tbody>
+    </table></div>`)}
     <div class="card"><h3>Totals for this range</h3><table><tbody>${data.totals.map(t => `<tr><td>${esc(t.product)}</td><td class="num">${qty(t.qty)}</td></tr>`).join("") || `<tr><td class="empty">—</td></tr>`}</tbody></table>
       <p class="small muted">Production is a record only — it doesn't change any stock or cost figures.</p></div></div>`;
 }
-async function deleteProduction(id) {
-  if (!confirm("Delete this production entry?")) return;
-  try { await api(`/production/${id}`, { method: "DELETE" }); toast("Deleted"); refresh(); }
-  catch (err) { toast(err.message, true); }
+function editProductionModal(id) {
+  const p = (S.production || []).find(x => x.id === Number(id)); if (!p) return;
+  editModal({ title: itemLabel(p.item_name, p.variant), url: `/production/${p.id}`, obj: p,
+    fields: [{ name: "qty", label: "Quantity produced", type: "qty" }, { name: "produced_at", label: "Date & time", type: "datetime" },
+      { name: "notes", label: "Notes", full: true }],
+    onRemove: () => api(`/production/${p.id}`, { method: "DELETE" }), removeConfirm: "Remove this production entry?" });
 }
 
 // ============================================================================
@@ -1345,12 +1641,11 @@ async function viewCounts() {
   const list = await api("/counts");
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">Inventory counts</h2><button class="btn" onclick="S.invTab='count';refresh()">+ New count</button></div>
-    <div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>Count date</th><th class="num">Items</th><th class="num">Inventory value</th><th>Notes</th><th></th></tr></thead>
-      <tbody>${list.map(c => `<tr><td><button class="link" onclick="S.countId=${c.id};refresh()">${fmtDate(c.count_date, false)}</button></td>
-        <td class="num">${c.line_count}</td><td class="num">${money(c.total_value)}</td><td>${esc(c.notes)}</td>
-        <td><button class="btn ghost sm" onclick="S.countId=${c.id};refresh()">Open</button></td></tr>`).join("") || `<tr><td colspan="5" class="empty">No counts yet. Your first count is the opening balance; profit reports start from the second.</td></tr>`}</tbody>
-    </table></div></div>`;
+    ${selCard("counts", id => { S.countId = Number(id); refresh(); }, `<div class="table-wrap"><table>
+      <thead><tr><th>Count date</th><th class="num">Items</th><th class="num">Inventory value</th><th>Notes</th></tr></thead>
+      <tbody>${list.map(c => `<tr data-row="${c.id}"><td><b>${fmtDate(c.count_date, false)}</b></td>
+        <td class="num">${c.line_count}</td><td class="num">${money(c.total_value)}</td><td>${esc(c.notes)}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">No counts yet. Your first count is the opening balance; profit reports start from the second.</td></tr>`}</tbody>
+    </table></div>`, "Select a count and tap the pencil to open it")}`;
 }
 async function viewCountDetail(id) {
   const c = await api(`/counts/${id}`);
@@ -1359,67 +1654,84 @@ async function viewCountDetail(id) {
   const body = c.lines.map(l => {
     const lu = `${u}/lines/${l.id}`;
     const grp = l.category !== cat ? `<tr class="group"><td colspan="4"><b>${esc(cat = l.category)}</b></td></tr>` : "";
-    return grp + `<tr><td>${esc(itemLabel(l.name, l.variant))}</td>
+    return grp + `<tr data-row="${l.id}"><td>${esc(itemLabel(l.name, l.variant))}</td>
       ${editable("td", qty(l.qty), { url: lu, field: "qty", value: l.qty, type: "qty" }, "num")}
       ${editable("td", money(l.unit_cost), { url: lu, field: "unit_cost", value: l.unit_cost, type: "money" }, "num")}
       <td class="num">${money(l.value)}</td></tr>`;
   }).join("");
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Count · ${editable("span", fmtDate(c.count_date, false), { url: u, field: "count_date", value: c.count_date, type: "date" })}</h2>
+    <div class="section-title"><h2 class="serif">Count · ${fmtDate(c.count_date, false)}</h2>
       <div class="row"><button class="btn ghost" onclick="S.countId=null;refresh()">← All counts</button>
-      <button class="btn danger" onclick="deleteCount(${id})">Delete count</button></div></div>
-    <div class="card"><div class="table-wrap"><table>
+      <button class="icon-btn" title="Edit count date / notes" onclick="editCountModal()">${ICON_PENCIL}</button></div></div>
+    ${selCard("countlines", editCountLineModal, `<div class="table-wrap"><table>
       <thead><tr><th>Item</th><th class="num">Qty counted</th><th class="num">Unit cost</th><th class="num">Value</th></tr></thead>
       <tbody>${body}</tbody><tfoot><tr><td colspan="3">Ending inventory value</td><td class="num">${money(c.total_value)}</td></tr></tfoot>
     </table></div>
-    <p class="small muted">Notes: ${editable("span", c.notes ? esc(c.notes) : "add a note", { url: u, field: "notes", value: c.notes })}.
-      Unit costs are frozen at the time of the count — editing a product's cost later doesn't change this count. Click a qty or cost here to correct it.</p></div>`;
+    <p class="small muted">${c.notes ? `Notes: ${esc(c.notes)}. ` : ""}Unit costs are frozen at the time of the count — editing a product's cost later doesn't change this count. Select a line and tap the pencil to correct it.</p>`)}`;
+  S.countDetail = c;
 }
-async function deleteCount(id) {
-  if (!confirm("Delete this count? Profit reports will be recalculated without it.")) return;
-  try { await api(`/counts/${id}`, { method: "DELETE" }); S.countId = null; toast("Count deleted"); refresh(); }
-  catch (err) { toast(err.message, true); }
+function editCountModal() {
+  const c = S.countDetail;
+  editModal({ title: "Edit count", url: `/counts/${c.id}`, obj: c,
+    fields: [{ name: "count_date", label: "Count date", type: "date" }, { name: "notes", label: "Notes", full: true }],
+    onRemove: async () => { await api(`/counts/${c.id}`, { method: "DELETE" }); S.countId = null; },
+    removeConfirm: "Remove this whole count? Profit reports will be recalculated without it." });
+}
+function editCountLineModal(lineId) {
+  const c = S.countDetail, l = c.lines.find(x => x.id === Number(lineId)); if (!l) return;
+  editModal({ title: itemLabel(l.name, l.variant), url: `/counts/${c.id}/lines/${l.id}`, obj: l,
+    fields: [{ name: "qty", label: "Qty counted", type: "qty" }, { name: "unit_cost", label: "Unit cost (₱)", type: "money" }] });
 }
 
 // ============================================================================
 // MASTER PRODUCTS (web)
 // ============================================================================
-async function viewProducts() {
+// Products (finished goods: Mini / Pint / Cake) and Materials (raw materials & packaging)
+// share one list in the backend but are kept on separate pages.
+const CATALOG = {
+  products: { title: "Products", cats: SELL_CATS, filterKey: "prodFilter", one: "product", sell: true,
+    note: "These are the finished goods that show up as buttons on the phone POS (grouped Mini / Pint / Cake). Set Active to “No” to hide one without losing its history." },
+  materials: { title: "Materials", cats: MAT_CATS, filterKey: "matFilter", one: "material", sell: false,
+    note: "Raw materials and packaging you buy. They never show on the POS — they feed Purchases and the monthly count, so your ingredients and packaging on hand are valued correctly in COGS." },
+};
+async function viewProducts() { await viewCatalog("products"); }
+async function viewMaterials() { await viewCatalog("materials"); }
+async function viewCatalog(kind) {
   await loadItems();
-  const f = S.prodFilter || "All";
-  const list = S.items.filter(i => f === "All" || i.category === f);
+  const C = CATALOG[kind], f = S[C.filterKey] || "All";
+  const list = S.items.filter(i => C.cats.includes(i.category) && (f === "All" || i.category === f));
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Master products</h2><button class="btn" onclick="openProductModal()">+ Add product</button></div>
-    <div class="chips">${["All", ...CATEGORIES].map(c => `<button class="${f === c ? "active" : ""}" onclick="S.prodFilter='${c}';refresh()">${c}</button>`).join("")}</div>
-    <div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>ID</th><th>Product name</th><th>Category</th><th>Size / variant</th><th class="num">Unit cost</th><th class="num">Selling price</th><th class="num">Margin</th><th>Active</th><th></th></tr></thead>
-      <tbody>${list.map(i => { const u = `/items/${i.id}`, gel = i.category === "Gelato";
-        const m = gel && i.selling_price && i.unit_cost ? Math.round((1 - i.unit_cost / i.selling_price) * 100) + "%" : "";
-        return `<tr style="${i.active ? "" : "opacity:.5"}"><td class="muted">${i.id}</td>
-        ${editable("td", esc(i.name), { url: u, field: "name", value: i.name, after: reloadItems })}
-        ${editable("td", esc(i.category), { url: u, field: "category", value: i.category, type: "select", options: CATEGORIES, after: reloadItems })}
+    <div class="section-title"><h2 class="serif">${C.title}</h2><button class="btn" onclick="openProductModal('${kind}')">+ Add ${C.one}</button></div>
+    <div class="chips">${["All", ...C.cats].map(c => `<button class="${f === c ? "active" : ""}" onclick="S['${C.filterKey}']='${c}';refresh()">${c}</button>`).join("")}</div>
+    ${selCard(kind, editProductModal, `<div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>Category</th><th>${C.sell ? "Variant" : "Size / unit"}</th><th class="num">Unit cost</th>${C.sell ? `<th class="num">Selling price</th><th class="num">Margin</th>` : ""}<th>Active</th></tr></thead>
+      <tbody>${list.map(i => { const u = `/items/${i.id}`;
+        const m = C.sell && i.selling_price && i.unit_cost ? Math.round((1 - i.unit_cost / i.selling_price) * 100) + "%" : "";
+        return `<tr data-row="${i.id}" style="${i.active ? "" : "opacity:.5"}">
+        ${editable("td", `<b>${esc(i.name)}</b>`, { url: u, field: "name", value: i.name, after: reloadItems })}
+        ${editable("td", esc(i.category), { url: u, field: "category", value: i.category, type: "select", options: C.cats, after: reloadItems })}
         ${editable("td", esc(i.variant) || `<span class="muted">—</span>`, { url: u, field: "variant", value: i.variant, after: reloadItems })}
         ${editable("td", Number(i.unit_cost) ? money(i.unit_cost) : `<span class="badge b-amber">not set</span>`, { url: u, field: "unit_cost", value: i.unit_cost, type: "money", after: reloadItems }, "num")}
-        ${editable("td", gel ? money(i.selling_price) : `<span class="muted">—</span>`, { url: u, field: "selling_price", value: i.selling_price, type: "money", after: reloadItems }, "num")}
-        <td class="num">${m}</td>
+        ${C.sell ? editable("td", money(i.selling_price), { url: u, field: "selling_price", value: i.selling_price, type: "money", after: reloadItems }, "num") + `<td class="num">${m}</td>` : ""}
         ${editable("td", i.active ? "Yes" : "No", { url: u, field: "active", value: i.active, type: "bool", after: reloadItems })}
-        <td><button class="link red" onclick="deleteProduct(${i.id})">delete</button></td></tr>`; }).join("") || `<tr><td colspan="9" class="empty">No products yet.</td></tr>`}</tbody>
-    </table></div><p class="small muted">Click any cell to edit. Set Active to “No” to hide a discontinued item from the POS and the count without deleting it.
-      Gelato items show up as buttons on the phone POS; every active item shows up on the monthly count.</p></div>`;
+        </tr>`; }).join("") || `<tr><td colspan="7" class="empty">None yet — tap “+ Add ${C.one}”.</td></tr>`}</tbody>
+    </table></div><p class="small muted">${C.note}</p>`)}`;
 }
-function openProductModal() {
-  const cat = CATEGORIES.includes(S.prodFilter) ? S.prodFilter : "Gelato";
-  openModal("Add product", `
-    <form id="productForm" onsubmit="addProduct(event)">
+function openProductModal(kind = "products") {
+  const C = CATALOG[kind], cat = C.cats.includes(S[C.filterKey]) ? S[C.filterKey] : C.cats[C.sell ? 1 : 0];
+  openModal(`Add ${C.one}`, `
+    <form id="productForm" data-kind="${kind}" onsubmit="addProduct(event)">
       <div class="field"><span>Category</span>
-        <div class="chips" style="margin:0">${CATEGORIES.map(c => `<label><input type="radio" name="category" value="${c}" ${c === cat ? "checked" : ""} onchange="productCategoryChanged()"><span>${c}</span></label>`).join("")}</div></div>
+        <div class="chips" style="margin:0">${C.cats.map(c => `<label><input type="radio" name="category" value="${c}" ${c === cat ? "checked" : ""}><span>${c}</span></label>`).join("")}</div></div>
       <div class="grid2">
-        <label class="field"><span>Product name *</span><input name="name" required autocomplete="off" placeholder="e.g. Basque Burnt Cheesecake"></label>
-        <label class="field"><span>Size / variant / unit</span><input name="variant" autocomplete="off" placeholder="e.g. Pint, Mini 89ml, 1 kg bag"></label>
+        <label class="field"><span>Name *</span><input name="name" required autocomplete="off" placeholder="${C.sell ? "e.g. Basque Burnt Cheesecake" : "e.g. Powdered milk, Pint tub"}"></label>
+        <label class="field"><span>${C.sell ? "Variant · optional" : "Size / unit"}</span><input name="variant" autocomplete="off" placeholder="${C.sell ? "e.g. 475ml, 8-inch" : "e.g. 1 kg bag, pc, pack of 50"}"></label>
         <label class="field"><span>Unit cost (₱) · optional</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="add later"></label>
-        <label class="field" id="priceField"><span>Selling price (₱)</span><input name="selling_price" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>
+        ${C.sell ? `<label class="field"><span>Selling price (₱)</span><input name="selling_price" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>` : ""}
       </div>
-      <p class="hint" id="productHint"></p>
+      <p class="hint">${C.sell
+        ? "Shows up on the phone POS under its category at this price. Unit cost (what one piece costs you to make) can be added later — it's only needed to value the monthly count."
+        : "Count it in the same unit as the cost (cost per 1 kg bag → count bags). Cost can be added later, but set it before your monthly count."}</p>
       <div class="form-error" id="productError"></div>
       <div class="row" style="justify-content:flex-end">
         <span class="small muted" id="productAdded" style="margin-right:auto"></span>
@@ -1427,41 +1739,35 @@ function openProductModal() {
         <button type="submit" class="btn">Save</button>
       </div>
     </form>`);
-  productCategoryChanged();
   $("#productForm [name=name]").focus();
-}
-function productCategoryChanged() {
-  const f = $("#productForm"); if (!f) return;
-  const cat = f.category.value, gel = cat === "Gelato";
-  $("#priceField").classList.toggle("hidden", !gel);
-  $("#productHint").textContent = gel
-    ? "Shows up as a button on the phone POS at this price. Unit cost (what one piece costs you to make) can be added later — it's only needed to value the monthly count."
-    : "Not sold — appears on the monthly count only. Unit cost can be added later, but set it before your count; count in the same unit as the cost (cost per 1 kg bag → count bags).";
 }
 async function reloadItems() { await loadItems(); await refresh(); }
 async function addProduct(e) {
   e.preventDefault(); const f = e.target;
   const again = e.submitter && e.submitter.dataset.again;
   $("#productError").textContent = "";
-  const gel = f.category.value === "Gelato";
+  const gel = SELL_CATS.includes(f.category.value);
   try {
-    need(f.name.value.trim(), "Product name is required.");
+    need(f.name.value.trim(), "Name is required.");
     const item = await api("/items", { method: "POST", body: { name: f.name.value, category: f.category.value, variant: f.variant.value,
       unit_cost: Number(f.unit_cost.value || 0), selling_price: gel ? Number(f.selling_price.value || 0) : 0 } });
     await loadItems(); refresh();
     const label = itemLabel(item.name, item.variant);
     if (again) {
-      ["name", "variant", "unit_cost", "selling_price"].forEach(k => f[k].value = "");
+      ["name", "variant", "unit_cost", "selling_price"].forEach(k => { if (f[k]) f[k].value = ""; });
       $("#productAdded").textContent = `✓ Added ${label}`;
       f.name.focus();
     } else { closeModal(); toast(`${label} added`); }
   } catch (err) { $("#productError").textContent = err.message; }
 }
-async function deleteProduct(id) {
-  const i = S.items.find(x => x.id === id);
-  if (!confirm(`Delete “${itemLabel(i.name, i.variant)}”? Past sales and counts keep their records. (To just hide it, set Active to No instead.)`)) return;
-  try { await api(`/items/${id}`, { method: "DELETE" }); toast("Deleted"); await reloadItems(); }
-  catch (err) { toast(err.message, true); }
+function editProductModal(id) {
+  const i = S.items.find(x => x.id === Number(id)); if (!i) return;
+  editModal({ title: `Edit ${itemLabel(i.name, i.variant)}`, url: `/items/${i.id}`, obj: i, after: reloadItems,
+    fields: [{ name: "name", label: "Name" }, { name: "category", label: "Category", type: "select", options: isSellable(i) ? SELL_CATS : MAT_CATS },
+      { name: "variant", label: isSellable(i) ? "Variant" : "Size / unit" }, { name: "unit_cost", label: "Unit cost (₱) · optional", type: "money" },
+      ...(isSellable(i) ? [{ name: "selling_price", label: "Selling price (₱)", type: "money" }] : []), { name: "active", label: "Active", type: "bool" }],
+    onRemove: () => api(`/items/${i.id}`, { method: "DELETE" }),
+    removeConfirm: `Remove “${itemLabel(i.name, i.variant)}” for good? Past sales and counts keep their records. (To just hide it, set Active to No instead.)` });
 }
 
 // ============================================================================
@@ -1550,23 +1856,20 @@ async function viewClients(tier) {
         <label class="field" style="flex:2;min-width:140px"><span>Special notes</span><input name="notes"></label>
         <button class="btn" style="margin-bottom:10px">Add</button></form>
       ${isR ? "" : `<p class="hint">New names typed on phone orders are added here automatically when the order is finished.</p>`}</div>
-    <div class="card"><div class="table-wrap"><table>
+    ${selCard("clients", editClientModal, `<div class="table-wrap"><table>
       <thead><tr><th>Name</th><th>Phone</th><th>Delivery address</th><th>Special notes</th><th>Type</th><th class="num">Orders</th><th class="num">Bought</th><th>Last order</th>
-        <th class="num">Owes</th><th></th></tr></thead>
+        <th class="num">Owes</th></tr></thead>
       <tbody>${list.map(c => { const u = `/customers/${c.id}`;
-        return `<tr style="${c.active ? "" : "opacity:.5"}">
+        return `<tr data-row="${c.id}" style="${c.active ? "" : "opacity:.5"}">
         ${editable("td", `<b>${esc(c.name)}</b>`, { url: u, field: "name", value: c.name })}
         ${editable("td", esc(c.phone), { url: u, field: "phone", value: c.phone })}
         ${editable("td", esc(c.address), { url: u, field: "address", value: c.address })}
         ${editable("td", esc(c.notes), { url: u, field: "notes", value: c.notes })}
         ${editable("td", esc(c.tier), { url: u, field: "tier", value: c.tier, type: "select", options: ["Retail", "Reseller"] })}
         <td class="num">${c.order_count}</td><td class="num">${money(c.items_total)}</td><td>${c.last_order_at ? fmtDate(manilaParts(new Date(c.last_order_at)).date) : "—"}</td>
-        <td class="num">${c.balance > 0 ? `<span class="badge b-amber">${money(c.balance)}</span>` : "—"}</td>
-        <td style="white-space:nowrap"><button class="btn ghost sm" onclick="showClient(${c.id})">History</button>
-          ${isR ? `<button class="btn ghost sm" onclick="editPrices(${c.id})">Prices${c.custom_prices ? ` (${c.custom_prices})` : ""}</button>` : ""}
-          <button class="link red" onclick="deleteClient(${c.id})">delete</button></td></tr>`; }).join("")
-        || `<tr><td colspan="10" class="empty">None yet.</td></tr>`}</tbody>
-    </table></div><p class="small muted">Click any name, phone, address, note or type to edit. Changing a customer's type to Reseller moves them to the Resellers page.</p></div>`;
+        <td class="num">${c.balance > 0 ? `<span class="badge b-amber">${money(c.balance)}</span>` : "—"}</td></tr>`; }).join("")
+        || `<tr><td colspan="9" class="empty">None yet.</td></tr>`}</tbody>
+    </table></div><p class="small muted">Select a client and tap the pencil to edit, see their order history${isR ? ", or set their price list" : ""}. Changing the type to ${isR ? "Retail" : "Reseller"} moves them to the ${isR ? "Customers" : "Resellers"} page.</p>`)}`;
 }
 async function addClient(e, tier) {
   e.preventDefault(); const f = e.target;
@@ -1575,11 +1878,18 @@ async function addClient(e, tier) {
     toast("Added"); await loadCustomers(); await refresh(); $("form.row [name=name]")?.focus();
   } catch (err) { toast(err.message, true); }
 }
-async function deleteClient(id) {
-  const c = S.clientList.find(x => x.id === id);
-  if (!confirm(`Delete ${c.name}? Their past orders stay in Sales history.`)) return;
-  try { await api(`/customers/${id}`, { method: "DELETE" }); toast("Deleted"); await loadCustomers(); refresh(); }
-  catch (err) { toast(err.message, true); }
+function editClientModal(id) {
+  const c = S.clientList.find(x => x.id === Number(id)); if (!c) return;
+  const isR = c.tier === "Reseller";
+  editModal({ title: `Edit ${c.name}`, url: `/customers/${c.id}`, obj: c, after: async () => { await loadCustomers(); await refresh(); },
+    top: `<p class="small muted" style="margin-top:0">${c.order_count} order${c.order_count === 1 ? "" : "s"} · bought ${money(c.items_total)}${c.balance > 0 ? ` · <b>owes ${money(c.balance)}</b>` : ""}</p>`,
+    fields: [{ name: "name", label: "Name" }, { name: "phone", label: "Phone" }, { name: "address", label: "Delivery address", full: true },
+      { name: "notes", label: "Special notes", type: "textarea" }, { name: "tier", label: "Type", type: "select", options: ["Retail", "Reseller"] },
+      { name: "active", label: "Active", type: "bool" }],
+    buttons: `<button type="button" class="btn ghost sm" onclick="showClient(${c.id})">Order history</button>
+      ${isR ? `<button type="button" class="btn ghost sm" onclick="editPrices(${c.id})">Price list${c.custom_prices ? ` (${c.custom_prices})` : ""}</button>` : ""}`,
+    onRemove: () => api(`/customers/${c.id}`, { method: "DELETE" }),
+    removeConfirm: `Remove ${c.name} from your clients? Their past orders stay in Sales history.` });
 }
 async function showClient(id) {
   const c = await api(`/customers/${id}`);
@@ -1704,22 +2014,21 @@ async function viewReceivables() {
       ${r.by_client.slice(0, 5).map(c => `<div class="tile"><div class="label">${esc(c.customer)}</div><div class="value">${money(c.balance)}</div></div>`).join("")}</div>
     <div class="chips"><button class="${show === "open" ? "active" : ""}" onclick="S.recvShow='open';refresh()">Still owed</button>
       <button class="${show === "all" ? "active" : ""}" onclick="S.recvShow='all';refresh()">All credit sales</button></div>
-    <div class="card"><div class="table-wrap"><table>
+    ${selCard("recv", receivableModal, `<div class="table-wrap"><table>
       <thead><tr><th>Order</th><th>Date</th><th>Client</th><th>Items</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
       <tbody>${r.entries.map(o => { const c = o.receivable_status === "cancelled";
-        return `<tr class="${c ? "voided" : ""}">
-        <td><button class="link" onclick="S.history=S.receivables;showSale(${o.id})">#${o.id}</button></td>
+        return `<tr data-row="${o.id}" class="${c ? "voided" : ""}">
+        <td><b>#${o.id}</b></td>
         <td>${fmtDate(manilaParts(new Date(o.completed_at)).date)}</td>
         <td class="${c ? "strike" : ""}"><b>${esc(o.customer_name)}</b>${o.customer_tier === "Reseller" ? ` <span class="badge b-blue">R</span>` : ""}</td>
         <td class="small ${c ? "strike" : ""}">${o.items.map(i => `${qty(i.qty)}× ${esc(i.name)}`).join(", ")}</td>
         <td class="num ${c ? "strike" : ""}">${money(o.total)}</td>
-        <td class="num">${money(o.amount_paid)}${o.payments.length ? `<br>${o.payments.map(p => `<span class="small muted" title="${esc(p.notes)}">${fmtDate(manilaParts(new Date(p.paid_at)).date)} ${p.method} ${money(p.amount)}
-          <button class="link red" onclick="deletePayment(${p.id})">×</button></span>`).join("<br>")}` : ""}</td>
+        <td class="num">${money(o.amount_paid)}${o.payments.length ? `<br>${o.payments.map(p => `<span class="small muted" title="${esc(p.notes)}">${fmtDate(manilaParts(new Date(p.paid_at)).date)} ${p.method} ${money(p.amount)}</span>`).join("<br>")}` : ""}</td>
         <td class="num"><b>${c ? "—" : money(o.balance)}</b></td>
         <td><span class="badge ${statusBadge(o)}">${o.receivable_status.toUpperCase()}</span></td>
         <td>${["unpaid", "partial"].includes(o.receivable_status) ? `<button class="btn sm" onclick="logPayment(${o.id})">LOG PAYMENT</button>` : ""}</td></tr>`; }).join("")
         || `<tr><td colspan="9" class="empty">${show === "open" ? "Nobody owes you anything right now." : "No credit sales yet."}</td></tr>`}</tbody>
-    </table></div><p class="small muted">Credit sales come from orders marked “On credit / unpaid”. Voiding the order cancels its receivable.</p></div>`;
+    </table></div><p class="small muted">Credit sales come from orders marked “On credit / unpaid”. Voiding the order cancels its receivable. Select a row and tap the pencil to see or correct its payments.</p>`)}`;
 }
 function logPayment(id) {
   const o = S.receivables.find(x => x.id === id);
@@ -1741,9 +2050,27 @@ async function submitPayment(e, id) {
     closeModal(); toast(o.balance > 0 ? `Payment logged — ${money(o.balance)} still owed` : "Fully settled 🎉"); refresh();
   } catch (err) { toast(err.message, true); }
 }
+function receivableModal(id) {
+  const o = S.receivables.find(x => x.id === Number(id)); if (!o) return;
+  const open = ["unpaid", "partial"].includes(o.receivable_status);
+  openModal(`Receivable · #${o.id} ${o.customer_name}`, `
+    <p><span class="badge ${({ unpaid: "b-red", partial: "b-amber", settled: "b-green", cancelled: "b-gray" })[o.receivable_status]}">${o.receivable_status.toUpperCase()}</span>
+      <span class="small muted">${fmtDateTime(o.completed_at)}</span></p>
+    <table><tbody>${o.items.map(i => `<tr><td>${qty(i.qty)}× ${esc(itemLabel(i.name, i.variant))}</td><td class="num">${money(i.amount)}</td></tr>`).join("")}
+      <tr><td>Delivery fee</td><td class="num">${money(o.delivery_fee)}</td></tr>
+      <tr><td><b>Total</b></td><td class="num"><b>${money(o.total)}</b></td></tr>
+      <tr><td>Paid so far</td><td class="num">${money(o.amount_paid)}</td></tr>
+      <tr><td><b>Balance</b></td><td class="num"><b>${money(o.balance)}</b></td></tr></tbody></table>
+    <h3 style="margin:16px 0 6px;font-size:15px">Payments</h3>
+    ${o.payments.map(p => `<div class="list-item" style="cursor:default"><div>${fmtDateTime(p.paid_at)} · ${p.method}${p.notes ? `<br><span class="small muted">${esc(p.notes)}</span>` : ""}</div>
+      <div class="row"><b>${money(p.amount)}</b><button type="button" class="icon-btn sm danger" title="Remove this payment" onclick="deletePayment(${p.id})">${ICON_TRASH}</button></div></div>`).join("")
+      || `<p class="muted small">No payments yet.</p>`}
+    <div class="row edit-actions"><span style="flex:1"></span>
+      ${open ? `<button class="btn" onclick="logPayment(${o.id})">Log payment</button>` : ""}</div>`);
+}
 async function deletePayment(id) {
   if (!confirm("Remove this payment? The balance goes back up.")) return;
-  try { await api(`/payments/${id}`, { method: "DELETE" }); toast("Payment removed"); refresh(); }
+  try { await api(`/payments/${id}`, { method: "DELETE" }); closeModal(); toast("Payment removed"); refresh(); }
   catch (err) { toast(err.message, true); }
 }
 
@@ -1758,15 +2085,27 @@ async function viewLiabilities() {
       <div class="tile"><div class="label">Total unpaid</div><div class="value">${money(r.unpaid_total)}</div></div></div>
     <div class="chips"><button class="${show === "unpaid" ? "active" : ""}" onclick="S.liabShow='unpaid';refresh()">Unpaid</button>
       <button class="${show === "all" ? "active" : ""}" onclick="S.liabShow='all';refresh()">All (incl. settled)</button></div>
-    <div class="card"><div class="table-wrap"><table>
+    ${selCard("liab", liabilityModal, `<div class="table-wrap"><table>
       <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Paid by</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
-      <tbody>${r.entries.map((x, i) => `<tr>
+      <tbody>${r.entries.map((x, i) => `<tr data-row="${i}">
         <td>${fmtDateTime(x.when)}</td><td>${x.kind === "purchase" ? "Purchase" : "Expense"}</td><td>${esc(x.description)}${x.attachments.length ? ` ${attachmentLinks(x.attachments)}` : ""}</td>
         <td><span class="badge ${x.payment_method === "Gino" ? "b-blue" : "b-gray"}">${esc(x.payment_method)}</span></td><td class="num"><b>${money(x.total)}</b></td>
         <td>${x.settled_at ? `<span class="badge b-green">SETTLED</span> <span class="small muted">${fmtDate(manilaParts(new Date(x.settled_at)).date)} via ${esc(x.settled_method)}</span>` : `<span class="badge b-red">UNPAID</span>`}</td>
-        <td>${x.settled_at ? `<button class="link" onclick="unsettle('${x.kind}', ${x.id})">undo</button>` : `<button class="btn sm" onclick="reimburse(${i})">REIMBURSE</button>`}</td></tr>`).join("")
+        <td>${x.settled_at ? "" : `<button class="btn sm" onclick="reimburse(${i})">REIMBURSE</button>`}</td></tr>`).join("")
         || `<tr><td colspan="7" class="empty">${show === "unpaid" ? "Nothing owed." : "No Gino or credit card purchases/expenses yet."}</td></tr>`}</tbody>
-    </table></div><p class="small muted">Any purchase or expense paid by <b>Gino</b> or <b>Credit Card</b> shows up here as UNPAID until the business pays it back.</p></div>`;
+    </table></div><p class="small muted">Any purchase or expense paid by <b>Gino</b> or <b>Credit Card</b> shows up here as UNPAID until the business pays it back.</p>`)}`;
+}
+function liabilityModal(i) {
+  const x = S.liabilities[Number(i)]; if (!x) return;
+  openModal(`${x.kind === "purchase" ? "Purchase" : "Expense"} · ${money(x.total)}`, `
+    <p class="muted">${fmtDateTime(x.when)} · paid by <b>${esc(x.payment_method)}</b></p>
+    <table><tbody>${x.lines.map(l => `<tr><td>${esc(l.item_name || l.particulars)}</td><td class="num">${money(l.amount)}</td></tr>`).join("")}</tbody></table>
+    <p>${x.settled_at ? `<span class="badge b-green">SETTLED</span> ${fmtDateTime(x.settled_at)} via ${esc(x.settled_method)}` : `<span class="badge b-red">UNPAID</span>`}</p>
+    <div class="proof-grid">${attachmentsHtml(x.attachments)}</div>
+    <div class="row edit-actions">
+      <button type="button" class="btn ghost sm" onclick="closeModal(); go('${x.kind === "purchase" ? "purchases" : "expenses"}')">Open in ${x.kind === "purchase" ? "Purchases" : "Expenses"}</button>
+      <span style="flex:1"></span>
+      ${x.settled_at ? `<button class="btn ghost" onclick="unsettle('${x.kind}', ${x.id})">Mark as unpaid again</button>` : `<button class="btn" onclick="reimburse(${Number(i)})">REIMBURSE</button>`}</div>`);
 }
 function reimburse(i) {
   const x = S.liabilities[i];
@@ -1784,7 +2123,7 @@ async function submitReimburse(e, kind, id) {
 }
 async function unsettle(kind, id) {
   if (!confirm("Mark this as unpaid again?")) return;
-  try { await api(`/liabilities/${kind}/${id}/unsettle`, { method: "POST" }); toast("Back to unpaid"); refresh(); }
+  try { await api(`/liabilities/${kind}/${id}/unsettle`, { method: "POST" }); closeModal(); toast("Back to unpaid"); refresh(); }
   catch (err) { toast(err.message, true); }
 }
 
@@ -1839,7 +2178,7 @@ const VIEWS = {
   orders: viewOrders, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
   dashboard: viewDashboard, customers: viewCustomers, resellers: viewResellers, reconciliation: viewReconciliation,
   receivables: viewReceivables, liabilities: viewLiabilities, inventory: viewInventory,
-  products: viewProducts, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings,
+  products: viewProducts, materials: viewMaterials, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings,
 };
 window.addEventListener("hashchange", () => {
   const h = location.hash.slice(1);

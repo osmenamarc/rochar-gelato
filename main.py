@@ -42,7 +42,9 @@ MANILA_TZ = timezone(timedelta(hours=8))
 SESSION_DAYS = 90
 SCHEMA_FILE = Path(__file__).with_name("schema.sql")
 
-CATEGORIES = ("Gelato", "Raw Material", "Packaging")
+SELL_CATEGORIES = ("Mini", "Pint", "Cake")               # finished goods — on the POS
+MATERIAL_CATEGORIES = ("Raw Material", "Packaging")      # bought materials — count only
+CATEGORIES = SELL_CATEGORIES + MATERIAL_CATEGORIES
 PAYMENT_METHODS = ("Cash", "GCash", "Gino", "Credit Card", "Check")   # purchases / expenses
 LIABILITY_METHODS = ("Gino", "Credit Card")                            # paid with money the business owes back
 SALE_METHODS = ("Cash", "GCash", "Bank")                               # where customer money lands
@@ -261,7 +263,7 @@ def as_int(v):
 
 def as_category(v):
     if v not in CATEGORIES:
-        raise HTTPException(400, "Category must be Gelato, Raw Material, or Packaging.")
+        raise HTTPException(400, "Category must be one of: " + ", ".join(CATEGORIES))
     return v
 
 
@@ -345,7 +347,7 @@ def apply_patch(cur, table: str, row_id: int, changes: dict, allowed: dict, extr
 
 class ItemPayload(BaseModel):
     name: str
-    category: str = "Gelato"
+    category: str = "Pint"
     variant: str = ""
     unit_cost: float = 0
     selling_price: float = 0
@@ -354,7 +356,8 @@ class ItemPayload(BaseModel):
 
 ITEM_FIELDS = {"name": as_text, "category": as_category, "variant": as_text, "unit_cost": as_money,
                "selling_price": as_money, "active": as_bool, "sort_order": as_int}
-ITEM_ORDER = "CASE category WHEN 'Gelato' THEN 0 WHEN 'Raw Material' THEN 1 ELSE 2 END, sort_order, name, variant"
+CATEGORY_ORDER = "CASE category WHEN 'Mini' THEN 0 WHEN 'Pint' THEN 1 WHEN 'Cake' THEN 2 WHEN 'Raw Material' THEN 3 ELSE 4 END"
+ITEM_ORDER = CATEGORY_ORDER + ", sort_order, name, variant"
 
 
 @api.get("/items")
@@ -497,11 +500,31 @@ def order_history(date_from: Optional[date] = None, date_to: Optional[date] = No
     }
 
 
+class NewOrderLine(BaseModel):
+    item_id: int
+    qty: int = Field(gt=0, le=999)
+
+
+class NewOrderIn(BaseModel):
+    items: List[NewOrderLine] = []
+
+
 @api.post("/orders")
-def create_order():
+def create_order(p: Optional[NewOrderIn] = Body(default=None)):
+    """Starts an open order — optionally with the items already tapped in (the POS 'Charge' button)."""
     with db() as conn, conn.cursor() as cur:
         cur.execute("INSERT INTO orders DEFAULT VALUES RETURNING id;")
-        return fetch_order(cur, cur.fetchone()["id"])
+        order_id = cur.fetchone()["id"]
+        for line in (p.items if p else []):
+            item = price_for(cur, None, line.item_id)
+            if not item:
+                raise HTTPException(404, "A product on the ticket no longer exists — reload and try again.")
+            cur.execute("""
+                INSERT INTO order_items (order_id, item_id, name, variant, qty, unit_price)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (order_id, item_id) DO UPDATE SET qty = order_items.qty + EXCLUDED.qty;
+            """, (order_id, line.item_id, item["name"], item["variant"], line.qty, item["price"]))
+        return fetch_order(cur, order_id)
 
 
 @api.get("/orders/{order_id}")
@@ -995,7 +1018,7 @@ def fetch_count(cur, count_id: int):
     cur.execute("""
         SELECT id, item_id, name, variant, category, qty, unit_cost, ROUND(qty * unit_cost, 2) AS value
         FROM count_lines WHERE count_id = %s
-        ORDER BY CASE category WHEN 'Gelato' THEN 0 WHEN 'Raw Material' THEN 1 ELSE 2 END, name, variant;
+        ORDER BY """ + CATEGORY_ORDER + """, name, variant;
     """, (count_id,))
     head["lines"] = rows(cur)
     return head
@@ -1260,7 +1283,7 @@ def get_customer(customer_id: int):
         cur.execute("""
             SELECT i.id AS item_id, i.name, i.variant, i.selling_price, cp.price AS custom_price
             FROM items i LEFT JOIN customer_prices cp ON cp.item_id = i.id AND cp.customer_id = %s
-            WHERE i.category = 'Gelato' AND (i.active OR cp.price IS NOT NULL)
+            WHERE i.category IN ('Mini', 'Pint', 'Cake') AND (i.active OR cp.price IS NOT NULL)
             ORDER BY i.sort_order, i.name, i.variant;
         """, (customer_id,))
         c["prices"] = rows(cur)
@@ -1576,6 +1599,8 @@ def get_settings():
         s = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings;").fetchall()}
     s["payment_methods"] = list(PAYMENT_METHODS)
     s["categories"] = list(CATEGORIES)
+    s["sell_categories"] = list(SELL_CATEGORIES)
+    s["material_categories"] = list(MATERIAL_CATEGORIES)
     return s
 
 
