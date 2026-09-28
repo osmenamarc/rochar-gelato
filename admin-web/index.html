@@ -185,6 +185,15 @@
   .copy-btn.hit { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 5px 0 #2a1d17, 0 7px 12px rgba(68,49,40,.25); }
   .copy-btn.hit:active { box-shadow: 0 0 0 #2a1d17; }
   .live-card .copy-grid, .copy-grid { padding-bottom: 5px; }
+  /* Phone menu sheet */
+  .tab-menu { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
+  .tm-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 16px; border: 2px solid #ebe0d3; border-radius: 16px;
+    background: #faf6f1; color: var(--accent); font-weight: 700; font-size: 16px; cursor: pointer; text-align: left; transition: transform .08s, background .2s, border-color .2s; }
+  .tm-row:active { transform: scale(.98); background: var(--cream); }
+  .tm-row.on { border-color: var(--accent); background: #fff; }
+  .tm-ic { width: 40px; height: 40px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; color: var(--gold); flex: 0 0 40px; }
+  .tm-row.on .tm-ic { background: var(--accent); color: #fff; }
+  .tm-lbl { flex: 1; } .tm-go { font-size: 22px; color: #b4a594; }
   /* Schedule */
   .sched-strip-wrap { overflow: hidden; margin: 4px -4px 14px; padding: 0 4px; }
   .sched-strip { position: relative; }
@@ -595,9 +604,11 @@ const NAV_GROUPS = [
   ["OPERATIONS", [["products", "Products"], ["recipes", "Recipes"], ["materials", "Materials"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["inventory", "Inventory"]]],
 ];
 const TABS = MODE === "mobile"
-  ? [["pos", "POS"], ["orders", "Orders"], ["schedule", "Schedule"], ["buy", "Stock In"], ["expense", "Expense"], ["make", "Production"], ["count", "Inventory"]]
+  ? [["schedule", "Schedule"], ["pos", "POS"], ["orders", "Orders"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"]]
   : [...NAV_GROUPS.flatMap(g => g[1]), ["settings", "Settings"]];
 const SALE_METHODS = ["Cash", "GCash", "Bank"];
+// Phone bottom bar: 4 main tabs + a menu button for the rest
+const MOBILE_MAIN = ["schedule", "pos", "orders", "make"];
 
 // ---------------------------------------------------------------- helpers
 let TOKEN = null;
@@ -727,6 +738,7 @@ const ICON_PATHS = {
   overview: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
   orders: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
   schedule: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   pos: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   sales: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
   products: '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/>',
@@ -754,7 +766,11 @@ function renderTabs() {
   const btn = ([k, label]) => `<button class="${S.tab === k ? "active" : ""}" onclick="go('${k}')" title="${label}">${icon(k)}<span class="lbl">${label}</span>${
     (k === "orders" && S.openCount) ? `<span class="count">${S.openCount}</span>` : ""}</button>`;
   if (MODE === "mobile") {
-    $("#tabs").innerHTML = TABS.map(btn).join("") + `<span class="tab-ind"></span>`;
+    const more = TABS.filter(t => !MOBILE_MAIN.includes(t[0]));
+    const inMore = more.some(t => t[0] === S.tab);
+    $("#tabs").innerHTML = TABS.filter(t => MOBILE_MAIN.includes(t[0])).map(btn).join("")
+      + `<button class="${inMore ? "active" : ""}" onclick="openTabMenu()" title="Menu">${icon("menu")}<span class="lbl">${inMore ? TABS.find(t => t[0] === S.tab)[1] : "Menu"}</span></button>`
+      + `<span class="tab-ind"></span>`;
     const ind = $("#tabs .tab-ind"), a = $("#tabs button.active");
     if (S.indPos) { ind.style.transition = "none"; ind.style.width = S.indPos.w + "px"; ind.style.transform = `translateX(${S.indPos.x}px)`; void ind.offsetWidth; ind.style.transition = ""; }
     if (a && a.offsetWidth) { const w = a.offsetWidth * .56, x = a.offsetLeft + (a.offsetWidth - w) / 2; ind.style.width = w + "px"; ind.style.transform = `translateX(${x}px)`; S.indPos = { x, w }; }
@@ -762,6 +778,12 @@ function renderTabs() {
   }
   $("#tabs").innerHTML = `<div class="brand"><img class="mark" src="brand/monogram.png" alt="R"><span><img src="brand/wordmark.png" alt="Rochar"></span></div>` +
     NAV_GROUPS.map(([g, list]) => `<div class="grp"><span>${g}</span></div>` + list.map(btn).join("")).join("");
+}
+function openTabMenu() {
+  const more = TABS.filter(t => !MOBILE_MAIN.includes(t[0]));
+  openModal("Menu", `<div class="tab-menu">${more.map(([k, label]) => `
+    <button class="tm-row ${S.tab === k ? "on" : ""}" onclick="closeModal(); go('${k}')">
+      <span class="tm-ic">${icon(k)}</span><span class="tm-lbl">${label}</span><span class="tm-go">›</span></button>`).join("")}</div>`);
 }
 // Pages render off-screen first, so the old page stays put until the new one is ready (no blank "Loading…" flash).
 // Quiet refreshes (every 15 s) only touch the screen when something actually changed.
