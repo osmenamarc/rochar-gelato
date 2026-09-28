@@ -1655,15 +1655,15 @@ async function countChecklistHtml() {
   for (const i of list) {
     if (i.category !== cat) { cat = i.category; html += `<h3 style="margin:16px 0 4px">${esc(cat)}</h3>`; }
     const v = draft.qty?.[i.item_id] ?? "";
-    html += `<div class="count-item"><div>${esc(i.name)}${i.variant ? ` <span class="muted">(${esc(i.variant)})</span>` : ""}<br>
-      <span class="small muted">${Number(i.unit_cost) ? money(i.unit_cost) + " each" : `<span class="badge b-amber">no unit cost — valued at ₱0</span>`}${i.last_qty !== null && i.last_qty !== undefined ? ` · last count ${qty(i.last_qty)}` : ""}</span></div>
+    html += `<div class="count-item"><div>${esc(i.name)}${i.variant ? ` <span class="muted">(${esc(i.variant)})</span>` : ""}
+      ${i.last_qty !== null && i.last_qty !== undefined ? `<br><span class="small muted">last count ${qty(i.last_qty)}</span>` : ""}</div>
       <input type="number" inputmode="decimal" step="any" min="0" placeholder="count" data-count="${i.item_id}" data-cost="${i.unit_cost}" value="${esc(v)}" oninput="saveDraft()"></div>`;
   }
   return `<div class="card">
     <label class="field"><span>Count date (the last day of the month you're counting)</span><input type="date" id="countDate" value="${draft.date || manilaToday()}" onchange="saveDraft()"></label>
     <p class="hint">Count everything on hand: gelato in the freezer, raw materials, packaging. Your progress is kept on this device until you submit.</p>
     ${html}
-    <div class="sticky-bottom"><div class="total-box"><span id="countProgress"></span><span>Ending inventory <span id="countValue"></span></span></div>
+    <div class="sticky-bottom">
       <button class="btn block big" onclick="submitCount()">Submit count</button></div></div>`;
 }
 async function submitCount() {
