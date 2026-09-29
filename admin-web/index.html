@@ -185,6 +185,13 @@
   .copy-btn.hit { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 5px 0 #2a1d17, 0 7px 12px rgba(68,49,40,.25); }
   .copy-btn.hit:active { box-shadow: 0 0 0 #2a1d17; }
   .live-card .copy-grid, .copy-grid { padding-bottom: 5px; }
+  .done-head { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 18px 2px 8px; }
+  .sched-list .live-card { margin-bottom: 12px; }
+  .overdue { background: var(--amber-bg); color: var(--amber); border: 1px solid #f0d9ac; border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; font-weight: 600; font-size: 13.5px; }
+  .overdue .row { margin-top: 8px; flex-wrap: wrap; gap: 6px; }
+  .od-chip { border: 1.5px solid #e8c98c; background: #fff; color: var(--amber); border-radius: 99px; padding: 6px 12px; font-weight: 600; cursor: pointer; }
+  .od-chip:active { transform: scale(.95); }
+  .sched-title h2 { font-size: 20px; }
   /* Phone menu sheet */
   .tab-menu { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
   .tm-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 16px; border: 2px solid #ebe0d3; border-radius: 16px;
@@ -614,11 +621,11 @@ const NAV_GROUPS = [
   ["OPERATIONS", [["products", "Products"], ["recipes", "Recipes"], ["materials", "Materials"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["inventory", "Inventory"]]],
 ];
 const TABS = MODE === "mobile"
-  ? [["schedule", "Schedule"], ["pos", "POS"], ["orders", "Orders"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"]]
+  ? [["schedule", "Schedule"], ["pos", "POS"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"]]
   : [...NAV_GROUPS.flatMap(g => g[1]), ["settings", "Settings"]];
 const SALE_METHODS = ["Cash", "GCash", "Bank"];
 // Phone bottom bar: 4 main tabs + a menu button for the rest
-const MOBILE_MAIN = ["schedule", "pos", "orders", "make"];
+const MOBILE_MAIN = ["schedule", "pos", "make"];
 
 // ---------------------------------------------------------------- helpers
 let TOKEN = null;
@@ -774,7 +781,7 @@ const ICON_PATHS = {
 const icon = k => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] || ""}</svg>`;
 function renderTabs() {
   const btn = ([k, label]) => `<button class="${S.tab === k ? "active" : ""}" onclick="go('${k}')" title="${label}">${icon(k)}<span class="lbl">${label}</span>${
-    (k === "orders" && S.openCount) ? `<span class="count">${S.openCount}</span>` : ""}</button>`;
+    ((k === "orders" || k === "schedule") && S.openCount) ? `<span class="count">${S.openCount}</span>` : ""}</button>`;
   if (MODE === "mobile") {
     const more = TABS.filter(t => !MOBILE_MAIN.includes(t[0]));
     const inMore = more.some(t => t[0] === S.tab);
@@ -1457,8 +1464,11 @@ function schedCard(o) {
 function schedDayHtml(day) {
   const list = (S.schedByDay || {})[day] || [];
   const total = list.reduce((s, o) => s + o.total, 0);
+  const live = list.filter(o => o.status === "open"), done = list.filter(o => o.status !== "open");
   return `<div class="day-head"><span>${day === manilaToday() ? "Today" : fmtDate(day)}</span><span>${list.length} order${list.length === 1 ? "" : "s"} · ${money(total)}</span></div>
-    ${list.map(schedCard).join("") || `<div class="card empty">No deliveries on this day.</div>`}`;
+    ${live.map(liveCard).join("")}
+    ${done.length ? `<div class="done-head">Done · ${done.length}</div>${done.map(schedCard).join("")}` : ""}
+    ${list.length ? "" : `<div class="card empty">No orders on this day.<br><a href="#pos">Ring one up in POS</a></div>`}`;
 }
 function schedStripHtml(ws, day) {
   const i = Math.round((new Date(day + "T00:00:00Z") - new Date(ws + "T00:00:00Z")) / 864e5);
@@ -1475,12 +1485,26 @@ async function loadSchedWeek(ws) {
   S.schedByDay = {}; S.schedWeek = ws;
   r.orders.forEach(o => { const d = manilaParts(new Date(o.delivery_at)).date; (S.schedByDay[d] = S.schedByDay[d] || []).push(o); });
 }
+function overdueHtml() {
+  const today = manilaToday(), days = {};
+  (S.orders || []).forEach(o => { const d = manilaParts(new Date(o.delivery_at)).date; if (d < today) days[d] = (days[d] || 0) + 1; });
+  const list = Object.entries(days).sort();
+  if (!list.length) return "";
+  const n = list.reduce((s, [, c]) => s + c, 0);
+  return `<div class="overdue">⚠️ ${n} live order${n === 1 ? "" : "s"} from earlier days
+    <div class="row">${list.map(([d, c]) => `<button class="od-chip" onclick="schedPick('${d}')">${fmtDate(d)} · ${c}</button>`).join("")}</div></div>`;
+}
 async function viewSchedule() {
+  if (S.ordersView === "history") {
+    await viewSales();
+    $("#view").insertAdjacentHTML("afterbegin", ordersToggle());
+    return;
+  }
   const day = S.schedDay || (S.schedDay = manilaToday());
   const ws = weekStartOf(day);
   await loadSchedWeek(ws);
-  $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Schedule</h2>
+  $("#view").innerHTML = `${ordersToggle()}${overdueHtml()}
+    <div class="section-title sched-title">
       <div class="row"><button class="btn ghost sm" onclick="schedWeek(-1)">‹ Week</button>
         <input type="date" class="sched-date" id="schedDate" value="${day}" onchange="this.value && schedPick(this.value)">
         <button class="btn ghost sm" onclick="schedWeek(1)">Week ›</button>
@@ -1541,13 +1565,25 @@ function setOrdersView(v) {
   const t = $(".orders-toggle");
   if (t) { t.classList.toggle("hist", v === "history"); $$("button", t).forEach((b, i) => b.classList.toggle("on", (i === 1) === (v === "history"))); }
   S.ordersView = v;
-  if (S.tab === "orders") go("orders", { keepScroll: true }); else go("orders");
+  if (S.tab === "schedule") go("schedule", { keepScroll: true }); else go("schedule");
 }
 function ordersToggle() {
   const live = S.ordersView !== "history";
   return `<div class="orders-toggle ${live ? "" : "hist"}" data-keep="orders-toggle">
-    <button class="${live ? "on" : ""}" onclick="setOrdersView('live')">Live orders${S.openCount ? ` <span class="pill">${S.openCount}</span>` : ""}</button>
+    <button class="${live ? "on" : ""}" onclick="setOrdersView('live')">Schedule${S.openCount ? ` <span class="pill">${S.openCount}</span>` : ""}</button>
     <button class="${live ? "" : "on"}" onclick="showHistory()">History</button></div>`;
+}
+function liveCard(o) {
+  return `<div class="live-card" data-order="${o.id}">
+    <div class="lc-head" onclick="openOrderSheet(${o.id})">
+      <div class="lc-who">
+        <div class="lc-name">${o.customer_name ? esc(o.customer_name) : `<span class="muted">No name yet</span>`}</div>
+        <div class="lc-sched">🕒 ${fmtDeliver(o.delivery_at)}</div>
+      </div>
+      <div class="lc-right"><b>${money(o.total)}</b></div>
+    </div>
+    ${copyButtons(o.id)}
+  </div>`;
 }
 async function viewLiveOrders() {
   if (S.ordersView === "history") {
@@ -2840,7 +2876,7 @@ async function changePin(e) {
 
 // ---------------------------------------------------------------- boot
 const VIEWS = {
-  pos: viewPOS, orders: viewLiveOrders, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
+  pos: viewPOS, orders: viewSchedule, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
   dashboard: viewDashboard, customers: viewCustomers, resellers: viewResellers, reconciliation: viewReconciliation,
   receivables: viewReceivables, liabilities: viewLiabilities, inventory: viewInventory,
   products: viewProducts, recipes: viewRecipes, materials: viewMaterials, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings,
