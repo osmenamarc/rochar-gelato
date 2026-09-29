@@ -185,7 +185,15 @@
   .copy-btn.hit { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 5px 0 #2a1d17, 0 7px 12px rgba(68,49,40,.25); }
   .copy-btn.hit:active { box-shadow: 0 0 0 #2a1d17; }
   .live-card .copy-grid, .copy-grid { padding-bottom: 5px; }
-  .sched-modebar { display: flex; justify-content: flex-end; margin: -4px 0 8px; }
+  .sched-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0 12px; }
+  .sb-title { font-size: 16px; }
+  .date-nav { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .dn-arrow { width: 38px; height: 38px; border-radius: 12px; border: 1.5px solid #e2d2bf; background: #fff; color: var(--accent); font-size: 22px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 38px; transition: transform .08s, background .2s; }
+  .dn-arrow:active { transform: scale(.9); background: var(--cream); }
+  .date-btn { position: relative; display: flex; align-items: center; height: 38px; padding: 0 12px; border-radius: 12px; background: #fff; border: 1.5px solid #e2d2bf;
+    font-weight: 700; color: var(--accent); white-space: nowrap; cursor: pointer; }
+  .date-btn input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
   .mini-btn { background: none; border: 1.5px solid #e2d2bf; color: var(--accent); border-radius: 99px; padding: 6px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: transform .08s, background .2s; }
   .mini-btn:active { transform: scale(.94); background: var(--cream); }
   #schedBody.mode-in { animation: listInUp .3s var(--spring); }
@@ -816,12 +824,18 @@ function openTabMenu() {
 }
 // Pages render off-screen first, so the old page stays put until the new one is ready (no blank "Loading…" flash).
 // Quiet refreshes (every 15 s) only touch the screen when something actually changed.
-let navSeq = 0, navigating = false;
+let navSeq = 0, navigating = false, rendering = false;
+let REAL_VIEW = null;                       // the on-screen <main>, kept by reference (its id is borrowed while rendering)
+let renderLock = Promise.resolve();
 async function renderOffscreen(tab) {
-  const real = $("#view"), off = document.createElement("main");
+  // One render at a time: two overlapping renders used to swap the page ids around and leave the screen stuck.
+  const prev = renderLock; let release; renderLock = new Promise(r => release = r);
+  await prev;
+  rendering = true;
+  const real = REAL_VIEW || (REAL_VIEW = document.getElementById("view")), off = document.createElement("main");
   off.style.display = "none"; document.body.prepend(off);
   real.id = "view-live"; off.id = "view";
-  try { await VIEWS[tab](); } finally { off.id = ""; real.id = "view"; off.remove(); }
+  try { await VIEWS[tab](); } finally { off.id = ""; real.id = "view"; off.remove(); rendering = false; release(); }
   return off;
 }
 function swapIn(real, off) {
@@ -836,9 +850,9 @@ async function go(tab, opts = {}) {
   const prev = S.tab; S.tab = tab; renderTabs();
   for (const k of Object.keys(EDITS)) delete EDITS[k];
   try { history.replaceState(null, "", location.pathname + location.search + "#" + tab); } catch (e) {}
-  const v = $("#view");
+  const v = REAL_VIEW || (REAL_VIEW = document.getElementById("view"));
   if (opts.quiet) {
-    if (navigating) return;
+    if (navigating || rendering) return;
     if (tab === "schedule" && S.ordersView !== "history" && $("#schedBody")) return refreshSchedule();                  // a page change is running — it will show fresh data anyway
     const seq = navSeq, y = window.scrollY;
     try {
@@ -887,7 +901,7 @@ const sellables = () => S.items.filter(i => i.active && isSellable(i));
 
 // "Real-time" sync: every 15 s (and whenever the app comes back to the
 // foreground) the live screens reload — unless you're in the middle of typing.
-const LIVE_TABS = ["pos", "orders", "schedule", "sales", "dashboard", "receivables", "reconciliation"];
+const LIVE_TABS = ["orders", "schedule", "sales", "dashboard", "receivables", "reconciliation"];
 function busy() {
   const a = document.activeElement;
   return $("#modal").open || $(".ed.editing") || (a && ["INPUT", "TEXTAREA", "SELECT"].includes(a.tagName))
@@ -1521,30 +1535,31 @@ function orderListHtml() {
       <span class="ol-date">${fmtDeliver(o.delivery_at)}</span>
       <b class="ol-total">${money(o.total)}</b></button>`).join("") || `<div class="empty">No live orders.</div>`}</div>`;
 }
+function schedDateLabel(d) { return d === manilaToday() ? `Today · ${fmtDate(d).split(", ")[1]}` : fmtDate(d); }
 function schedBodyHtml() {
   const day = S.schedDay, ws = S.schedWeek;
-  if (S.schedMode === "list") return `<div id="schedBody" class="sched-list in-up">${orderListHtml()}</div>`;
+  if (S.schedMode === "list") return `<div id="schedBody">
+    <div class="sched-bar"><b class="sb-title">All live orders</b><button class="mini-btn" onclick="setSchedMode('day')">📅 Back to schedule</button></div>
+    <div class="sched-list in-up">${orderListHtml()}</div></div>`;
   return `<div id="schedBody">
-    <div class="section-title sched-title">
-      <div class="row"><button class="btn ghost sm" onclick="schedWeek(-1)">‹ Week</button>
-        <input type="date" class="sched-date" id="schedDate" value="${day}" onchange="this.value && schedPick(this.value)">
-        <button class="btn ghost sm" onclick="schedWeek(1)">Week ›</button>
-        <button class="btn sm ${day === manilaToday() ? "hidden" : ""}" id="schedToday" onclick="schedPick(manilaToday())">Today</button></div></div>
+    <div class="sched-bar">
+      <div class="date-nav">
+        <button class="dn-arrow" onclick="schedPick(addDays(S.schedDay, -1))" aria-label="Previous day">‹</button>
+        <label class="date-btn"><span id="schedDateLbl">${schedDateLabel(day)}</span>
+          <input type="date" id="schedDate" value="${day}" onchange="this.value && schedPick(this.value)"></label>
+        <button class="dn-arrow" onclick="schedPick(addDays(S.schedDay, 1))" aria-label="Next day">›</button>
+      </div>
+      <button class="mini-btn" onclick="setSchedMode('list')">☰ Order list</button>
+    </div>
     <div class="sched-strip-wrap"><div class="sched-strip" id="schedStrip">${schedStripHtml(ws, day)}</div></div>
     <div id="schedList" class="sched-list">${schedDayHtml(day)}</div></div>`;
 }
-function schedModeBtn() {
-  return S.schedMode === "list"
-    ? `<button class="mini-btn" onclick="setSchedMode('day')">📅 Back to schedule</button>`
-    : `<button class="mini-btn" onclick="setSchedMode('list')">☰ See order list</button>`;
-}
 function setSchedMode(m) {
   S.schedMode = m;
-  const body = $("#schedBody"), bar = $("#schedModeBar");
-  if (!body || !bar) return go("schedule");
-  bar.innerHTML = schedModeBtn();
+  const body = $("#schedBody");
+  if (!body) return go("schedule");
   body.outerHTML = schedBodyHtml();
-  const nb = $("#schedBody"); nb.classList.add("mode-in");
+  $("#schedBody").classList.add("mode-in");
 }
 async function viewSchedule() {
   if (S.ordersView === "history") {
@@ -1559,7 +1574,6 @@ async function viewSchedule() {
   if (!cached) await loadSchedWeek(ws);
   else setTimeout(() => refreshSchedule(), 450);   // after the page has slid in
   $("#view").innerHTML = `${ordersToggle()}<div id="schedOverdue">${overdueHtml()}</div>
-    <div class="sched-modebar" id="schedModeBar">${schedModeBtn()}</div>
     ${schedBodyHtml()}`;
 }
 // Background refresh: re-fetch, and only touch the screen if something actually changed (no re-animating).
@@ -1573,7 +1587,7 @@ async function refreshSchedule() {
     if (S.tab !== "schedule" || busy() || !$("#schedBody")) { S.schedSig = null; return; }   // couldn't show it now → redo next time
     const ov = $("#schedOverdue"); if (ov) ov.innerHTML = overdueHtml();
     const pill = $(".orders-toggle .pill"); if (pill) pill.textContent = S.openCount;
-    if (S.schedMode === "list") { const b = $("#schedBody"); if (b) b.innerHTML = orderListHtml(); return; }
+    if (S.schedMode === "list") { const b = $("#schedBody .sched-list"); if (b) b.innerHTML = orderListHtml(); return; }
     const strip = $("#schedStrip"), list = $("#schedList");
     if (strip && weekStartOf(S.schedDay) === S.schedWeek) strip.innerHTML = schedStripHtml(S.schedWeek, S.schedDay);
     if (list) { list.classList.remove("in-l", "in-r", "in-up"); list.innerHTML = schedDayHtml(S.schedDay); }
@@ -1587,7 +1601,7 @@ async function schedPick(day, dir) {
   if (S.schedMode === "list") { S.schedMode = "day"; return go("schedule", { keepScroll: true }); }
   const strip = $("#schedStrip"), listEl = $("#schedList");
   if (!strip || !listEl) return go("schedule");
-  $("#schedDate").value = day; $("#schedToday").classList.toggle("hidden", day === manilaToday());
+  $("#schedDate").value = day; $("#schedDateLbl").textContent = schedDateLabel(day);
   if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {}
   const d = dir || (day > prev ? 1 : day < prev ? -1 : 0);
   if (ws === S.schedWeek) {
