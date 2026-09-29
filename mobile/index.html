@@ -185,6 +185,18 @@
   .copy-btn.hit { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 5px 0 #2a1d17, 0 7px 12px rgba(68,49,40,.25); }
   .copy-btn.hit:active { box-shadow: 0 0 0 #2a1d17; }
   .live-card .copy-grid, .copy-grid { padding-bottom: 5px; }
+  .sched-modebar { display: flex; justify-content: flex-end; margin: -4px 0 8px; }
+  .mini-btn { background: none; border: 1.5px solid #e2d2bf; color: var(--accent); border-radius: 99px; padding: 6px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: transform .08s, background .2s; }
+  .mini-btn:active { transform: scale(.94); background: var(--cream); }
+  #schedBody.mode-in { animation: listInUp .3s var(--spring); }
+  .olist { background: #fff; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .olist-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "n t" "d t"; gap: 2px 12px; align-items: center; width: 100%;
+    background: none; border: none; border-top: 1px solid var(--border); padding: 12px 14px; text-align: left; cursor: pointer; transition: background .15s; }
+  .olist-row:first-child { border-top: none; }
+  .olist-row:active { background: var(--hover); }
+  .ol-name { grid-area: n; font-weight: 700; font-size: 15.5px; color: var(--ink); }
+  .ol-date { grid-area: d; font-size: 13px; color: var(--muted); }
+  .ol-total { grid-area: t; font-size: 16px; }
   .done-head { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 18px 2px 8px; }
   .sched-list .live-card { margin-bottom: 12px; }
   .overdue { background: var(--amber-bg); color: var(--amber); border: 1px solid #f0d9ac; border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; font-weight: 600; font-size: 13.5px; }
@@ -826,7 +838,8 @@ async function go(tab, opts = {}) {
   try { history.replaceState(null, "", location.pathname + location.search + "#" + tab); } catch (e) {}
   const v = $("#view");
   if (opts.quiet) {
-    if (navigating) return;                  // a page change is running — it will show fresh data anyway
+    if (navigating) return;
+    if (tab === "schedule" && S.ordersView !== "history" && $("#schedBody")) return refreshSchedule();                  // a page change is running — it will show fresh data anyway
     const seq = navSeq, y = window.scrollY;
     try {
       const off = await renderOffscreen(tab);
@@ -1480,10 +1493,14 @@ function schedStripHtml(ws, day) {
 }
 async function loadSchedWeek(ws) {
   const [r, open] = await Promise.all([api(`/orders/schedule?date_from=${ws}&date_to=${addDays(ws, 6)}`), busy() ? S.orders : api("/orders/open")]);
+  const sig = JSON.stringify([ws, r.orders, open]);
+  const changed = sig !== S.schedSig;
+  S.schedSig = sig;
   S.orders = open; S.openCount = open.length; renderTabs();
   S.history = r.orders.filter(o => o.status !== "open");
   S.schedByDay = {}; S.schedWeek = ws;
   r.orders.forEach(o => { const d = manilaParts(new Date(o.delivery_at)).date; (S.schedByDay[d] = S.schedByDay[d] || []).push(o); });
+  return changed;
 }
 function overdueHtml() {
   const today = manilaToday(), days = {};
@@ -1492,7 +1509,42 @@ function overdueHtml() {
   if (!list.length) return "";
   const n = list.reduce((s, [, c]) => s + c, 0);
   return `<div class="overdue">⚠️ ${n} live order${n === 1 ? "" : "s"} from earlier days
-    <div class="row">${list.map(([d, c]) => `<button class="od-chip" onclick="schedPick('${d}')">${fmtDate(d)} · ${c}</button>`).join("")}</div></div>`;
+    <div class="row">${list.map(([d, c]) => `<button class="od-chip" onclick="S.schedMode='day'; schedPick('${d}')">${fmtDate(d)} · ${c}</button>`).join("")}</div></div>`;
+}
+// Compact list of every live order: name · delivery date · total. Tap a row → the order details.
+function orderListHtml() {
+  const list = (S.orders || []).slice().sort((a, b) => new Date(a.delivery_at) - new Date(b.delivery_at));
+  const total = list.reduce((s, o) => s + o.total, 0);
+  return `<div class="day-head"><span>All live orders</span><span>${list.length} · ${money(total)}</span></div>
+    <div class="olist">${list.map(o => `<button class="olist-row" onclick="openOrderSheet(${o.id})">
+      <span class="ol-name">${o.customer_name ? esc(o.customer_name) : `<span class="muted">No name yet</span>`}</span>
+      <span class="ol-date">${fmtDeliver(o.delivery_at)}</span>
+      <b class="ol-total">${money(o.total)}</b></button>`).join("") || `<div class="empty">No live orders.</div>`}</div>`;
+}
+function schedBodyHtml() {
+  const day = S.schedDay, ws = S.schedWeek;
+  if (S.schedMode === "list") return `<div id="schedBody" class="sched-list in-up">${orderListHtml()}</div>`;
+  return `<div id="schedBody">
+    <div class="section-title sched-title">
+      <div class="row"><button class="btn ghost sm" onclick="schedWeek(-1)">‹ Week</button>
+        <input type="date" class="sched-date" id="schedDate" value="${day}" onchange="this.value && schedPick(this.value)">
+        <button class="btn ghost sm" onclick="schedWeek(1)">Week ›</button>
+        <button class="btn sm ${day === manilaToday() ? "hidden" : ""}" id="schedToday" onclick="schedPick(manilaToday())">Today</button></div></div>
+    <div class="sched-strip-wrap"><div class="sched-strip" id="schedStrip">${schedStripHtml(ws, day)}</div></div>
+    <div id="schedList" class="sched-list">${schedDayHtml(day)}</div></div>`;
+}
+function schedModeBtn() {
+  return S.schedMode === "list"
+    ? `<button class="mini-btn" onclick="setSchedMode('day')">📅 Back to schedule</button>`
+    : `<button class="mini-btn" onclick="setSchedMode('list')">☰ See order list</button>`;
+}
+function setSchedMode(m) {
+  S.schedMode = m;
+  const body = $("#schedBody"), bar = $("#schedModeBar");
+  if (!body || !bar) return go("schedule");
+  bar.innerHTML = schedModeBtn();
+  body.outerHTML = schedBodyHtml();
+  const nb = $("#schedBody"); nb.classList.add("mode-in");
 }
 async function viewSchedule() {
   if (S.ordersView === "history") {
@@ -1502,21 +1554,38 @@ async function viewSchedule() {
   }
   const day = S.schedDay || (S.schedDay = manilaToday());
   const ws = weekStartOf(day);
-  await loadSchedWeek(ws);
-  $("#view").innerHTML = `${ordersToggle()}${overdueHtml()}
-    <div class="section-title sched-title">
-      <div class="row"><button class="btn ghost sm" onclick="schedWeek(-1)">‹ Week</button>
-        <input type="date" class="sched-date" id="schedDate" value="${day}" onchange="this.value && schedPick(this.value)">
-        <button class="btn ghost sm" onclick="schedWeek(1)">Week ›</button>
-        <button class="btn sm ${day === manilaToday() ? "hidden" : ""}" id="schedToday" onclick="schedPick(manilaToday())">Today</button></div></div>
-    <div class="sched-strip-wrap"><div class="sched-strip" id="schedStrip">${schedStripHtml(ws, day)}</div></div>
-    <div id="schedList" class="sched-list">${schedDayHtml(day)}</div>`;
+  // Show the last loaded data straight away (no waiting), then check the server in the background.
+  const cached = S.schedWeek === ws && S.schedByDay;
+  if (!cached) await loadSchedWeek(ws);
+  else setTimeout(() => refreshSchedule(), 450);   // after the page has slid in
+  $("#view").innerHTML = `${ordersToggle()}<div id="schedOverdue">${overdueHtml()}</div>
+    <div class="sched-modebar" id="schedModeBar">${schedModeBtn()}</div>
+    ${schedBodyHtml()}`;
+}
+// Background refresh: re-fetch, and only touch the screen if something actually changed (no re-animating).
+let schedRefreshing = false;
+async function refreshSchedule() {
+  if (schedRefreshing || S.tab !== "schedule" || S.ordersView === "history") return;
+  schedRefreshing = true;
+  try {
+    const changed = await loadSchedWeek(S.schedWeek || weekStartOf(S.schedDay || manilaToday()));
+    if (!changed) return;
+    if (S.tab !== "schedule" || busy() || !$("#schedBody")) { S.schedSig = null; return; }   // couldn't show it now → redo next time
+    const ov = $("#schedOverdue"); if (ov) ov.innerHTML = overdueHtml();
+    const pill = $(".orders-toggle .pill"); if (pill) pill.textContent = S.openCount;
+    if (S.schedMode === "list") { const b = $("#schedBody"); if (b) b.innerHTML = orderListHtml(); return; }
+    const strip = $("#schedStrip"), list = $("#schedList");
+    if (strip && weekStartOf(S.schedDay) === S.schedWeek) strip.innerHTML = schedStripHtml(S.schedWeek, S.schedDay);
+    if (list) { list.classList.remove("in-l", "in-r", "in-up"); list.innerHTML = schedDayHtml(S.schedDay); }
+  } catch (e) {} finally { schedRefreshing = false; }
 }
 let schedBusy = null;
 async function schedPick(day, dir) {
   if (!day) return;
   const prev = S.schedDay; S.schedDay = day;
-  const ws = weekStartOf(day), strip = $("#schedStrip"), listEl = $("#schedList");
+  const ws = weekStartOf(day);
+  if (S.schedMode === "list") { S.schedMode = "day"; return go("schedule", { keepScroll: true }); }
+  const strip = $("#schedStrip"), listEl = $("#schedList");
   if (!strip || !listEl) return go("schedule");
   $("#schedDate").value = day; $("#schedToday").classList.toggle("hidden", day === manilaToday());
   if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {}
