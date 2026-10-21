@@ -221,6 +221,11 @@
   .cs-head { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
   .cs-preview { margin: 0; white-space: pre-wrap; font: 13px/1.45 Inter, sans-serif; background: #fff; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
   .cs-buttons { max-width: 420px; }
+  .var-box { border: 1px dashed #e2d2bf; border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; background: #fff; }
+  .var-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .var-chip { border: 1px solid #e2d2bf; background: var(--hover); border-radius: 99px; padding: 5px 10px; font-size: 12.5px; color: var(--muted); cursor: pointer; transition: transform .08s, background .2s; }
+  .var-chip code { color: var(--accent); font-weight: 700; font-family: ui-monospace, Menlo, monospace; }
+  .var-chip:hover { background: var(--cream); } .var-chip:active { transform: scale(.95); }
   .cs-buttons .copy-btn { cursor: default; }
   /* Phone menu sheet */
   .tab-menu { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
@@ -1261,13 +1266,29 @@ async function newOrder() {
     S.orders.push(o); S.openCount = S.orders.length; renderTabs(); openOrderSheet(o.id);
   } catch (err) { toast(err.message, true); }
 }
+// Variables you can type into any copy message, e.g. "Hi {name}! Delivery on {date} at {time}."
+const MSG_VARS = [["name", "Customer name"], ["phone", "Phone"], ["address", "Delivery address"], ["date", "Delivery date"],
+  ["time", "Delivery time"], ["total", "Total (incl. delivery)"], ["items_total", "Items only, no delivery"],
+  ["delivery_fee", "Delivery fee"], ["rider", "Rider name"], ["notes", "Special notes"], ["order_no", "Order number"]];
+function msgVars(o) {
+  const when = o.delivery_at ? manilaParts(new Date(o.delivery_at)).date : "";
+  return { name: o.customer_name || "", phone: o.phone || "", address: o.address || "",
+    date: when ? fmtDate(when) : "", time: o.delivery_at ? fmtTime(o.delivery_at) : "",
+    total: money(o.total), items_total: money(o.subtotal), delivery_fee: money(o.delivery_fee),
+    rider: o.rider_name || "", notes: o.notes || "", order_no: "#" + o.id };
+}
+function fillVars(text, o) {
+  const v = msgVars(o);
+  return (text || "").replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+}
+const MSG_RULE = "------------------------------";
 function orderMessage(o) {
-  const h = S.settings.msg_customer_header || "This is your order total:";
-  const f = S.settings.msg_customer_footer || "";
+  const h = fillVars(S.settings.msg_customer_header || "This is your order total:", o);
+  const f = fillVars(S.settings.msg_customer_footer || "", o);
   const lines = o.items.map(i => `${qty(i.qty)}x ${itemLabel(i.name, i.variant)} - ${money(i.amount)}`);
   if (Number(o.delivery_fee) > 0) lines.push(`Delivery Fee: ${money(o.delivery_fee)}`);
   const footer = o.payment_status === "credit" ? "" : f;   // no "send payment to QR" line for credit sales
-  return `${h}\n\n${lines.join("\n")}\n\nTotal: ${money(o.total)}${footer ? "\n\n" + footer : ""}`;
+  return `${h}\n\n${lines.join("\n")}\n${MSG_RULE}\nTotal: ${money(o.total)}${footer ? "\n\n" + footer : ""}`;
 }
 function drawOrderCard(id) {
   const box = $("#orderCards"); if (!box) return;
@@ -1471,8 +1492,8 @@ function copyButtons(id) {
 async function copyOrder(id, which, el) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
   if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), copyLabel("customer", "Total Info")); }
-  if (which === "location") await copyText(S.settings.msg_rider_location || "", copyLabel("location", "Loc Guide"));
-  if (which === "df") await copyText(S.settings.msg_rider_df || "", copyLabel("df", "Rider GCash"));
+  if (which === "location") await copyText(fillVars(S.settings.msg_rider_location, o), copyLabel("location", "Loc Guide"));
+  if (which === "df") await copyText(fillVars(S.settings.msg_rider_df, o), copyLabel("df", "Rider GCash"));
   if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
   if (!el) return;
   clearTimeout(el._t);
@@ -2947,13 +2968,16 @@ async function viewSettings() {
   S.settings = await api("/settings");
   const s = S.settings;
   const area = (key, label, rows = 3, hint = "") => `<label class="field"><span>${label}</span>
-    <textarea rows="${rows}" data-set="${key}" oninput="previewCopy()" onchange="saveSetting('${key}', this.value)">${esc(s[key])}</textarea>${hint ? `<span class="small muted">${hint}</span>` : ""}</label>`;
+    <textarea rows="${rows}" data-set="${key}" onfocus="S.lastSetField=this" oninput="previewCopy()" onchange="saveSetting('${key}', this.value)">${esc(s[key])}</textarea>${hint ? `<span class="small muted">${hint}</span>` : ""}</label>`;
   const nameBox = (k, def) => `<label class="field"><span>Button name</span>
     <input data-set="copy_label_${k}" value="${esc(s["copy_label_" + k] || "")}" placeholder="${def}" maxlength="24" oninput="previewCopy()" onchange="saveSetting('copy_label_${k}', this.value)"></label>`;
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">Settings</h2><button class="btn ghost" onclick="logout()">Log out</button></div>
     <div class="card"><h3>Phone app — the 3 copy buttons</h3>
       <p class="small muted" style="margin-top:0">These are the buttons on each order in the phone app's Schedule and order slip. Changes save when you click out of a box, and phones pick them up the next time the app is opened.</p>
+      <div class="var-box"><div class="cs-head">Variables — click inside a message, then tap one to insert it</div>
+        <div class="var-chips">${MSG_VARS.map(([k, d]) => `<button type="button" class="var-chip" onmousedown="event.preventDefault()" onclick="insertVar('${k}')"><code>{${k}}</code> ${d}</button>`).join("")}</div>
+        <p class="small muted" style="margin:6px 0 0">Each one is replaced with that order's details when you copy. If the order doesn't have it yet (e.g. no rider), it's left blank.</p></div>
       <div class="copy-set">
         <div class="cs-col"><div class="cs-head">Button 1 · order total</div>
           ${nameBox("customer", "Total Info")}
@@ -2962,10 +2986,12 @@ async function viewSettings() {
           <div class="field"><span>Preview (sample order)</span><pre class="cs-preview" id="pv_customer"></pre></div></div>
         <div class="cs-col"><div class="cs-head">Button 2</div>
           ${nameBox("location", "Loc Guide")}
-          ${area("msg_rider_location", "Message it copies", 8)}</div>
+          ${area("msg_rider_location", "Message it copies", 6)}
+          <div class="field"><span>Preview (sample order)</span><pre class="cs-preview" id="pv_location"></pre></div></div>
         <div class="cs-col"><div class="cs-head">Button 3</div>
           ${nameBox("df", "Rider GCash")}
-          ${area("msg_rider_df", "Message it copies", 8)}</div>
+          ${area("msg_rider_df", "Message it copies", 6)}
+          <div class="field"><span>Preview (sample order)</span><pre class="cs-preview" id="pv_df"></pre></div></div>
       </div>
       <div class="field" style="margin-top:6px"><span>How the buttons will look</span><div class="cs-buttons" id="pv_buttons"></div></div>
     </div>
@@ -2977,13 +3003,28 @@ async function viewSettings() {
       </form><p class="small muted">Changing the PIN logs out every other phone and computer.</p></div>`;
   previewCopy();
 }
+const SAMPLE_ORDER = { id: 128, customer_name: "Maria Santos", phone: "0917 123 4567", address: "12 Mango Ave, Cebu City",
+  delivery_at: new Date(Date.now() + 864e5).toISOString().slice(0, 11) + "06:30:00.000Z", subtotal: 910, delivery_fee: 80, total: 990,
+  rider_name: "Ben", notes: "Ring twice", payment_status: "paid",
+  items: [{ qty: 2, name: "Chocolate", variant: "Pint", amount: 780 }, { qty: 1, name: "Malted Polvoron", variant: "Mini", amount: 130 }] };
+function insertVar(k) {
+  const el = S.lastSetField && document.body.contains(S.lastSetField) ? S.lastSetField : null;
+  if (!el) return toast("Click inside a message box first, then tap a variable", true);
+  const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a, t = `{${k}}`;
+  el.value = el.value.slice(0, a) + t + el.value.slice(b);
+  el.focus(); el.setSelectionRange(a + t.length, a + t.length);
+  previewCopy(); saveSetting(el.dataset.set, el.value);
+}
 function previewCopy() {
   const v = k => { const el = $(`[data-set="${k}"]`); return el ? el.value : (S.settings[k] || ""); };
   const pv = $("#pv_customer");
   if (pv) {
-    const h = v("msg_customer_header") || "This is your order total:", f = v("msg_customer_footer");
-    pv.textContent = `${h}\n\n2x Chocolate (Pint) - ₱780\n1x Malted Polvoron (Mini) - ₱130\nDelivery Fee: ₱80\n\nTotal: ₱990${f ? "\n\n" + f : ""}`;
+    const saved = S.settings;
+    S.settings = { ...saved, msg_customer_header: v("msg_customer_header"), msg_customer_footer: v("msg_customer_footer") };
+    try { pv.textContent = orderMessage(SAMPLE_ORDER); } finally { S.settings = saved; }
   }
+  const p2 = $("#pv_location"); if (p2) p2.textContent = fillVars(v("msg_rider_location"), SAMPLE_ORDER) || "(empty)";
+  const p3 = $("#pv_df"); if (p3) p3.textContent = fillVars(v("msg_rider_df"), SAMPLE_ORDER) || "(empty)";
   const pb = $("#pv_buttons");
   if (pb) pb.innerHTML = `<div class="copy-grid">${COPY_KINDS.map(([k, def]) => `<div class="copy-btn"><span class="cb-ic">${COPY_ICON}</span>
     <span class="cb-txt"><small>Copy</small>${esc(v("copy_label_" + k).trim() || def)}</span></div>`).join("")}</div>`;
