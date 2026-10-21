@@ -212,6 +212,14 @@
   .od-chip { border: 1.5px solid #e8c98c; background: #fff; color: var(--amber); border-radius: 99px; padding: 6px 12px; font-weight: 600; cursor: pointer; }
   .od-chip:active { transform: scale(.95); }
   .sched-title h2 { font-size: 20px; }
+  /* Settings: copy buttons */
+  .copy-set { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .copy-set { grid-template-columns: 1fr; } }
+  .cs-col { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--hover); }
+  .cs-head { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+  .cs-preview { margin: 0; white-space: pre-wrap; font: 13px/1.45 Inter, sans-serif; background: #fff; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
+  .cs-buttons { max-width: 420px; }
+  .cs-buttons .copy-btn { cursor: default; }
   /* Phone menu sheet */
   .tab-menu { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
   .tm-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 16px; border: 2px solid #ebe0d3; border-radius: 16px;
@@ -639,10 +647,11 @@ const NAV_GROUPS = [
   ["CLIENTS", [["customers", "Customers"], ["resellers", "Resellers"]]],
   ["FINANCE", [["reconciliation", "Reconciliation"], ["receivables", "Receivables"], ["liabilities", "Liabilities"]]],
   ["OPERATIONS", [["products", "Products"], ["recipes", "Recipes"], ["materials", "Materials"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["inventory", "Inventory"]]],
+  ["SYSTEM", [["settings", "Settings"]]],
 ];
 const TABS = MODE === "mobile"
   ? [["schedule", "Schedule"], ["pos", "POS"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"]]
-  : [...NAV_GROUPS.flatMap(g => g[1]), ["settings", "Settings"]];
+  : NAV_GROUPS.flatMap(g => g[1]);
 const SALE_METHODS = ["Cash", "GCash", "Bank"];
 // Phone bottom bar: 4 main tabs + a menu button for the rest
 const MOBILE_MAIN = ["schedule", "pos", "make"];
@@ -1446,20 +1455,22 @@ function setPay(orderId, field, value) {
   enqueue(orderId, () => api(`/orders/${orderId}`, { method: "PATCH", body: { [field]: value } }));
 }
 // Copy buttons behave like physical buttons: press → it pushes down, flashes "Copied ✓" for a moment, then pops back.
-const COPY_KINDS = [["customer", "Total", "Info"], ["location", "Loc", "Guide"], ["df", "Rider", "GCash"]];
+// Button names are editable in the web admin → Settings
+const COPY_KINDS = [["customer", "Total Info"], ["location", "Loc Guide"], ["df", "Rider GCash"]];
+const copyLabel = (k, def) => ((S.settings || {})["copy_label_" + k] || "").trim() || def;
 const COPY_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>`;
 const CHECK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
 function copyButtons(id) {
-  return `<div class="copy-grid">${COPY_KINDS.map(([k, a, b]) => `
+  return `<div class="copy-grid">${COPY_KINDS.map(([k, def]) => `
     <button type="button" class="copy-btn" onclick="copyOrder(${id}, '${k}', this)">
       <span class="cb-ic">${COPY_ICON}</span>
-      <span class="cb-txt"><small>Copy</small>${a} ${b}</span></button>`).join("")}</div>`;
+      <span class="cb-txt"><small>Copy</small>${esc(copyLabel(k, def))}</span></button>`).join("")}</div>`;
 }
 async function copyOrder(id, which, el) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
-  if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), "Total info"); }
-  if (which === "location") await copyText(S.settings.msg_rider_location || "", "Loc guide");
-  if (which === "df") await copyText(S.settings.msg_rider_df || "", "Rider GCash");
+  if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), copyLabel("customer", "Total Info")); }
+  if (which === "location") await copyText(S.settings.msg_rider_location || "", copyLabel("location", "Loc Guide"));
+  if (which === "df") await copyText(S.settings.msg_rider_df || "", copyLabel("df", "Rider GCash"));
   if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
   if (!el) return;
   clearTimeout(el._t);
@@ -2933,21 +2944,47 @@ async function viewCountMatrix(asValue) {
 async function viewSettings() {
   S.settings = await api("/settings");
   const s = S.settings;
-  const area = (key, label, rows = 2) => `<label class="field"><span>${label}</span><textarea rows="${rows}" onchange="saveSetting('${key}', this.value)">${esc(s[key])}</textarea></label>`;
+  const area = (key, label, rows = 3, hint = "") => `<label class="field"><span>${label}</span>
+    <textarea rows="${rows}" data-set="${key}" oninput="previewCopy()" onchange="saveSetting('${key}', this.value)">${esc(s[key])}</textarea>${hint ? `<span class="small muted">${hint}</span>` : ""}</label>`;
+  const nameBox = (k, def) => `<label class="field"><span>Button name</span>
+    <input data-set="copy_label_${k}" value="${esc(s["copy_label_" + k] || "")}" placeholder="${def}" maxlength="24" oninput="previewCopy()" onchange="saveSetting('copy_label_${k}', this.value)"></label>`;
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">Settings</h2><button class="btn ghost" onclick="logout()">Log out</button></div>
-    <div class="card"><h3>Copy-paste messages</h3>
-      ${area("msg_customer_header", "Customer message — first line")}
-      ${area("msg_customer_footer", "Customer message — last line")}
-      ${area("msg_rider_location", "Loc Guide message (for the rider)")}
-      ${area("msg_rider_df", "Rider GCash message")}
-      <p class="small muted">Changes save when you click away. The customer message is built as: first line, the items, delivery fee, total, last line.</p></div>
+    <div class="card"><h3>Phone app — the 3 copy buttons</h3>
+      <p class="small muted" style="margin-top:0">These are the buttons on each order in the phone app's Schedule and order slip. Changes save when you click out of a box, and phones pick them up the next time the app is opened.</p>
+      <div class="copy-set">
+        <div class="cs-col"><div class="cs-head">Button 1 · order total</div>
+          ${nameBox("customer", "Total Info")}
+          ${area("msg_customer_header", "First line (before the items)", 2)}
+          ${area("msg_customer_footer", "Last line (after the total)", 4, "Left out automatically for credit orders.")}
+          <div class="field"><span>Preview (sample order)</span><pre class="cs-preview" id="pv_customer"></pre></div></div>
+        <div class="cs-col"><div class="cs-head">Button 2</div>
+          ${nameBox("location", "Loc Guide")}
+          ${area("msg_rider_location", "Message it copies", 8)}</div>
+        <div class="cs-col"><div class="cs-head">Button 3</div>
+          ${nameBox("df", "Rider GCash")}
+          ${area("msg_rider_df", "Message it copies", 8)}</div>
+      </div>
+      <div class="field" style="margin-top:6px"><span>How the buttons will look</span><div class="cs-buttons" id="pv_buttons"></div></div>
+    </div>
     <div class="card"><h3>Change PIN</h3>
       <form id="pinForm" class="grid3" onsubmit="changePin(event)">
         <label class="field"><span>Current PIN</span><input name="current_pin" type="password" inputmode="numeric" required></label>
         <label class="field"><span>New PIN (4–12 digits)</span><input name="new_pin" type="password" inputmode="numeric" required></label>
         <div style="align-self:end;margin-bottom:10px"><button class="btn">Change PIN</button></div>
       </form><p class="small muted">Changing the PIN logs out every other phone and computer.</p></div>`;
+  previewCopy();
+}
+function previewCopy() {
+  const v = k => { const el = $(`[data-set="${k}"]`); return el ? el.value : (S.settings[k] || ""); };
+  const pv = $("#pv_customer");
+  if (pv) {
+    const h = v("msg_customer_header") || "This is your order total:", f = v("msg_customer_footer");
+    pv.textContent = `${h}\n\n2x Chocolate (Pint) - ₱780\n1x Malted Polvoron (Mini) - ₱130\nDelivery Fee: ₱80\n\nTotal: ₱990${f ? "\n\n" + f : ""}`;
+  }
+  const pb = $("#pv_buttons");
+  if (pb) pb.innerHTML = `<div class="copy-grid">${COPY_KINDS.map(([k, def]) => `<div class="copy-btn"><span class="cb-ic">${COPY_ICON}</span>
+    <span class="cb-txt"><small>Copy</small>${esc(v("copy_label_" + k).trim() || def)}</span></div>`).join("")}</div>`;
 }
 async function saveSetting(key, value) {
   try { S.settings = await api("/settings", { method: "PATCH", body: { [key]: value } }); toast("Saved"); }

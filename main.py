@@ -1862,7 +1862,8 @@ def get_item_image(item_id: int):
 # Settings (copy-paste message texts)
 # ----------------------------------------------------------------------------
 
-SETTING_KEYS = ("msg_customer_header", "msg_customer_footer", "msg_rider_location", "msg_rider_df")
+SETTING_KEYS = ("msg_customer_header", "msg_customer_footer", "msg_rider_location", "msg_rider_df",
+                "copy_label_customer", "copy_label_location", "copy_label_df")
 
 
 @api.get("/settings")
