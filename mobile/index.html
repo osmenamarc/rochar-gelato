@@ -70,10 +70,12 @@
   body:not(.mobile) main > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
   body:not(.mobile) nav.tabs {
     position: fixed; top: 0; left: 0; bottom: 0; width: var(--rail); z-index: 40;
-    flex-direction: column; overflow: hidden; gap: 2px; padding: 12px 10px;
+    flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; gap: 2px; padding: 12px 10px;
     background: var(--rail-bg); border: none; border-right: 1px solid var(--border);
     transition: width .32s var(--ease), box-shadow .32s var(--ease);
+    scrollbar-width: thin; scrollbar-color: rgba(68,49,40,.25) transparent;
   }
+  body:not(.mobile) nav.tabs > * { flex-shrink: 0; }   /* keep items full size; the rail scrolls instead */
   body:not(.mobile) nav.tabs:hover, body:not(.mobile) nav.tabs:focus-within {
     width: var(--rail-open); box-shadow: 12px 0 40px rgba(68, 49, 40, .16);
   }
