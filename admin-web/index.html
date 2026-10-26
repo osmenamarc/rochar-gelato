@@ -1546,7 +1546,7 @@ function drawOrderCard(id) {
       <p class="small muted" style="margin:4px 0 0">Closes automatically at the end of its delivery day.</p>
       <div class="row spread" style="margin-top:10px">
         <span class="small muted">Saved automatically</span>
-        <button type="button" class="link red" onclick="cancelOrder(${id})">${o.items.length ? "Void order" : "Cancel order"}</button>
+        <button type="button" class="link red" onclick="cancelOrder(${id})">🗑 Delete order</button>
       </div>
     </div></div></div>`;
   if (!card) {
@@ -1980,16 +1980,11 @@ async function finishOrder(id) {
 async function cancelOrder(id) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
   try {
-    if (!o.items.length) {
-      if (!confirm(`Cancel empty order #${id}?`)) return;
-      await queues[id]; await api(`/orders/${id}`, { method: "DELETE" });
-    } else {
-      const reason = prompt(`Void order #${id}? It stays in Sales history, crossed out.\nReason (optional):`, "");
-      if (reason === null) return;
-      await queues[id]; await api(`/orders/${id}/void`, { method: "POST", body: { reason } });
-    }
+    if (!confirm(`Delete order #${id}${o.customer_name ? " for " + o.customer_name : ""}? It's removed for good.`)) return;
+    await queues[id]; await api(`/orders/${id}`, { method: "DELETE" });
     S.orders = S.orders.filter(x => x.id !== id); S.openCount = S.orders.length; renderTabs();
-    toast(o.items.length ? `Order #${id} voided` : "Order cancelled"); if ($("#modal").open) closeModal(); refresh();
+    for (const d of Object.keys(S.schedCache || {})) S.schedCache[d] = S.schedCache[d].filter(x => x.id !== id);
+    toast(`Order #${id} deleted`); if ($("#modal").open) closeModal(); refresh();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -2043,7 +2038,7 @@ async function viewSales() {
           <td>${v ? `<span class="badge b-red" title="${esc(o.void_reason || "")}">VOIDED</span>` : `<span class="badge b-gray">Completed</span>`}</td></tr>`; }).join("")
         || `<tr><td colspan="10" class="empty">No sales in this range.</td></tr>`}</tbody>
       ${h.orders.length ? `<tfoot><tr><td colspan="4">Totals (voided excluded)</td><td class="num">${money(t.items_subtotal)}</td><td class="num">${money(t.delivery_fees)}</td><td class="num">${money(t.grand_total)}</td><td colspan="3">${t.on_credit ? `<span class="small muted">${money(t.on_credit)} on credit</span>` : ""}</td></tr></tfoot>` : ""}
-    </table></div><p class="small muted">Select an order and tap the pencil to see full details, fix it, or void it.</p>`);
+    </table></div><p class="small muted">Select an order and tap the pencil to see full details, fix it, or delete it.</p>`);
   }
   $("#view").innerHTML = `<div class="section-title"><h2 class="serif">Sales history</h2></div>${hdr}${tiles}${body}`;
 }
@@ -2065,7 +2060,7 @@ function showSale(id) {
       <tr><td><b>Grand total</b></td><td class="num"><b>${money(o.total)}</b></td></tr></tbody></table></div>
     <div class="row" style="margin-top:14px">
       <button class="btn ghost" onclick="copySaleMessage(${o.id})">Copy customer message</button>
-      ${v ? "" : `<button class="btn danger" onclick="voidSale(${o.id})">Void order</button>`}
+      <button class="btn danger" onclick="deleteSale(${o.id})">🗑 Delete order</button>
     </div>`);
 }
 function editSaleModal(id) {
@@ -2084,9 +2079,18 @@ function editSaleModal(id) {
       { name: "delivery_at", label: "Delivery date & time", type: "datetime" },
       { name: "completed_at", label: "Date & time finished", type: "datetime" }],
     buttons: `<button type="button" class="btn ghost sm" onclick="copySaleMessage(${o.id})">Copy customer message</button>
-      <button type="button" class="btn danger sm" onclick="voidSale(${o.id})">Void order</button>` });
+      <button type="button" class="btn danger sm" onclick="deleteSale(${o.id})">🗑 Delete order</button>` });
 }
 function copySaleMessage(id) { const o = (S.history || []).find(x => x.id === id); if (o) copyText(orderMessage(o), "Customer message"); }
+async function deleteSale(id) {
+  const o = (S.history || []).find(x => x.id === id);
+  if (!confirm(`Delete order #${id}${o && o.customer_name ? " for " + o.customer_name : ""}? It's removed for good — from Sales, totals${o && o.payment_status === "credit" ? ", Receivables (and any payments logged on it)" : ""}.`)) return;
+  try {
+    await api(`/orders/${id}`, { method: "DELETE" });
+    for (const d of Object.keys(S.schedCache || {})) S.schedCache[d] = S.schedCache[d].filter(x => x.id !== id);
+    closeModal(); toast(`Order #${id} deleted`); refresh();
+  } catch (err) { toast(err.message, true); }
+}
 async function voidSale(id) {
   const reason = prompt(`Void order #${id}? It stays on record (crossed out), is removed from all totals, and any open receivable for it is cancelled.\nReason (optional):`, "");
   if (reason === null) return;

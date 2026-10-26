@@ -826,12 +826,15 @@ def void_order(order_id: int, p: VoidPayload):
 
 @api.delete("/orders/{order_id}")
 def delete_order(order_id: int):
-    """Only an empty open order (an accidental 'New order') can be deleted.
-    Anything else must be voided so it stays on record."""
+    """Permanently removes an order (open, finished or voided), its items and any
+    payments logged against it. Blocked only when it touches a reconciled (locked) day."""
     with db() as conn, conn.cursor() as cur:
         o = fetch_order(cur, order_id)
-        if o["status"] != "open" or o["items"]:
-            raise HTTPException(400, "Only an empty open order can be deleted — void it instead.")
+        if o["status"] == "completed":
+            assert_unlocked(cur, manila_day(o["completed_at"]), "this order")
+        cur.execute("SELECT paid_at FROM receivable_payments WHERE order_id = %s;", (order_id,))
+        for r in cur.fetchall():
+            assert_unlocked(cur, manila_day(r["paid_at"]), "payments for this order")
         cur.execute("DELETE FROM orders WHERE id = %s;", (order_id,))
     return {"ok": True}
 
