@@ -350,3 +350,31 @@ UPDATE orders SET delivery_at = created_at WHERE delivery_at IS NULL;
 ALTER TABLE orders ALTER COLUMN delivery_at SET DEFAULT now();
 ALTER TABLE orders ALTER COLUMN delivery_at SET NOT NULL;
 CREATE INDEX IF NOT EXISTS orders_delivery_at_idx ON orders (delivery_at);
+
+-- v7: second phone number, auto-closed orders, phone push notifications, speed indexes
+ALTER TABLE orders    ADD COLUMN IF NOT EXISTS phone2 TEXT NOT NULL DEFAULT '';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone2 TEXT NOT NULL DEFAULT '';
+ALTER TABLE orders    ADD COLUMN IF NOT EXISTS auto_closed BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS orders_open_delivery_idx ON orders (status, delivery_at);
+CREATE INDEX IF NOT EXISTS orders_customer_idx ON orders (customer_id);
+
+CREATE TABLE IF NOT EXISTS app_secrets (          -- never sent to the browser
+    key    TEXT PRIMARY KEY,
+    value  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS push_subscriptions (   -- one row per phone that turned notifications on
+    id          SERIAL PRIMARY KEY,
+    endpoint    TEXT NOT NULL UNIQUE,
+    p256dh      TEXT NOT NULL,
+    auth        TEXT NOT NULL,
+    label       TEXT NOT NULL DEFAULT '',
+    enabled     BOOLEAN NOT NULL DEFAULT true,
+    muted       TEXT[] NOT NULL DEFAULT '{}',     -- notification rule ids this phone switched off
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_sent_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS notif_log (            -- so each reminder is sent once
+    fire_key  TEXT PRIMARY KEY,
+    sent_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+DELETE FROM notif_log WHERE sent_at < now() - interval '60 days';

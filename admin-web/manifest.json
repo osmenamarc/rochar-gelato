@@ -1,0 +1,13 @@
+{
+  "name": "Rochar Gelato",
+  "short_name": "Rochar",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf6f0",
+  "theme_color": "#fbf6f0",
+  "icons": [
+    { "src": "brand/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

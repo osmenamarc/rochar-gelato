@@ -16,8 +16,10 @@ Everything except the health checks and login needs a logged-in session.
 
 import base64
 import hashlib
+import json
 import os
 import secrets
+import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -27,8 +29,10 @@ from typing import List, Optional
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -57,9 +61,14 @@ def today_manila() -> date:
     return datetime.now(MANILA_TZ).date()
 
 
+POOL = ConnectionPool(DATABASE_URL, min_size=1, max_size=10, open=False,
+                      kwargs={"row_factory": dict_row}, check=ConnectionPool.check_connection)
+
+
 def db():
-    """`with db() as conn:` — commits if everything succeeds, rolls back on error."""
-    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    """`with db() as conn:` — commits if everything succeeds, rolls back on error.
+    Connections come from a pool, so requests don't pay to open a new one each time."""
+    return POOL.connection()
 
 
 def clean(v):
@@ -87,10 +96,16 @@ async def lifespan(app: FastAPI):
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         conn.execute(SCHEMA_FILE.read_text())
         conn.execute("DELETE FROM sessions WHERE expires_at < now();")
+    POOL.open(wait=True, timeout=30)
+    worker = threading.Thread(target=background_loop, daemon=True, name="rochar-jobs")
+    worker.start()
     yield
+    STOP_JOBS.set()
+    POOL.close()
 
 
 app = FastAPI(title="Rochar Gelato API", lifespan=lifespan)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -507,7 +522,7 @@ ORDER_SELECT = """
            (SELECT c.tier FROM customers c WHERE c.id = o.customer_id) AS customer_tier
     FROM orders o
 """
-ORDER_FIELDS = {"customer_name": as_text, "phone": as_text, "address": as_text, "delivery_fee": as_money,
+ORDER_FIELDS = {"customer_name": as_text, "phone": as_text, "phone2": as_text, "address": as_text, "delivery_fee": as_money,
                 "rider_name": as_text, "notes": as_text, "completed_at": as_timestamp, "delivery_at": as_timestamp,
                 "payment_status": as_pay_status, "payment_method": as_sale_method}
 
@@ -585,8 +600,9 @@ def order_history(date_from: Optional[date] = None, date_to: Optional[date] = No
 
 
 @api.get("/orders/schedule")
-def order_schedule(date_from: Optional[date] = None, date_to: Optional[date] = None):
-    """Live and finished orders (not voided) by delivery day, earliest first."""
+def order_schedule(date_from: Optional[date] = None, date_to: Optional[date] = None, include_open: bool = False):
+    """Live and finished orders (not voided) by delivery day, earliest first.
+    include_open=true also returns every open order (one trip instead of two)."""
     start = date_from or today_manila()
     end = date_to or start
     when = LOCAL_DAY.format(col="o.delivery_at")
@@ -595,7 +611,23 @@ def order_schedule(date_from: Optional[date] = None, date_to: Optional[date] = N
             WHERE o.status IN ('open', 'completed') AND {when} BETWEEN %s AND %s
             ORDER BY o.delivery_at, o.id;
         """, (start, end))
-        return {"date_from": start, "date_to": end, "orders": [order_out(r) for r in cur.fetchall()]}
+        out = {"date_from": start, "date_to": end, "orders": [order_out(r) for r in cur.fetchall()]}
+        if include_open:
+            cur.execute(ORDER_SELECT + " WHERE o.status = 'open' ORDER BY o.created_at;")
+            out["open"] = [order_out(r) for r in cur.fetchall()]
+        return out
+
+
+@api.get("/orders/days")
+def order_days(date_from: date, date_to: date):
+    """How many orders each day has (for the dots on the calendar)."""
+    when = LOCAL_DAY.format(col="delivery_at")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute(f"""SELECT {when} AS d, COUNT(*) FILTER (WHERE status = 'open') AS open,
+                               COUNT(*) FILTER (WHERE status = 'completed') AS done
+                        FROM orders WHERE status IN ('open', 'completed') AND {when} BETWEEN %s AND %s
+                        GROUP BY 1 ORDER BY 1;""", (date_from, date_to))
+        return {str(r["d"]): {"open": r["open"], "done": r["done"]} for r in cur.fetchall()}
 
 
 class NewOrderLine(BaseModel):
@@ -605,16 +637,47 @@ class NewOrderLine(BaseModel):
 
 class NewOrderIn(BaseModel):
     items: List[NewOrderLine] = []
+    customer_id: Optional[int] = None
+    customer_name: str = ""
+    phone: str = ""
+    phone2: str = ""
+    address: str = ""
+    notes: str = ""
+    rider_name: str = ""
+    delivery_fee: float = 0
+    delivery_at: Optional[datetime] = None
+    payment_status: Optional[str] = None
+    payment_method: Optional[str] = None
 
 
 @api.post("/orders")
 def create_order(p: Optional[NewOrderIn] = Body(default=None)):
-    """Starts an open order — optionally with the items already tapped in (the POS 'Charge' button)."""
+    """Creates an open order. The POS sends the tapped items plus the details
+    from the confirm screen; the order then closes itself at the end of its delivery day."""
+    p = p or NewOrderIn()
     with db() as conn, conn.cursor() as cur:
-        cur.execute("INSERT INTO orders DEFAULT VALUES RETURNING id;")
+        cust = None
+        if p.customer_id:
+            cur.execute("SELECT * FROM customers WHERE id = %s;", (p.customer_id,))
+            cust = cur.fetchone()
+            if not cust:
+                raise HTTPException(404, "That client no longer exists — pick again.")
+        name = p.customer_name.strip() or (cust["name"] if cust else "")
+        pay = as_pay_status(p.payment_status) if p.payment_status else ("credit" if cust and cust["tier"] == "Reseller" else "paid")
+        if pay == "credit" and not name:
+            raise HTTPException(400, "A credit order needs a customer name so it can be collected later.")
+        cur.execute("""INSERT INTO orders (customer_id, customer_name, phone, phone2, address, notes, rider_name,
+                                           delivery_fee, delivery_at, payment_status, payment_method)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,COALESCE(%s, now()),%s,COALESCE(%s, 'GCash'))
+                       RETURNING id;""",
+                    (cust["id"] if cust else None, name,
+                     p.phone.strip() or (cust["phone"] if cust else ""), p.phone2.strip() or (cust["phone2"] if cust else ""),
+                     p.address.strip() or (cust["address"] if cust else ""), p.notes.strip(),
+                     p.rider_name.strip(), as_money(p.delivery_fee or 0), p.delivery_at, pay,
+                     as_sale_method(p.payment_method) if p.payment_method else None))
         order_id = cur.fetchone()["id"]
-        for line in (p.items if p else []):
-            item = price_for(cur, None, line.item_id)
+        for line in p.items:
+            item = price_for(cur, cust["id"] if cust else None, line.item_id)
             if not item:
                 raise HTTPException(404, "A product on the ticket no longer exists — reload and try again.")
             cur.execute("""
@@ -622,7 +685,11 @@ def create_order(p: Optional[NewOrderIn] = Body(default=None)):
                 VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (order_id, item_id) DO UPDATE SET qty = order_items.qty + EXCLUDED.qty;
             """, (order_id, line.item_id, item["name"], item["variant"], line.qty, item["price"]))
-        return fetch_order(cur, order_id)
+        o = fetch_order(cur, order_id)
+        if p.items and name:
+            remember_customer(cur, o)          # new names become saved clients right away
+            o = fetch_order(cur, order_id)
+        return o
 
 
 @api.get("/orders/{order_id}")
@@ -690,10 +757,10 @@ def set_order_customer(order_id: int, p: OrderCustomerIn):
             c = cur.fetchone()
             if not c:
                 raise HTTPException(404, "Customer not found.")
-            cur.execute("""UPDATE orders SET customer_id=%s, customer_name=%s, phone=%s, address=%s, notes=%s,
+            cur.execute("""UPDATE orders SET customer_id=%s, customer_name=%s, phone=%s, phone2=%s, address=%s, notes=%s,
                                   payment_status = CASE WHEN %s = 'Reseller' THEN 'credit' ELSE payment_status END,
                                   updated_at=now() WHERE id=%s;""",
-                        (c["id"], c["name"], c["phone"], c["address"], c["notes"], c["tier"], order_id))
+                        (c["id"], c["name"], c["phone"], c["phone2"], c["address"], c["notes"], c["tier"], order_id))
         cur.execute("SELECT item_id FROM order_items WHERE order_id = %s AND item_id IS NOT NULL;", (order_id,))
         for r in cur.fetchall():
             item = price_for(cur, p.customer_id, r["item_id"])
@@ -708,8 +775,9 @@ def remember_customer(cur, o):
     if o["customer_id"]:
         cur.execute("""UPDATE customers SET
                          phone   = CASE WHEN phone = ''   THEN %s ELSE phone END,
+                         phone2  = CASE WHEN phone2 = ''  THEN %s ELSE phone2 END,
                          address = CASE WHEN address = '' THEN %s ELSE address END
-                       WHERE id = %s;""", (o["phone"], o["address"], o["customer_id"]))
+                       WHERE id = %s;""", (o["phone"], o.get("phone2", ""), o["address"], o["customer_id"]))
         return
     name = o["customer_name"].strip()
     if not name:
@@ -720,8 +788,8 @@ def remember_customer(cur, o):
     if found:
         cid = found["id"]
     else:
-        cur.execute("INSERT INTO customers (name, phone, address) VALUES (%s, %s, %s) RETURNING id;",
-                    (name, o["phone"], o["address"]))
+        cur.execute("INSERT INTO customers (name, phone, phone2, address) VALUES (%s, %s, %s, %s) RETURNING id;",
+                    (name, o["phone"], o.get("phone2", ""), o["address"]))
         cid = cur.fetchone()["id"]
     cur.execute("UPDATE orders SET customer_id = %s WHERE id = %s;", (cid, o["id"]))
 
@@ -1343,12 +1411,13 @@ def dashboard(date_from: Optional[date] = None, date_to: Optional[date] = None):
 class CustomerIn(BaseModel):
     name: str
     phone: str = ""
+    phone2: str = ""
     address: str = ""
     notes: str = ""
     tier: str = "Retail"
 
 
-CUSTOMER_FIELDS = {"name": as_text, "phone": as_text, "address": as_text, "notes": as_text,
+CUSTOMER_FIELDS = {"name": as_text, "phone": as_text, "phone2": as_text, "address": as_text, "notes": as_text,
                    "tier": as_tier, "active": as_bool}
 CUSTOMER_STATS = """
     SELECT c.*,
@@ -1378,8 +1447,15 @@ def list_customers(tier: Optional[str] = None, include_inactive: bool = False):
         cur.execute(CUSTOMER_STATS + " WHERE (%s::text IS NULL OR c.tier = %s) AND (c.active OR %s) ORDER BY lower(c.name);",
                     (tier, tier, include_inactive))
         out = rows(cur)
+        cur.execute("""
+            SELECT o.customer_id AS cid, COALESCE(SUM(
+              (SELECT COALESCE(SUM(oi.qty * oi.unit_price), 0) FROM order_items oi WHERE oi.order_id = o.id) + o.delivery_fee
+              - (SELECT COALESCE(SUM(p.amount), 0) FROM receivable_payments p WHERE p.order_id = o.id)), 0) AS bal
+            FROM orders o WHERE o.customer_id IS NOT NULL AND o.status = 'completed' AND o.payment_status = 'credit'
+            GROUP BY o.customer_id;""")
+        bal = {r["cid"]: round(float(r["bal"]), 2) for r in cur.fetchall()}
         for c in out:
-            c["balance"] = customer_balance(cur, c["id"])
+            c["balance"] = bal.get(c["id"], 0.0)
         return out
 
 
@@ -1388,8 +1464,8 @@ def create_customer(p: CustomerIn):
     if not p.name.strip():
         raise HTTPException(400, "Name is required.")
     with db() as conn, conn.cursor() as cur:
-        cur.execute("""INSERT INTO customers (name, phone, address, notes, tier) VALUES (%s,%s,%s,%s,%s) RETURNING *;""",
-                    (p.name.strip(), p.phone.strip(), p.address.strip(), p.notes.strip(), as_tier(p.tier)))
+        cur.execute("""INSERT INTO customers (name, phone, phone2, address, notes, tier) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *;""",
+                    (p.name.strip(), p.phone.strip(), p.phone2.strip(), p.address.strip(), p.notes.strip(), as_tier(p.tier)))
         return one(cur)
 
 
@@ -1885,6 +1961,354 @@ def patch_settings(changes: dict = Body(...)):
                 cur.execute("""INSERT INTO settings (key, value) VALUES (%s, %s)
                                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;""", (k, as_text(v)))
     return get_settings()
+
+
+@api.get("/boot")
+def boot(day: Optional[date] = None):
+    """Everything the app needs to open, in one trip."""
+    d = day or today_manila()
+    return {"settings": get_settings(), "items": list_items(include_inactive=True), "customers": list_customers(),
+            "prices": all_custom_prices(), "schedule": order_schedule(d, d, include_open=True)}
+
+
+# ----------------------------------------------------------------------------
+# End of day: open orders close themselves once their delivery day is over
+# ----------------------------------------------------------------------------
+
+def auto_close_orders(cur) -> int:
+    when = LOCAL_DAY.format(col="o.delivery_at")
+    cur.execute(ORDER_SELECT + f" WHERE o.status = 'open' AND {when} < %s ORDER BY o.id;", (today_manila(),))
+    closed = 0
+    for o in [order_out(r) for r in cur.fetchall()]:
+        if not o["items"]:                       # an empty order that was never filled in
+            cur.execute("DELETE FROM orders WHERE id = %s AND status = 'open';", (o["id"],))
+            continue
+        name = o["customer_name"].strip() or ("No name" if o["payment_status"] == "credit" else "")
+        d = manila_day(o["delivery_at"])
+        done_at = o["delivery_at"] if not day_locked(cur, d) else datetime.now(timezone.utc)
+        cur.execute("""UPDATE orders SET status = 'completed', completed_at = %s, customer_name = %s,
+                              auto_closed = true, updated_at = now() WHERE id = %s AND status = 'open';""",
+                    (done_at, name, o["id"]))
+        o["customer_name"] = name
+        remember_customer(cur, o)
+        closed += 1
+    return closed
+
+
+# ----------------------------------------------------------------------------
+# Phone notifications (web push to the phone app added to the Home Screen)
+# ----------------------------------------------------------------------------
+
+DEFAULT_NOTIF_RULES = [
+    {"id": "sum1", "type": "summary", "days_before": 1, "time": "20:00", "on": True},
+    {"id": "b60", "type": "before", "minutes": 60, "on": True},
+    {"id": "b10", "type": "before", "minutes": 10, "on": True},
+    {"id": "b0", "type": "before", "minutes": 0, "on": True},
+]
+GRACE = timedelta(minutes=30)       # a reminder missed by more than this (e.g. during a restart) is skipped
+
+
+def notif_rules(cur) -> list:
+    cur.execute("SELECT value FROM settings WHERE key = 'notif_rules';")
+    r = cur.fetchone()
+    try:
+        return json.loads(r["value"]) if r else [dict(x) for x in DEFAULT_NOTIF_RULES]
+    except ValueError:
+        return [dict(x) for x in DEFAULT_NOTIF_RULES]
+
+
+def rule_label(r) -> str:
+    if r["type"] == "summary":
+        d = int(r.get("days_before", 1))
+        when = "Day before" if d == 1 else "Same day" if d == 0 else f"{d} days before"
+        hh, mm = map(int, r.get("time", "20:00").split(":"))
+        return f"{when} summary at {(hh + 11) % 12 + 1}:{mm:02d} {'AM' if hh < 12 else 'PM'}"
+    m = int(r.get("minutes", 0))
+    if m == 0:
+        return "At delivery time"
+    return f"{m // 60} hr before" if m % 60 == 0 else f"{m} min before"
+
+
+def clean_rules(raw) -> list:
+    out, seen = [], set()
+    for r in raw if isinstance(raw, list) else []:
+        t = r.get("type")
+        rid = str(r.get("id") or secrets.token_hex(3))[:20]
+        if rid in seen or t not in ("summary", "before"):
+            continue
+        seen.add(rid)
+        if t == "summary":
+            tm = str(r.get("time", "20:00"))
+            try:
+                hh, mm = map(int, tm.split(":"))
+                assert 0 <= hh < 24 and 0 <= mm < 60
+            except Exception:
+                raise HTTPException(400, f"“{tm}” isn't a valid time.")
+            days = int(r.get("days_before", 1))
+            if not 0 <= days <= 7:
+                raise HTTPException(400, "Summary can be 0–7 days before.")
+            out.append({"id": rid, "type": t, "days_before": days, "time": f"{hh:02d}:{mm:02d}", "on": bool(r.get("on", True))})
+        else:
+            mins = int(r.get("minutes", 0))
+            if not 0 <= mins <= 7 * 24 * 60:
+                raise HTTPException(400, "Reminders can be up to 7 days before.")
+            out.append({"id": rid, "type": t, "minutes": mins, "on": bool(r.get("on", True))})
+    return out
+
+
+def vapid_keys(cur):
+    """Creates the server's push keys the first time; the private one never leaves the database."""
+    cur.execute("SELECT key, value FROM app_secrets WHERE key IN ('vapid_private', 'vapid_public');")
+    k = {r["key"]: r["value"] for r in cur.fetchall()}
+    if len(k) == 2:
+        return k["vapid_private"], k["vapid_public"]
+    from py_vapid import Vapid
+    from cryptography.hazmat.primitives import serialization
+    v = Vapid()
+    v.generate_keys()
+    priv = v.private_pem().decode()
+    raw = v.public_key.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    pub = base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+    cur.execute("""INSERT INTO app_secrets (key, value) VALUES ('vapid_private', %s), ('vapid_public', %s)
+                   ON CONFLICT (key) DO NOTHING;""", (priv, pub))
+    cur.execute("SELECT key, value FROM app_secrets WHERE key IN ('vapid_private', 'vapid_public');")
+    k = {r["key"]: r["value"] for r in cur.fetchall()}
+    return k["vapid_private"], k["vapid_public"]
+
+
+def send_push(subs: list, payload: dict, priv_pem: str):
+    """Sends one notification to each phone. Phones that uninstalled are forgotten."""
+    from pywebpush import webpush, WebPushException
+    from py_vapid import Vapid
+    key = Vapid.from_pem(priv_pem.encode())
+    dead, ok = [], []
+    for sub in subs:
+        try:
+            webpush({"endpoint": sub["endpoint"], "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}},
+                    data=json.dumps(payload), vapid_private_key=key,
+                    vapid_claims={"sub": "https://rochargelato.com"}, ttl=3600, timeout=10)
+            ok.append(sub["id"])
+        except WebPushException as e:
+            code = getattr(e.response, "status_code", None)
+            if code in (404, 410):
+                dead.append(sub["id"])
+            print(f"push failed ({code}): {e}", flush=True)
+        except Exception as e:
+            print(f"push failed: {e}", flush=True)
+    if dead or ok:
+        with db() as conn, conn.cursor() as cur:
+            if dead:
+                cur.execute("DELETE FROM push_subscriptions WHERE id = ANY(%s);", (dead,))
+            if ok:
+                cur.execute("UPDATE push_subscriptions SET last_sent_at = now() WHERE id = ANY(%s);", (ok,))
+    return len(ok)
+
+
+def fmt_time12(dt: datetime) -> str:
+    t = dt.astimezone(MANILA_TZ)
+    return f"{(t.hour + 11) % 12 + 1}:{t.minute:02d} {'AM' if t.hour < 12 else 'PM'}"
+
+
+def peso(x) -> str:
+    x = round(float(x or 0), 2)
+    return f"₱{x:,.0f}" if x == int(x) else f"₱{x:,.2f}"
+
+
+def due_notifications(cur) -> list:
+    """Works out which reminders are due right now and marks them sent. Returns [(rule_id, payload)]."""
+    now = datetime.now(MANILA_TZ)
+    rules = [r for r in notif_rules(cur) if r.get("on")]
+    out = []
+
+    def claim(key):
+        cur.execute("INSERT INTO notif_log (fire_key) VALUES (%s) ON CONFLICT DO NOTHING RETURNING fire_key;", (key,))
+        return cur.fetchone() is not None
+
+    befores = [r for r in rules if r["type"] == "before"]
+    if befores:
+        horizon = max(r["minutes"] for r in befores)
+        cur.execute(ORDER_SELECT + """ WHERE o.status = 'open' AND o.delivery_at BETWEEN %s AND %s ORDER BY o.delivery_at;""",
+                    (now - GRACE, now + timedelta(minutes=horizon + 1)))
+        for o in [order_out(r) for r in cur.fetchall()]:
+            if not o["items"]:
+                continue
+            for r in befores:
+                fire = o["delivery_at"] - timedelta(minutes=r["minutes"])
+                # only if it's time, not too late, and the order already existed when the reminder was due
+                if not (fire <= now < fire + GRACE) or o["created_at"] > fire:
+                    continue
+                if not claim(f"{r['id']}:{o['id']}:{o['delivery_at'].isoformat()}"):
+                    continue
+                left = round((o["delivery_at"] - now).total_seconds() / 60)
+                lead = "Now" if left <= 0 else (f"In {left} min" if left < 90 else f"In {round(left / 60)} hr")
+                who = o["customer_name"] or "No name"
+                body = " · ".join(x for x in [peso(o["total"]), o["address"]] if x)
+                out.append((r["id"], {"title": f"⏰ {lead} · {fmt_time12(o['delivery_at'])} · {who}", "body": body,
+                                      "url": f"/#schedule", "tag": f"order-{o['id']}"}))
+
+    when = LOCAL_DAY.format(col="o.delivery_at")
+    for r in [r for r in rules if r["type"] == "summary"]:
+        hh, mm = map(int, r["time"].split(":"))
+        fire = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if not (fire <= now < fire + GRACE):
+            continue
+        target = now.date() + timedelta(days=r["days_before"])
+        if not claim(f"{r['id']}:{target}"):
+            continue
+        cur.execute(ORDER_SELECT + f" WHERE o.status IN ('open', 'completed') AND {when} = %s ORDER BY o.delivery_at;", (target,))
+        orders = [order_out(x) for x in cur.fetchall()]
+        if not orders:
+            continue
+        day = "Today" if r["days_before"] == 0 else "Tomorrow" if r["days_before"] == 1 else f"{target:%a %b} {target.day}"
+        total = sum(o["total"] for o in orders)
+        lines = [f"{fmt_time12(o['delivery_at'])} {o['customer_name'] or 'No name'}" for o in orders[:6]]
+        if len(orders) > 6:
+            lines.append(f"+{len(orders) - 6} more")
+        out.append((r["id"], {"title": f"📅 {day}: {len(orders)} order{'s' if len(orders) != 1 else ''} · {peso(total)}",
+                              "body": " · ".join(lines), "url": "/#schedule", "tag": f"summary-{target}"}))
+    return out
+
+
+STOP_JOBS = threading.Event()
+
+
+def run_jobs_once():
+    with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_try_advisory_xact_lock(724501) AS ok;")   # only one server copy runs the jobs
+            if not cur.fetchone()["ok"]:
+                return
+            auto_close_orders(cur)
+            due = due_notifications(cur)
+            priv, _ = vapid_keys(cur)
+            cur.execute("SELECT id, endpoint, p256dh, auth, muted FROM push_subscriptions WHERE enabled;")
+            subs = cur.fetchall()
+        conn.commit()
+    for rule_id, payload in due:
+        targets = [s for s in subs if rule_id not in (s["muted"] or [])]
+        if targets:
+            send_push(targets, payload, priv)
+
+
+def background_loop():
+    time.sleep(5)
+    while not STOP_JOBS.is_set():
+        try:
+            run_jobs_once()
+        except Exception as e:
+            print(f"background job error: {e}", flush=True)
+        STOP_JOBS.wait(60)
+
+
+class PushSubIn(BaseModel):
+    endpoint: str
+    keys: dict
+    label: str = ""
+
+
+class PushPrefsIn(BaseModel):
+    endpoint: str
+    enabled: Optional[bool] = None
+    muted: Optional[List[str]] = None
+
+
+class EndpointIn(BaseModel):
+    endpoint: str
+
+
+def sub_out(r):
+    return {"id": r["id"], "label": r["label"], "enabled": r["enabled"], "muted": list(r["muted"] or []),
+            "created_at": r["created_at"], "last_sent_at": r["last_sent_at"]}
+
+
+@api.get("/push/key")
+def push_key():
+    with db() as conn, conn.cursor() as cur:
+        return {"public_key": vapid_keys(cur)[1]}
+
+
+@api.get("/notif-rules")
+def get_notif_rules():
+    with db() as conn, conn.cursor() as cur:
+        return [{**r, "label": rule_label(r)} for r in notif_rules(cur)]
+
+
+@api.put("/notif-rules")
+def put_notif_rules(rules: list = Body(...)):
+    clean = clean_rules(rules)
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO settings (key, value) VALUES ('notif_rules', %s)
+                       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;""", (json.dumps(clean),))
+    return [{**r, "label": rule_label(r)} for r in clean]
+
+
+@api.post("/push/subscribe")
+def push_subscribe(p: PushSubIn):
+    k = p.keys or {}
+    if not p.endpoint.startswith("https://") or not k.get("p256dh") or not k.get("auth"):
+        raise HTTPException(400, "That doesn't look like a valid notification subscription.")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO push_subscriptions (endpoint, p256dh, auth, label) VALUES (%s, %s, %s, %s)
+                       ON CONFLICT (endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth,
+                         label = CASE WHEN EXCLUDED.label <> '' THEN EXCLUDED.label ELSE push_subscriptions.label END,
+                         enabled = true
+                       RETURNING *;""", (p.endpoint, k["p256dh"], k["auth"], p.label.strip()[:60]))
+        return sub_out(cur.fetchone())
+
+
+@api.post("/push/me")
+def push_me(p: EndpointIn):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM push_subscriptions WHERE endpoint = %s;", (p.endpoint,))
+        r = cur.fetchone()
+        return sub_out(r) if r else None
+
+
+@api.patch("/push/me")
+def push_prefs(p: PushPrefsIn):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""UPDATE push_subscriptions SET enabled = COALESCE(%s, enabled), muted = COALESCE(%s, muted)
+                       WHERE endpoint = %s RETURNING *;""", (p.enabled, p.muted, p.endpoint))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, "This phone isn't signed up for notifications — turn them on again.")
+        return sub_out(r)
+
+
+@api.post("/push/unsubscribe")
+def push_unsubscribe(p: EndpointIn):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM push_subscriptions WHERE endpoint = %s;", (p.endpoint,))
+    return {"ok": True}
+
+
+@api.post("/push/test")
+def push_test(p: EndpointIn):
+    with db() as conn, conn.cursor() as cur:
+        priv, _ = vapid_keys(cur)
+        cur.execute("SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE endpoint = %s;", (p.endpoint,))
+        subs = cur.fetchall()
+    if not subs:
+        raise HTTPException(404, "This phone isn't signed up for notifications.")
+    sent = send_push(subs, {"title": "🍨 Rochar notifications are on", "body": "This is what an order reminder will look like.",
+                            "url": "/#schedule", "tag": "test"}, priv)
+    if not sent:
+        raise HTTPException(502, "The test couldn't be delivered — try turning notifications off and on again.")
+    return {"ok": True}
+
+
+@api.get("/push/devices")
+def push_devices():
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM push_subscriptions ORDER BY created_at;")
+        return [sub_out(r) for r in cur.fetchall()]
+
+
+@api.delete("/push/devices/{sub_id}")
+def push_device_delete(sub_id: int):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM push_subscriptions WHERE id = %s;", (sub_id,))
+    return {"ok": True}
 
 
 app.include_router(api)

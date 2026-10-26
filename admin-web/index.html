@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#fbf6f0">
 <link rel="icon" type="image/png" href="brand/favicon.png">
 <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Rochar">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -195,7 +196,32 @@
   .dn-arrow:active { transform: scale(.9); background: var(--cream); }
   .date-btn { position: relative; display: flex; align-items: center; height: 38px; padding: 0 12px; border-radius: 12px; background: #fff; border: 1.5px solid #e2d2bf;
     font-weight: 700; color: var(--accent); white-space: nowrap; cursor: pointer; }
-  .date-btn input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+  .date-btn { gap: 6px; } .db-caret { font-size: 11px; color: var(--muted); }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cal-head b { font-size: 17px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; touch-action: pan-y; }
+  .cal-grid.in-r { animation: listInR .3s var(--spring); } .cal-grid.in-l { animation: listInL .3s var(--spring); }
+  .cal-wd { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--muted); padding: 4px 0; text-transform: uppercase; }
+  .cal-d { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 48px; border: none; border-radius: 12px;
+    background: none; color: var(--ink); font-weight: 600; font-size: 15px; cursor: pointer; transition: background .15s, transform .08s; }
+  .cal-d:active { transform: scale(.92); background: var(--cream); }
+  .cal-d.out { color: #c9bcad; }
+  .cal-d.today span { color: var(--gold); font-weight: 800; }
+  .cal-d.today { box-shadow: inset 0 0 0 1.5px var(--gold); }
+  .cal-d.sel { background: var(--accent); color: #fff; } .cal-d.sel span { color: #fff; }
+  .cal-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+  .cal-dot.done { background: #b8aa99; } .cal-dot.none { background: transparent; }
+  .cal-d.sel .cal-dot { background: #fff; } .cal-d.sel .cal-dot.none { background: transparent; }
+  .co-items { background: var(--hover); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 14px; }
+  .co-line { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; }
+  .co-line + .co-line { border-top: 1px dashed var(--border); }
+  .co .sums { margin: 6px 0 14px; }
+  .co-when { display: grid; grid-template-columns: 1fr 150px; gap: 8px; }
+  .co-date { min-height: 52px; padding: 12px 14px; border: 2px solid #ebe0d3; border-radius: 14px; background: #faf6f1; color: var(--accent);
+    font-weight: 700; text-align: left; cursor: pointer; transition: transform .08s; }
+  .co-date:active { transform: scale(.98); }
+  .co-cal { margin-top: 10px; border: 1px solid var(--border); border-radius: 14px; padding: 10px; background: #fff; animation: listInUp .25s var(--spring); }
+  .cal-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
   .mini-btn { background: none; border: 1.5px solid #e2d2bf; color: var(--accent); border-radius: 99px; padding: 6px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: transform .08s, background .2s; }
   .mini-btn:active { transform: scale(.94); background: var(--cream); }
   #schedBody.mode-in { animation: listInUp .3s var(--spring); }
@@ -227,6 +253,26 @@
   .var-chip code { color: var(--accent); font-weight: 700; font-family: ui-monospace, Menlo, monospace; }
   .var-chip:hover { background: var(--cream); } .var-chip:active { transform: scale(.95); }
   .cs-buttons .copy-btn { cursor: default; }
+  /* Notifications */
+  .switch { position: relative; display: inline-block; width: 46px; height: 28px; flex: 0 0 46px; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch span { position: absolute; inset: 0; border-radius: 99px; background: #d9cdbf; transition: background .25s; cursor: pointer; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .3s var(--spring); }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+  .switch input:disabled + span { opacity: .45; cursor: default; }
+  .switch.big { width: 58px; height: 34px; flex-basis: 58px; } .switch.big span::after { width: 28px; height: 28px; }
+  .switch.big input:checked + span::after { transform: translateX(24px); }
+  .rule-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .rule-row:first-child { border-top: none; }
+  .rule-row.off .rl-txt { opacity: .55; }
+  .rl-txt { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+  .rl-txt select, .rl-txt input { padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .notif-master { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .notif-help ol { padding-left: 20px; line-height: 1.7; }
+  .dev-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); color: var(--ink); }
+  .dev-row:first-child { border-top: none; }
   /* Phone menu sheet */
   .tab-menu { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
   .tm-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 16px; border: 2px solid #ebe0d3; border-radius: 16px;
@@ -511,7 +557,7 @@
   /* ---------- Boxy form (phone Stock In / Expense): big soft boxes, easy to tap ---------- */
   .boxy .field { gap: 8px; margin-bottom: 16px; }
   .boxy .field > span, .boxy .line-head { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
-  .boxy .field input, .boxy .field select, .boxy .lines input, .boxy .lines select {
+  .boxy .field input, .boxy .field select, .boxy .field textarea, .boxy .lines input, .boxy .lines select {
     min-height: 52px; padding: 12px 14px; border: 2px solid #ebe0d3; border-radius: 14px; background: #faf6f1;
     font-weight: 600; color: var(--accent); transition: border-color .2s, background .2s, box-shadow .2s; }
   .boxy input::placeholder { color: #b4a594; font-weight: 600; }
@@ -657,7 +703,7 @@ const NAV_GROUPS = [
   ["SYSTEM", [["settings", "Settings"]]],
 ];
 const TABS = MODE === "mobile"
-  ? [["schedule", "Schedule"], ["pos", "POS"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"]]
+  ? [["schedule", "Schedule"], ["pos", "POS"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"], ["notifs", "Notifs"]]
   : NAV_GROUPS.flatMap(g => g[1]);
 const SALE_METHODS = ["Cash", "GCash", "Bank"];
 // Phone bottom bar: 4 main tabs + a menu button for the rest
@@ -782,6 +828,7 @@ $("#loginForm").addEventListener("submit", async e => {
 async function logout() {
   if (!confirm("Log out on this device?")) return;
   try { await api("/auth/logout", { method: "POST" }); } catch (e) {}
+  try { ["rochar_boot", "rochar_sched"].forEach(k => localStorage.removeItem(k)); } catch (e) {}
   showLogin();
 }
 
@@ -792,6 +839,7 @@ const ICON_PATHS = {
   orders: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
   schedule: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  notifs: '<path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/>',
   pos: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   sales: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
   products: '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/>',
@@ -932,9 +980,36 @@ async function start() {
   $("#switchLink").href = OTHER_SITE[0]; $("#switchLink").textContent = OTHER_SITE[1];
   $("#mobileLogout").classList.toggle("hidden", MODE !== "mobile");
   $("#settingsLink").classList.toggle("hidden", MODE === "mobile");
-  [S.settings] = await Promise.all([api("/settings"), loadItems(), loadCustomers()]);
-  const hash = location.hash.slice(1);
-  go(TABS.some(t => t[0] === hash) ? hash : TABS[0][0]);
+  const hash = location.hash.slice(1), first = TABS.some(t => t[0] === hash) ? hash : TABS[0][0];
+  S.schedDay = manilaToday();
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem("rochar_boot") || "null"); } catch (e) {}
+  if (cached && cached.settings && cached.items) {
+    applyBoot(cached, false);
+    go(first);                                   // show the app right away…
+    loadBoot().then(changed => { if (changed && !busy()) refresh(); }).catch(() => {});   // …then catch up quietly
+  } else {
+    await loadBoot();
+    go(first);
+  }
+}
+function applyBoot(b, save = true) {
+  S.settings = b.settings; S.items = b.items; S.customers = b.customers || [];
+  S.prices = {}; (b.prices || []).forEach(p => { (S.prices[p.customer_id] = S.prices[p.customer_id] || {})[p.item_id] = p.price; });
+  if (b.schedule) {
+    S.schedCache[b.schedule.date_from] = b.schedule.orders;
+    if (b.schedule.open) { S.orders = b.schedule.open; S.openCount = S.orders.length; }
+    saveSchedCache();
+  }
+  if (save) try { const { schedule, ...rest } = b; localStorage.setItem("rochar_boot", JSON.stringify(rest)); } catch (e) {}
+}
+let bootSig = null;
+async function loadBoot() {
+  const b = await api(`/boot?day=${manilaToday()}`);
+  const sig = JSON.stringify(b);
+  const changed = sig !== bootSig; bootSig = sig;
+  applyBoot(b);
+  return changed;
 }
 
 // ---------------------------------------------------------------- inline editing (web tables)
@@ -1191,8 +1266,22 @@ function ticketTotals() {
   return { n, total };
 }
 const initials = name => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
+function posOpenHtml() {
+  return S.orders.length ? `<div class="open-strip"><span class="small muted">Open orders</span>
+      ${S.orders.map(o => `<button class="open-chip" onclick="openOrderSheet(${o.id})"><b>#${o.id}</b> ${esc(o.customer_name || "—")} · ${money(o.total)}${o.payment_status === "credit" ? ` <span class="badge b-amber">credit</span>` : ""}</button>`).join("")}</div>` : "";
+}
+// POS opens instantly from what's already loaded; open orders + clients refresh in the background.
+async function posBackground() {
+  try {
+    const [open] = await Promise.all([api("/orders/open"), loadCustomers()]);
+    const changed = JSON.stringify(open) !== JSON.stringify(S.orders);
+    S.orders = open; S.openCount = open.length; renderTabs();
+    const box = $("#posOpen"); if (changed && box && S.tab === "pos") box.innerHTML = posOpenHtml();
+  } catch (e) {}
+}
 async function viewPOS() {
-  if (!busy()) [S.orders] = await Promise.all([api("/orders/open"), loadCustomers()]);
+  if (!S.posLoaded) { S.posLoaded = true; if (!S.items.length) await loadItems(); }
+  setTimeout(posBackground, 300);
   S.openCount = S.orders.length; renderTabs();
   for (const id of Object.keys(TICKET)) if (!S.items.some(i => i.id === Number(id) && i.active)) delete TICKET[id];
   const gelato = sellables();
@@ -1205,8 +1294,7 @@ async function viewPOS() {
         <button class="btn ghost sm caps" id="tkClear" onclick="clearTicket()">Clear</button></div>
     </div>
     <button class="charge" id="chargeBtn" onclick="charge()">Charge <span id="chargeAmt">₱0</span></button>
-    ${S.orders.length ? `<div class="open-strip"><span class="small muted">Open orders</span>
-      ${S.orders.map(o => `<button class="open-chip" onclick="openOrderSheet(${o.id})"><b>#${o.id}</b> ${esc(o.customer_name || "—")} · ${money(o.total)}${o.payment_status === "credit" ? ` <span class="badge b-amber">credit</span>` : ""}</button>`).join("")}</div>` : ""}
+    <div id="posOpen">${posOpenHtml()}</div>
     <div class="menu">
       ${gelato.length ? Object.entries(groups).map(([g, list]) => `<div class="menu-grp">${esc(g)}</div>` + list.map(i => `
         <div class="menu-row" id="mr${i.id}" onclick="tapItem(${i.id})">
@@ -1241,17 +1329,118 @@ function clearTicket() {
   if (!ticketTotals().n || !confirm("Clear the ticket?")) return;
   TICKET = {}; saveTicket(); drawTicket();
 }
-async function charge() {
+// Charge → fill in the order details → Confirm. Only then does the order exist (as an open order
+// that closes itself at the end of its delivery day).
+function charge() {
   const items = Object.entries(TICKET).map(([id, q]) => ({ item_id: Number(id), qty: q })).filter(x => x.qty > 0);
   if (!items.length) return;
-  const btn = $("#chargeBtn"); btn.disabled = true;
+  S.co = { customer_id: null, customer_name: "", phone: "", phone2: "", address: "", delivery: localInputNow(),
+           delivery_fee: "", rider_name: "", notes: "", payment_status: "paid", payment_method: "GCash" };
+  openModal("New order", `<form id="coForm" class="boxy co" onsubmit="confirmOrder(event)" autocomplete="off">
+      <div id="coItems"></div>
+      <div class="field"><span>Customer</span>
+        <div class="typeahead"><input id="coName" placeholder="Type 2–3 letters to search clients…" oninput="coType(this.value)" onfocus="coType(this.value)" onblur="setTimeout(() => $('#coSug')?.classList.remove('show'), 150)">
+          <div class="suggest" id="coSug"></div></div>
+        <div class="small" id="coLinked" style="margin-top:4px"></div></div>
+      <div class="grid2">
+        <label class="field"><span>Phone</span><input id="coPhone" type="tel" oninput="S.co.phone=this.value"></label>
+        <label class="field"><span>Phone 2 (optional)</span><input id="coPhone2" type="tel" oninput="S.co.phone2=this.value"></label>
+      </div>
+      <label class="field"><span>Delivery address</span><textarea id="coAddr" rows="2" oninput="S.co.address=this.value"></textarea></label>
+      <div class="field"><span>Delivery date &amp; time</span>
+        <div class="co-when"><button type="button" class="co-date" id="coDateBtn" onclick="coToggleCal()"></button>
+          <input id="coTime" type="time" value="${S.co.delivery.slice(11, 16)}" onchange="if (this.value) { S.co.delivery = S.co.delivery.slice(0, 11) + this.value; }"></div>
+        <div id="coCal" class="cal co-cal hidden"></div></div>
+      <div class="grid2">
+        <label class="field"><span>Delivery fee (₱)</span><input id="coFee" type="number" inputmode="decimal" min="0" step="any" placeholder="0" oninput="S.co.delivery_fee=this.value; coDraw()"></label>
+        <label class="field"><span>Rider name</span><input id="coRider" oninput="S.co.rider_name=this.value"></label>
+      </div>
+      <label class="field"><span>Special notes</span><input id="coNotes" oninput="S.co.notes=this.value"></label>
+      <div class="field"><span>Payment</span><div id="coPay"></div></div>
+      <div class="sums" id="coSums"></div>
+      <div class="form-error" id="coErr"></div>
+      <button class="btn block big" id="coConfirm">Confirm order</button>
+      <button type="button" class="add-link" style="display:block;margin:10px auto 0" onclick="closeModal()">‹ Back to items</button>
+    </form>`);
+  coDraw();
+}
+function coDateLabel() { const d = S.co.delivery.slice(0, 10); return "📅 " + (d === manilaToday() ? "Today · " + fmtDate(d).split(", ")[1] : fmtDate(d)); }
+function coToggleCal(force) {
+  const box = $("#coCal"), open = force !== undefined ? force : box.classList.contains("hidden");
+  box.classList.toggle("hidden", !open);
+  if (open) showCalendar(box, S.co.delivery.slice(0, 10), d => { S.co.delivery = d + S.co.delivery.slice(10); $("#coDateBtn").textContent = coDateLabel(); coToggleCal(false); });
+}
+function coItems() {
+  return Object.entries(TICKET).map(([id, q]) => {
+    const it = S.items.find(i => i.id === Number(id)); if (!it || !q) return null;
+    const price = priceFor({ customer_id: S.co.customer_id }, it);
+    return { it, q, price, amount: price * q };
+  }).filter(Boolean);
+}
+function coDraw() {
+  const lines = coItems(), sub = lines.reduce((s, l) => s + l.amount, 0), fee = Number(S.co.delivery_fee || 0);
+  if ($("#coDateBtn")) $("#coDateBtn").textContent = coDateLabel();
+  $("#coItems").innerHTML = `<div class="co-items">${lines.map(l => `<div class="co-line"><span>${l.q}× ${esc(itemLabel(l.it.name, l.it.variant))}</span><b>${money(l.amount)}</b></div>`).join("")}</div>`;
+  $("#coSums").innerHTML = `<div><span>Items</span><span>${money(sub)}</span></div><div><span>Delivery fee</span><span>${money(fee)}</span></div>
+    <div class="grand"><span>Total</span><span>${money(sub + fee)}</span></div>`;
+  const c = S.co;
+  $("#coPay").innerHTML = `<div class="row">
+      <div class="seg"><button type="button" class="${c.payment_status === "paid" ? "on" : ""}" onclick="S.co.payment_status='paid'; coDraw()">Paid</button>
+        <button type="button" class="credit ${c.payment_status === "credit" ? "on" : ""}" onclick="S.co.payment_status='credit'; coDraw()">On credit / unpaid</button></div>
+      ${c.payment_status === "paid" ? `<div class="seg">${SALE_METHODS.map(m => `<button type="button" class="${c.payment_method === m ? "on" : ""}" onclick="S.co.payment_method='${m}'; coDraw()">${m}</button>`).join("")}</div>`
+        : `<span class="small muted">goes to Receivables when the order closes</span>`}</div>`;
+  const cust = S.customers.find(x => x.id === c.customer_id);
+  $("#coLinked").innerHTML = cust ? `<span class="badge ${cust.tier === "Reseller" ? "b-blue" : "b-gray"}">${esc(cust.tier)} · saved client</span>
+      ${cust.tier === "Reseller" ? `<span class="muted">reseller prices applied</span>` : ""} <button type="button" class="link" onclick="coLink(null)">unlink</button>`
+    : (c.customer_name ? `<span class="muted">New client — saved when you confirm</span>` : "");
+}
+function coType(q) {
+  S.co.customer_name = q;
+  const linked = S.customers.find(x => x.id === S.co.customer_id);
+  if (linked && linked.name !== q) { S.co.customer_id = null; coDraw(); }
+  const box = $("#coSug"); if (!box) return;
+  if ((q || "").trim().length < 2) { box.classList.remove("show"); return; }
+  const hits = S.customers.map(c => ({ c, score: Math.max(fuzzy(q, c.name), fuzzy(q, c.phone) - 5) }))
+    .filter(h => h.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+  box.innerHTML = hits.length ? hits.map(h => `<button type="button" onmousedown="event.preventDefault(); coLink(${h.c.id})">
+      <span><b>${highlight(h.c.name, q)}</b><br><span class="small muted">${esc(h.c.phone)}${h.c.address ? " · " + esc(h.c.address) : ""}</span></span>
+      <span class="badge ${h.c.tier === "Reseller" ? "b-blue" : "b-gray"}">${h.c.tier}</span></button>`).join("")
+    : `<div class="small muted" style="padding:10px 12px">No match — this will be saved as a new client.</div>`;
+  box.classList.add("show");
+}
+function coLink(id) {
+  $("#coSug")?.classList.remove("show");
+  const c = S.customers.find(x => x.id === id);
+  S.co.customer_id = c ? c.id : null;
+  if (c) {
+    Object.assign(S.co, { customer_name: c.name, phone: c.phone || "", phone2: c.phone2 || "", address: c.address || "" });
+    if (c.tier === "Reseller") S.co.payment_status = "credit";
+    $("#coName").value = c.name; $("#coPhone").value = S.co.phone; $("#coPhone2").value = S.co.phone2; $("#coAddr").value = S.co.address;
+    if (c.notes && !S.co.notes) { S.co.notes = c.notes; $("#coNotes").value = c.notes; }
+  }
+  coDraw();
+}
+async function confirmOrder(e) {
+  e.preventDefault();
+  const c = S.co, err = $("#coErr"), btn = $("#coConfirm"); err.textContent = "";
+  const items = Object.entries(TICKET).map(([id, q]) => ({ item_id: Number(id), qty: q })).filter(x => x.qty > 0);
+  if (!items.length) { err.textContent = "The ticket is empty."; return; }
+  if (c.payment_status === "credit" && !c.customer_name.trim()) { err.textContent = "A credit order needs a customer name."; $("#coName").focus(); return; }
+  if (!c.delivery) { err.textContent = "Set the delivery date and time."; return; }
+  btn.disabled = true; btn.textContent = "Saving…";
   try {
-    const o = await api("/orders", { method: "POST", body: { items } });
-    TICKET = {}; saveTicket();
+    const o = await api("/orders", { method: "POST", body: {
+      items, customer_id: c.customer_id, customer_name: c.customer_name.trim(), phone: c.phone, phone2: c.phone2, address: c.address,
+      notes: c.notes, rider_name: c.rider_name, delivery_fee: Number(c.delivery_fee || 0), delivery_at: fromManilaInput(c.delivery),
+      payment_status: c.payment_status, payment_method: c.payment_method } });
+    TICKET = {}; saveTicket(); drawTicket();
     S.orders.push(o); S.openCount = S.orders.length; renderTabs();
-    openOrderSheet(o.id);
-    refresh();
-  } catch (err) { toast(err.message, true); btn.disabled = false; }
+    delete S.schedCache[manilaParts(new Date(o.delivery_at)).date];     // that day reloads with the new order
+    const box = $("#posOpen"); if (box) box.innerHTML = posOpenHtml();
+    closeModal();
+    toast(`Order #${o.id} confirmed${o.customer_name ? " — " + o.customer_name : ""} · ${money(o.total)}`);
+    loadCustomers().catch(() => {});
+  } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = "Confirm order"; }
 }
 function openOrderSheet(id) {
   const o = S.orders.find(x => x.id === id); if (!o) return;
@@ -1272,7 +1461,7 @@ const MSG_VARS = [["name", "Customer name"], ["phone", "Phone"], ["address", "De
   ["delivery_fee", "Delivery fee"], ["rider", "Rider name"], ["notes", "Special notes"], ["order_no", "Order number"]];
 function msgVars(o) {
   const when = o.delivery_at ? manilaParts(new Date(o.delivery_at)).date : "";
-  return { name: o.customer_name || "", phone: o.phone || "", address: o.address || "",
+  return { name: o.customer_name || "", phone: o.phone || "", phone2: o.phone2 || "", address: o.address || "",
     date: when ? fmtDate(when) : "", time: o.delivery_at ? fmtTime(o.delivery_at) : "",
     total: money(o.total), items_total: money(o.subtotal), delivery_fee: money(o.delivery_fee),
     rider: o.rider_name || "", notes: o.notes || "", order_no: "#" + o.id };
@@ -1345,6 +1534,7 @@ function drawOrderCard(id) {
         </div></div>
       <div class="grid2">
         <label class="field"><span>Phone</span><input data-f="phone" type="tel" value="${esc(o.phone)}"></label>
+        <label class="field"><span>Phone 2</span><input data-f="phone2" type="tel" value="${esc(o.phone2 || "")}"></label>
         <label class="field"><span>Special notes</span><input data-f="notes" value="${esc(o.notes)}"></label>
       </div>
       <label class="field"><span>Delivery address</span><textarea data-f="address" rows="2">${esc(o.address)}</textarea></label>
@@ -1353,7 +1543,7 @@ function drawOrderCard(id) {
         <label class="field"><span>Rider name</span><input data-f="rider_name" value="${esc(o.rider_name)}"></label>
       </div>
       ${copyButtons(id)}
-      <button type="button" class="btn green block big" onclick="finishOrder(${id})">Order finished</button>
+      <p class="small muted" style="margin:4px 0 0">Closes automatically at the end of its delivery day.</p>
       <div class="row spread" style="margin-top:10px">
         <span class="small muted">Saved automatically</span>
         <button type="button" class="link red" onclick="cancelOrder(${id})">${o.items.length ? "Void order" : "Cancel order"}</button>
@@ -1509,7 +1699,6 @@ function fmtDeliver(iso) {
 }
 // Days switch instantly inside the loaded week (no reload): the highlight slides and the list crossfades.
 // Changing week slides the whole strip. Swipe left/right on the list to go day by day.
-const weekStartOf = d => addDays(d, -((new Date(d + "T00:00:00Z").getUTCDay() + 6) % 7));   // Monday
 function schedCard(o) {
   const live = o.status === "open";
   return `<div class="sched-card ${live ? "live" : "done"}" onclick="${live ? `openOrderSheet(${o.id})` : `showSale(${o.id})`}">
@@ -1525,33 +1714,40 @@ function schedCard(o) {
         ${o.customer_tier === "Reseller" ? `<span class="badge b-blue">Reseller</span>` : ""}<span class="small muted">#${o.id}</span></div>
     </div></div>`;
 }
+// ---- Schedule data: one day at a time, kept in memory (and on the phone) so switching days is instant
+S.schedCache = {};
+try { const c = JSON.parse(localStorage.getItem("rochar_sched") || "null"); if (c && c.days) { S.schedCache = c.days; if (!S.orders.length) S.orders = c.open || []; } } catch (e) {}
+function saveSchedCache() {
+  try {
+    const keep = Object.keys(S.schedCache).sort().slice(-14), days = {};   // remember up to 14 days
+    keep.forEach(k => days[k] = S.schedCache[k]);
+    localStorage.setItem("rochar_sched", JSON.stringify({ days, open: S.orders }));
+  } catch (e) {}
+}
+const schedSigs = {};
+async function loadDay(day, withOpen = true) {
+  const r = await api(`/orders/schedule?date_from=${day}&date_to=${day}${withOpen ? "&include_open=true" : ""}`);
+  const sig = JSON.stringify([r.orders, withOpen ? r.open : null]);
+  const changed = schedSigs[day + withOpen] !== sig || !S.schedCache[day];
+  schedSigs[day + withOpen] = sig;
+  S.schedCache[day] = r.orders;
+  if (withOpen) { S.orders = r.open; S.openCount = r.open.length; renderTabs(); }
+  S.history = Object.values(S.schedCache).flat().filter(o => o.status !== "open");
+  saveSchedCache();
+  return changed;
+}
+function prefetchAround(day) {
+  [addDays(day, 1), addDays(day, -1)].forEach(d => { if (!S.schedCache[d]) loadDay(d, false).catch(() => {}); });
+}
 function schedDayHtml(day) {
-  const list = (S.schedByDay || {})[day] || [];
+  const list = S.schedCache[day];
+  if (!list) return `<div class="day-head"><span>${day === manilaToday() ? "Today" : fmtDate(day)}</span><span></span></div><div class="loading"><span class="spinner"></span></div>`;
   const total = list.reduce((s, o) => s + o.total, 0);
   const live = list.filter(o => o.status === "open"), done = list.filter(o => o.status !== "open");
   return `<div class="day-head"><span>${day === manilaToday() ? "Today" : fmtDate(day)}</span><span>${list.length} order${list.length === 1 ? "" : "s"} · ${money(total)}</span></div>
     ${live.map(liveCard).join("")}
     ${done.length ? `<div class="done-head">Done · ${done.length}</div>${done.map(schedCard).join("")}` : ""}
     ${list.length ? "" : `<div class="card empty">No orders on this day.<br><a href="#pos">Ring one up in POS</a></div>`}`;
-}
-function schedStripHtml(ws, day) {
-  const i = Math.round((new Date(day + "T00:00:00Z") - new Date(ws + "T00:00:00Z")) / 864e5);
-  return `<span class="sd-pill" style="transform:translateX(calc(${i} * (100% + 6px)))"></span>` + [...Array(7)].map((_, k) => {
-    const d = addDays(ws, k), n = ((S.schedByDay || {})[d] || []).length, dt = new Date(d + "T00:00:00");
-    return `<button class="sd ${d === day ? "on" : ""} ${d === manilaToday() ? "today" : ""}" data-day="${d}" onclick="schedPick('${d}')">
-      <small>${dt.toLocaleDateString("en-US", { weekday: "short" })}</small><b>${dt.getDate()}</b><span class="sd-n">${n || ""}</span></button>`;
-  }).join("");
-}
-async function loadSchedWeek(ws) {
-  const [r, open] = await Promise.all([api(`/orders/schedule?date_from=${ws}&date_to=${addDays(ws, 6)}`), busy() ? S.orders : api("/orders/open")]);
-  const sig = JSON.stringify([ws, r.orders, open]);
-  const changed = sig !== S.schedSig;
-  S.schedSig = sig;
-  S.orders = open; S.openCount = open.length; renderTabs();
-  S.history = r.orders.filter(o => o.status !== "open");
-  S.schedByDay = {}; S.schedWeek = ws;
-  r.orders.forEach(o => { const d = manilaParts(new Date(o.delivery_at)).date; (S.schedByDay[d] = S.schedByDay[d] || []).push(o); });
-  return changed;
 }
 function overdueHtml() {
   const today = manilaToday(), days = {};
@@ -1574,7 +1770,7 @@ function orderListHtml() {
 }
 function schedDateLabel(d) { return d === manilaToday() ? `Today · ${fmtDate(d).split(", ")[1]}` : fmtDate(d); }
 function schedBodyHtml() {
-  const day = S.schedDay, ws = S.schedWeek;
+  const day = S.schedDay;
   if (S.schedMode === "list") return `<div id="schedBody">
     <div class="sched-bar"><b class="sb-title">All live orders</b><button class="mini-btn" onclick="setSchedMode('day')">📅 Back to schedule</button></div>
     <div class="sched-list in-up">${orderListHtml()}</div></div>`;
@@ -1582,13 +1778,11 @@ function schedBodyHtml() {
     <div class="sched-bar">
       <div class="date-nav">
         <button class="dn-arrow" onclick="schedPick(addDays(S.schedDay, -1))" aria-label="Previous day">‹</button>
-        <label class="date-btn"><span id="schedDateLbl">${schedDateLabel(day)}</span>
-          <input type="date" id="schedDate" value="${day}" onchange="this.value && schedPick(this.value)"></label>
+        <button class="date-btn" onclick="openCalendar()"><span id="schedDateLbl">${schedDateLabel(day)}</span><span class="db-caret">▾</span></button>
         <button class="dn-arrow" onclick="schedPick(addDays(S.schedDay, 1))" aria-label="Next day">›</button>
       </div>
       <button class="mini-btn" onclick="setSchedMode('list')">☰ Order list</button>
     </div>
-    <div class="sched-strip-wrap"><div class="sched-strip" id="schedStrip">${schedStripHtml(ws, day)}</div></div>
     <div id="schedList" class="sched-list">${schedDayHtml(day)}</div></div>`;
 }
 function setSchedMode(m) {
@@ -1605,77 +1799,119 @@ async function viewSchedule() {
     return;
   }
   const day = S.schedDay || (S.schedDay = manilaToday());
-  const ws = weekStartOf(day);
-  // Show the last loaded data straight away (no waiting), then check the server in the background.
-  const cached = S.schedWeek === ws && S.schedByDay;
-  if (!cached) await loadSchedWeek(ws);
-  else setTimeout(() => refreshSchedule(), 450);   // after the page has slid in
-  $("#view").innerHTML = `${ordersToggle()}<div id="schedOverdue">${overdueHtml()}</div>
-    ${schedBodyHtml()}`;
+  // Show what we already have straight away; check the server in the background.
+  if (!S.schedCache[day]) { try { await loadDay(day); } catch (e) { if (!S.schedCache[day]) throw e; } }
+  else setTimeout(() => refreshSchedule(), 450);
+  $("#view").innerHTML = `${ordersToggle()}<div id="schedOverdue">${overdueHtml()}</div>${schedBodyHtml()}`;
+  setTimeout(() => prefetchAround(day), 900);
 }
-// Background refresh: re-fetch, and only touch the screen if something actually changed (no re-animating).
 let schedRefreshing = false;
 async function refreshSchedule() {
   if (schedRefreshing || S.tab !== "schedule" || S.ordersView === "history") return;
   schedRefreshing = true;
+  const day = S.schedDay;
   try {
-    const changed = await loadSchedWeek(S.schedWeek || weekStartOf(S.schedDay || manilaToday()));
-    if (!changed) return;
-    if (S.tab !== "schedule" || busy() || !$("#schedBody")) { S.schedSig = null; return; }   // couldn't show it now → redo next time
+    const changed = await loadDay(day);
+    if (!changed || day !== S.schedDay) return;
+    if (S.tab !== "schedule" || busy() || !$("#schedBody")) { delete schedSigs[day + true]; return; }   // couldn't show it now → redo next time
     const ov = $("#schedOverdue"); if (ov) ov.innerHTML = overdueHtml();
     const pill = $(".orders-toggle .pill"); if (pill) pill.textContent = S.openCount;
     if (S.schedMode === "list") { const b = $("#schedBody .sched-list"); if (b) b.innerHTML = orderListHtml(); return; }
-    const strip = $("#schedStrip"), list = $("#schedList");
-    if (strip && weekStartOf(S.schedDay) === S.schedWeek) strip.innerHTML = schedStripHtml(S.schedWeek, S.schedDay);
-    if (list) { list.classList.remove("in-l", "in-r", "in-up"); list.innerHTML = schedDayHtml(S.schedDay); }
+    const list = $("#schedList");
+    if (list) { list.classList.remove("in-l", "in-r", "in-up"); list.innerHTML = schedDayHtml(day); }
   } catch (e) {} finally { schedRefreshing = false; }
 }
-let schedBusy = null;
 async function schedPick(day, dir) {
   if (!day) return;
   const prev = S.schedDay; S.schedDay = day;
-  const ws = weekStartOf(day);
   if (S.schedMode === "list") { S.schedMode = "day"; return go("schedule", { keepScroll: true }); }
-  const strip = $("#schedStrip"), listEl = $("#schedList");
-  if (!strip || !listEl) return go("schedule");
-  $("#schedDate").value = day; $("#schedDateLbl").textContent = schedDateLabel(day);
+  const listEl = $("#schedList");
+  if (!listEl) return go("schedule");
+  $("#schedDateLbl").textContent = schedDateLabel(day);
   if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {}
   const d = dir || (day > prev ? 1 : day < prev ? -1 : 0);
-  if (ws === S.schedWeek) {
-    // same week: slide the highlight, crossfade the list — no loading
-    const i = Math.round((new Date(day + "T00:00:00Z") - new Date(ws + "T00:00:00Z")) / 864e5);
-    $(".sd-pill", strip).style.transform = `translateX(calc(${i} * (100% + 6px)))`;
-    $$(".sd", strip).forEach(b => b.classList.toggle("on", b.dataset.day === day));
+  if (S.schedCache[day]) {                       // already loaded → switch instantly, refresh quietly
     swapSchedList(listEl, day, d);
-    return;
+    setTimeout(() => { if (S.schedDay === day) refreshSchedule(); }, 300);
+  } else {
+    listEl.classList.add("fading");
+    try { await loadDay(day); } catch (err) { toast(err.message, true); }
+    if (S.schedDay !== day || S.tab !== "schedule") return;
+    listEl.classList.remove("fading"); swapSchedList(listEl, day, d);
   }
-  // another week: slide the strip out, load, slide the new week in from the other side
-  strip.classList.remove("in-l", "in-r"); strip.classList.add(d > 0 ? "out-l" : "out-r");
-  listEl.classList.add("fading");
-  const job = schedBusy = Promise.all([loadSchedWeek(ws), new Promise(r => setTimeout(r, 180))]);
-  try { await job; } catch (err) { toast(err.message, true); }
-  if (job !== schedBusy || S.tab !== "schedule") return;
-  strip.innerHTML = schedStripHtml(ws, day);
-  strip.classList.remove("out-l", "out-r"); void strip.offsetWidth; strip.classList.add(d > 0 ? "in-r" : "in-l");
-  listEl.classList.remove("fading"); swapSchedList(listEl, day, d);
+  prefetchAround(day);
 }
 function swapSchedList(listEl, day, d) {
   listEl.innerHTML = schedDayHtml(day);
   listEl.classList.remove("in-l", "in-r", "in-up"); void listEl.offsetWidth;
   listEl.classList.add(d > 0 ? "in-r" : d < 0 ? "in-l" : "in-up");
 }
-function schedWeek(n) { schedPick(addDays(S.schedDay || manilaToday(), 7 * n), n); }
 function schedGo(day) { schedPick(day); }
-// swipe on the list → next / previous day
+
+// ---- Calendar (our own, not the phone's): month grid with a dot on days that have orders.
+// Used for the Schedule date and for the delivery date on the order form.
+S.calDays = {};
+let CAL = null;     // { box, month, selected, onPick }
+function openCalendar() {
+  openModal("Pick a day", `<div id="calBox" class="cal"></div>`);
+  showCalendar($("#calBox"), S.schedDay || manilaToday(), d => { closeModal(); if (d !== S.schedDay) setTimeout(() => schedPick(d), 120); });
+}
+function showCalendar(box, selected, onPick) {
+  CAL = { box, month: selected.slice(0, 7), selected, onPick };
+  drawCalendar();
+}
+function calGrid(month) {
+  const first = month + "-01", start = addDays(first, -((new Date(first + "T00:00:00Z").getUTCDay() + 6) % 7));
+  return [...Array(42)].map((_, i) => addDays(start, i));
+}
+async function drawCalendar(dir = 0) {
+  if (!CAL || !document.body.contains(CAL.box)) return;
+  const cal = CAL, month = cal.month, days = calGrid(month);
+  const render = () => {
+    if (CAL !== cal || cal.month !== month) return;
+    const counts = S.calDays[month] || {};
+    const dt = new Date(month + "-01T00:00:00");
+    cal.box.innerHTML = `
+      <div class="cal-head">
+        <button type="button" class="dn-arrow" onclick="calMove(-1)" aria-label="Previous month">‹</button>
+        <b>${dt.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</b>
+        <button type="button" class="dn-arrow" onclick="calMove(1)" aria-label="Next month">›</button>
+      </div>
+      <div class="cal-grid ${dir > 0 ? "in-r" : dir < 0 ? "in-l" : ""}">
+        ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(w => `<span class="cal-wd">${w}</span>`).join("")}
+        ${days.map(d => { const c = counts[d], out = d.slice(0, 7) !== month;
+          return `<button type="button" class="cal-d ${out ? "out" : ""} ${d === manilaToday() ? "today" : ""} ${d === cal.selected ? "sel" : ""}" onclick="calPick('${d}')">
+            <span>${Number(d.slice(8))}</span><i class="cal-dot ${c ? (c.open ? "" : "done") : "none"}"></i></button>`; }).join("")}
+      </div>
+      <div class="cal-foot"><span class="small muted"><i class="cal-dot"></i> live orders &nbsp; <i class="cal-dot done"></i> all done</span>
+        <button type="button" class="mini-btn" onclick="calPick(manilaToday())">Today</button></div>`;
+    dir = 0;
+  };
+  render();
+  const q = `/orders/days?date_from=${days[0]}&date_to=${days[41]}`;
+  if (!S.calDays[month]) {
+    try { S.calDays[month] = await api(q); render(); } catch (e) {}
+  } else {
+    api(q).then(r => { const same = JSON.stringify(r) === JSON.stringify(S.calDays[month]); S.calDays[month] = r; if (!same) render(); }).catch(() => {});
+  }
+}
+function calMove(n) {
+  if (!CAL) return;
+  const [y, m] = CAL.month.split("-").map(Number), d = new Date(Date.UTC(y, m - 1 + n, 1));
+  CAL.month = d.toISOString().slice(0, 7); drawCalendar(n);
+}
+function calPick(d) { if (!CAL) return; CAL.selected = d; const fn = CAL.onPick; fn(d); }
+
+// swipe left/right: on the order list → next / previous day; on the calendar → next / previous month
 (() => {
   let x0 = null, y0 = null;
-  document.addEventListener("touchstart", e => { if (e.target.closest("#schedList, #schedStrip")) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } else x0 = null; }, { passive: true });
+  document.addEventListener("touchstart", e => { if (e.target.closest("#schedList, #calBox, .co-cal")) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } else x0 = null; }, { passive: true });
   document.addEventListener("touchend", e => {
     if (x0 === null) return;
     const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
     if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * .6) return;
-    const inStrip = e.target.closest("#schedStrip");
-    if (inStrip) schedWeek(dx < 0 ? 1 : -1); else schedPick(addDays(S.schedDay, dx < 0 ? 1 : -1));
+    if (e.target.closest("#calBox, .co-cal")) calMove(dx < 0 ? 1 : -1);
+    else schedPick(addDays(S.schedDay, dx < 0 ? 1 : -1));
   }, { passive: true });
 })();
 
@@ -2646,7 +2882,7 @@ async function viewClients(tier) {
       <tbody>${list.map(c => { const u = `/customers/${c.id}`;
         return `<tr data-row="${c.id}" style="${c.active ? "" : "opacity:.5"}">
         ${editable("td", `<b>${esc(c.name)}</b>`, { url: u, field: "name", value: c.name })}
-        ${editable("td", esc(c.phone), { url: u, field: "phone", value: c.phone })}
+        ${editable("td", esc(c.phone) + (c.phone2 ? `<br><span class="small muted">${esc(c.phone2)}</span>` : ""), { url: u, field: "phone", value: c.phone })}
         ${editable("td", esc(c.address), { url: u, field: "address", value: c.address })}
         ${editable("td", esc(c.notes), { url: u, field: "notes", value: c.notes })}
         ${editable("td", esc(c.tier), { url: u, field: "tier", value: c.tier, type: "select", options: ["Retail", "Reseller"] })}
@@ -2667,7 +2903,7 @@ function editClientModal(id) {
   const isR = c.tier === "Reseller";
   editModal({ title: `Edit ${c.name}`, url: `/customers/${c.id}`, obj: c, after: async () => { await loadCustomers(); await refresh(); },
     top: `<p class="small muted" style="margin-top:0">${c.order_count} order${c.order_count === 1 ? "" : "s"} · bought ${money(c.items_total)}${c.balance > 0 ? ` · <b>owes ${money(c.balance)}</b>` : ""}</p>`,
-    fields: [{ name: "name", label: "Name" }, { name: "phone", label: "Phone" }, { name: "address", label: "Delivery address", full: true },
+    fields: [{ name: "name", label: "Name" }, { name: "phone", label: "Phone" }, { name: "phone2", label: "Phone 2" }, { name: "address", label: "Delivery address", full: true },
       { name: "notes", label: "Special notes", type: "textarea" }, { name: "tier", label: "Type", type: "select", options: ["Retail", "Reseller"] },
       { name: "active", label: "Active", type: "bool" }],
     buttons: `<button type="button" class="btn ghost sm" onclick="showClient(${c.id})">Order history</button>
@@ -2995,6 +3231,14 @@ async function viewSettings() {
       </div>
       <div class="field" style="margin-top:6px"><span>How the buttons will look</span><div class="cs-buttons" id="pv_buttons"></div></div>
     </div>
+    <div class="card" id="notifCard"><h3>Phone notifications</h3>
+      <p class="small muted" style="margin-top:0">Reminders sent to phones that turned notifications on (phone app → Menu → Notifs). Each phone can also mute any of these for itself.</p>
+      <div id="ruleList"><div class="loading"><span class="spinner"></span></div></div>
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn ghost sm" onclick="addRule('before')">+ Reminder before delivery</button>
+        <button class="btn ghost sm" onclick="addRule('summary')">+ Daily summary</button></div>
+      <h4 style="margin:18px 0 6px">Phones signed up</h4><div id="deviceList" class="small muted">Loading…</div>
+    </div>
     <div class="card"><h3>Change PIN</h3>
       <form id="pinForm" class="grid3" onsubmit="changePin(event)">
         <label class="field"><span>Current PIN</span><input name="current_pin" type="password" inputmode="numeric" required></label>
@@ -3002,8 +3246,143 @@ async function viewSettings() {
         <div style="align-self:end;margin-bottom:10px"><button class="btn">Change PIN</button></div>
       </form><p class="small muted">Changing the PIN logs out every other phone and computer.</p></div>`;
   previewCopy();
+  loadRuleEditor();
 }
-const SAMPLE_ORDER = { id: 128, customer_name: "Maria Santos", phone: "0917 123 4567", address: "12 Mango Ave, Cebu City",
+
+// ---- Notification rules (admin) ----------------------------------------------------------
+// the page may still be sliding in when the data arrives — wait until its box is on screen
+async function onScreen(sel, ms = 3000) {
+  for (let t = 0; t < ms; t += 50) { const el = document.querySelector(sel); if (el && el.isConnected && !el.closest("main[style]")) return el; await new Promise(r => setTimeout(r, 50)); }
+  return null;
+}
+async function loadRuleEditor() {
+  try {
+    const [rules, devices] = await Promise.all([api("/notif-rules"), api("/push/devices")]);
+    if (!(await onScreen("#ruleList"))) return;
+    S.rules = rules; drawRules();
+    $("#deviceList").innerHTML = devices.length ? devices.map(d => `<div class="dev-row"><span>📱 <b>${esc(d.label || "Phone")}</b>
+        <span class="muted">· on since ${fmtDate(manilaParts(new Date(d.created_at)).date)}${d.enabled ? "" : " · paused"}${d.muted.length ? ` · ${d.muted.length} muted` : ""}</span></span>
+        <button class="link red" onclick="removeDevice(${d.id})">remove</button></div>`).join("")
+      : "No phones yet. On the phone app, open Menu → Notifs and turn them on.";
+  } catch (e) { $("#ruleList").innerHTML = `<span class="small muted">${esc(e.message)}</span>`; }
+}
+function ruleEditHtml(r, i) {
+  if (r.type === "summary") return `<span class="rl-txt">
+      <select onchange="S.rules[${i}].days_before=Number(this.value); saveRules()">
+        ${[[1, "Day before"], [0, "Same day"], [2, "2 days before"], [3, "3 days before"]].map(([v, l]) => `<option value="${v}" ${r.days_before === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+      summary at <input type="time" value="${r.time}" onchange="if (this.value) { S.rules[${i}].time=this.value; saveRules(); }"></span>`;
+  return `<span class="rl-txt"><input type="number" min="0" max="10080" value="${r.minutes}" style="width:80px" onchange="S.rules[${i}].minutes=Math.max(0, Number(this.value)||0); saveRules()"> minutes before delivery
+      <span class="muted small">(${esc(r.label)})</span></span>`;
+}
+function drawRules() {
+  $("#ruleList").innerHTML = S.rules.length ? S.rules.map((r, i) => `<div class="rule-row ${r.on ? "" : "off"}">
+      <label class="switch"><input type="checkbox" ${r.on ? "checked" : ""} onchange="S.rules[${i}].on=this.checked; saveRules()"><span></span></label>
+      ${ruleEditHtml(r, i)}
+      <button class="link red" onclick="S.rules.splice(${i},1); saveRules()">remove</button></div>`).join("")
+    : `<p class="small muted">No notifications set. Add one below.</p>`;
+}
+function addRule(type) {
+  S.rules.push(type === "summary" ? { type, days_before: 1, time: "20:00", on: true } : { type, minutes: 30, on: true });
+  saveRules();
+}
+async function saveRules() {
+  try { S.rules = await api("/notif-rules", { method: "PUT", body: S.rules }); drawRules(); toast("Saved"); }
+  catch (e) { toast(e.message, true); loadRuleEditor(); }
+}
+async function removeDevice(id) {
+  if (!confirm("Stop notifications to this phone?")) return;
+  try { await api(`/push/devices/${id}`, { method: "DELETE" }); loadRuleEditor(); } catch (e) { toast(e.message, true); }
+}
+
+// ---- Notifs tab (phone): turn notifications on/off for THIS phone ------------------------
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = () => window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+async function swReg() {
+  if (!("serviceWorker" in navigator)) return null;
+  return (await navigator.serviceWorker.getRegistration()) || navigator.serviceWorker.register("sw.js");
+}
+async function currentSub() {
+  const reg = await swReg(); return reg ? reg.pushManager.getSubscription() : null;
+}
+function b64ToBytes(b64) {
+  const pad = "=".repeat((4 - b64.length % 4) % 4), raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+async function viewNotifs() {
+  let body;
+  if (!pushSupported() || (isIOS() && !isStandalone())) {
+    body = `<div class="card notif-help">
+      <h3>First, add the app to your Home Screen</h3>
+      <p class="muted">On iPhone, notifications only work from the Home Screen app, not from Safari.</p>
+      <ol><li>In Safari, tap the <b>Share</b> button (the square with the arrow).</li>
+        <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li>Open <b>Rochar</b> from the new icon and log in with your PIN.</li>
+        <li>Come back to <b>Menu → Notifs</b> and turn them on.</li></ol>
+      ${!pushSupported() && !isIOS() ? `<p class="small muted">This browser doesn't support notifications — try Chrome.</p>` : ""}</div>`;
+  } else {
+    const [rules, sub] = await Promise.all([api("/notif-rules"), currentSub()]);
+    let me = null;
+    if (sub) { try { me = await api("/push/me", { method: "POST", body: { endpoint: sub.endpoint } }); } catch (e) {} }
+    S.notifMe = me; S.notifRules = rules;
+    const on = !!(me && me.enabled && Notification.permission === "granted");
+    const denied = Notification.permission === "denied";
+    body = `<div class="card">
+      <div class="notif-master">
+        <div><b>Notifications on this phone</b><br><span class="small muted">${on ? "On" : denied ? "Blocked in your phone's Settings" : "Off"}</span></div>
+        <label class="switch big"><input type="checkbox" id="notifMaster" ${on ? "checked" : ""} ${denied ? "disabled" : ""} onchange="toggleNotifs(this.checked)"><span></span></label>
+      </div>
+      ${denied ? `<p class="small muted">To allow them: iPhone <b>Settings → Notifications → Rochar</b> → Allow Notifications, then come back here.</p>` : ""}
+      ${on ? `<button class="btn ghost block" style="margin-top:12px" onclick="testNotif(this)">Send a test notification</button>` : ""}
+    </div>
+    <div class="card"><h3>What to notify me about</h3>
+      ${rules.length ? rules.map(r => { const muted = me && me.muted.includes(r.id);
+        return `<div class="rule-row ${!r.on ? "off" : ""}">
+          <label class="switch"><input type="checkbox" ${r.on && !muted ? "checked" : ""} ${!on || !r.on ? "disabled" : ""} onchange="muteRule('${r.id}', !this.checked)"><span></span></label>
+          <span class="rl-txt">${esc(r.label)}${!r.on ? ` <span class="small muted">· off for everyone (web admin)</span>` : ""}</span></div>`; }).join("")
+        : `<p class="small muted">No notifications are set up yet — add them in the web admin → Settings.</p>`}
+      <p class="small muted" style="margin-bottom:0">These switches only affect this phone. To add or change reminders, use the web admin → Settings.</p>
+    </div>`;
+  }
+  $("#view").innerHTML = `<div class="section-title"><h2 class="serif">Notifications</h2></div>${body}`;
+}
+async function toggleNotifs(on) {
+  const sw = $("#notifMaster");
+  try {
+    if (on) {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") throw new Error("Notifications weren't allowed. You can allow them in your phone's Settings → Notifications → Rochar.");
+      const reg = await swReg(); await navigator.serviceWorker.ready;
+      const { public_key } = await api("/push/key");
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(public_key) });
+      const j = sub.toJSON();
+      const label = (prompt("Name this phone (so you can tell phones apart):", S.notifMe?.label || (isIOS() ? "iPhone" : "Phone")) || "").trim();
+      await api("/push/subscribe", { method: "POST", body: { endpoint: j.endpoint, keys: j.keys, label } });
+      toast("Notifications on");
+    } else {
+      const sub = await currentSub();
+      if (sub) { try { await api("/push/unsubscribe", { method: "POST", body: { endpoint: sub.endpoint } }); } catch (e) {} await sub.unsubscribe(); }
+      toast("Notifications off for this phone");
+    }
+  } catch (e) { toast(e.message, true); if (sw) sw.checked = !on; }
+  go("notifs", { keepScroll: true });
+}
+async function muteRule(id, mute) {
+  const sub = await currentSub(); if (!sub || !S.notifMe) return;
+  const muted = new Set(S.notifMe.muted); mute ? muted.add(id) : muted.delete(id);
+  try { S.notifMe = await api("/push/me", { method: "PATCH", body: { endpoint: sub.endpoint, muted: [...muted] } }); toast(mute ? "Muted on this phone" : "On"); }
+  catch (e) { toast(e.message, true); }
+}
+async function testNotif(btn) {
+  const sub = await currentSub(); if (!sub) return toast("Turn notifications on first", true);
+  btn.disabled = true; btn.textContent = "Sending…";
+  try { await api("/push/test", { method: "POST", body: { endpoint: sub.endpoint } }); toast("Sent — check your notifications"); }
+  catch (e) { toast(e.message, true); }
+  btn.disabled = false; btn.textContent = "Send a test notification";
+}
+if (MODE === "mobile" && "serviceWorker" in navigator) window.addEventListener("load", () => { swReg().catch(() => {}); });
+const SAMPLE_ORDER = { id: 128, customer_name: "Maria Santos", phone: "0917 123 4567", phone2: "0998 765 4321", address: "12 Mango Ave, Cebu City",
   delivery_at: new Date(Date.now() + 864e5).toISOString().slice(0, 11) + "06:30:00.000Z", subtotal: 910, delivery_fee: 80, total: 990,
   rider_name: "Ben", notes: "Ring twice", payment_status: "paid",
   items: [{ qty: 2, name: "Chocolate", variant: "Pint", amount: 780 }, { qty: 1, name: "Malted Polvoron", variant: "Mini", amount: 130 }] };
@@ -3044,7 +3423,7 @@ async function changePin(e) {
 
 // ---------------------------------------------------------------- boot
 const VIEWS = {
-  pos: viewPOS, orders: viewSchedule, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
+  notifs: viewNotifs, pos: viewPOS, orders: viewSchedule, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
   dashboard: viewDashboard, customers: viewCustomers, resellers: viewResellers, reconciliation: viewReconciliation,
   receivables: viewReceivables, liabilities: viewLiabilities, inventory: viewInventory,
   products: viewProducts, recipes: viewRecipes, materials: viewMaterials, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings,
