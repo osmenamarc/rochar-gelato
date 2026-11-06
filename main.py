@@ -295,31 +295,18 @@ def google_exchange(p: CodeIn):
 
 class QuickIn(BaseModel):
     device_token: str
-    pin: str
 
 
 @app.post("/auth/quick")
 def quick_login(p: QuickIn):
-    """Remembered account + 4-digit PIN. Five wrong PINs forget the device (Google sign-in needed again)."""
+    """One-tap sign-in for an account this device remembers from an earlier Google sign-in."""
     with db() as conn, conn.cursor() as cur:
-        cur.execute("""SELECT d.id AS did, d.failed, u.* FROM device_logins d JOIN app_users u ON u.id = d.user_id
+        cur.execute("""SELECT d.id AS did, u.* FROM device_logins d JOIN app_users u ON u.id = d.user_id
                        WHERE d.token_hash = %s;""", (token_hash(p.device_token),))
         r = cur.fetchone()
         if not r or not r["active"]:
             raise HTTPException(410, "This account isn't remembered on this device anymore. Sign in with Google.")
-        if not r["pin_hash"]:
-            raise HTTPException(409, "No quick PIN set yet. Sign in with Google once more to create it.")
-        cur.execute("SELECT %s::text = crypt(%s, %s::text) AS ok;", (r["pin_hash"], p.pin, r["pin_hash"]))
-        if not cur.fetchone()["ok"]:
-            left = 4 - r["failed"]
-            if left <= 0:
-                cur.execute("DELETE FROM device_logins WHERE id = %s;", (r["did"],))
-                conn.commit()
-                raise HTTPException(410, "Too many wrong PINs. Sign in with Google again.")
-            cur.execute("UPDATE device_logins SET failed = failed + 1 WHERE id = %s;", (r["did"],))
-            conn.commit()
-            raise HTTPException(401, f"Wrong PIN — {left} tr{'y' if left == 1 else 'ies'} left.")
-        cur.execute("UPDATE device_logins SET failed = 0, last_used_at = now() WHERE id = %s;", (r["did"],))
+        cur.execute("UPDATE device_logins SET last_used_at = now() WHERE id = %s;", (r["did"],))
         cur.execute("UPDATE app_users SET last_login_at = now() WHERE id = %s;", (r["id"],))
         return {"token": new_session(cur, r["id"]), "user": user_out(r)}
 

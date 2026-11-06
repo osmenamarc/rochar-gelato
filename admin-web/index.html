@@ -826,7 +826,7 @@ $("#modal").addEventListener("click", e => { if (e.target === $("#modal")) close
 $("#modal").addEventListener("close", () => { $("#modalBody").innerHTML = ""; $("#modalTools").innerHTML = ""; if (["orders", "pos", "schedule"].includes(S.tab)) setTimeout(refresh, 50); });
 
 // ---------------------------------------------------------------- login
-// Accounts this device remembers after a Google sign-in (like Facebook/Messenger: tap your name, enter your 4-digit PIN).
+// Accounts this device remembers after a Google sign-in: next time, just tap your name.
 function savedAccounts() { try { return JSON.parse(localStorage.getItem("rochar_accounts") || "[]"); } catch (e) { return []; } }
 function setAccounts(list) { try { localStorage.setItem("rochar_accounts", JSON.stringify(list)); } catch (e) {} }
 function rememberAccount(user, device_token) {
@@ -860,7 +860,7 @@ function setPane(html, showPinForm = false) {
 }
 function paneAccounts() {
   setPane(`<p class="login-sub">Welcome back — tap your account</p>
-    ${savedAccounts().map((a, i) => `<div class="acct" onclick="paneQuickPin(${i})">${avatar(a)}
+    ${savedAccounts().map((a, i) => `<div class="acct" onclick="quickLogin(${i}, this)">${avatar(a)}
       <span class="who"><b>${esc(a.name || a.email)}</b><span>${esc(a.email)}</span></span>
       <button class="x" title="Remove from this device" onclick="event.stopPropagation(); forgetAccount(${i})">✕</button></div>`).join("")}
     <button class="login-link" onclick="paneGoogle()">Use another account</button>`);
@@ -901,67 +901,18 @@ function paneSharedPin(setup = false) {
   $("#loginBtn").textContent = setup ? "Create PIN" : "Unlock";
   $("#pinInput").focus();
 }
-// ---- 4-digit PIN pad (quick login and creating the quick PIN)
-let PAD = { val: "", onDone: null };
-function pinPadHtml(title, sub, extra = "") {
-  return `<p class="login-sub" style="margin-bottom:6px"><b style="color:var(--ink);font-size:15px">${title}</b>${sub ? `<br>${sub}` : ""}</p>
-    <div class="pin-dots" id="pinDots">${"<i></i>".repeat(4)}</div>
-    <div class="keypad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" onclick="padKey('${n}')">${n}</button>`).join("")}
-      <button type="button" class="blank" tabindex="-1"></button><button type="button" onclick="padKey('0')">0</button>
-      <button type="button" class="fn" onclick="padKey('del')" aria-label="Delete">⌫</button></div>${extra}`;
-}
-function padStart(onDone) { PAD = { val: "", onDone }; padDraw(); }
-function padDraw() { $$("#pinDots i").forEach((d, i) => d.classList.toggle("on", i < PAD.val.length)); }
-function padKey(k) {
-  if (!PAD.onDone) return;
-  if (k === "del") PAD.val = PAD.val.slice(0, -1);
-  else if (PAD.val.length < 4) PAD.val += k;
-  padDraw();
-  if (navigator.vibrate) try { navigator.vibrate(5); } catch (e) {}
-  if (PAD.val.length === 4) { const v = PAD.val, fn = PAD.onDone; PAD.onDone = null; setTimeout(() => fn(v), 120); }
-}
-function padFail(msg) {
-  loginErr(msg); const d = $("#pinDots"); if (d) { d.classList.remove("shake"); void d.offsetWidth; d.classList.add("shake"); }
-}
-document.addEventListener("keydown", e => {
-  if ($("#login").classList.contains("hidden") || !PAD.onDone || !$("#pinDots")) return;
-  if (/^[0-9]$/.test(e.key)) padKey(e.key); else if (e.key === "Backspace") padKey("del");
-});
-function paneQuickPin(i) {
+async function quickLogin(i, el) {
   const a = savedAccounts()[i]; if (!a) return paneAccounts();
   loginErr("");
-  setPane(`<div class="acct" style="cursor:default">${avatar(a)}<span class="who"><b>${esc(a.name || a.email)}</b><span>${esc(a.email)}</span></span></div>
-    ${pinPadHtml("Enter your 4-digit PIN", "")}
-    <button class="login-link" onclick="paneAccounts()">‹ Back</button>`);
-  const go = () => padStart(async pin => {
-    try {
-      const r = await api("/auth/quick", { method: "POST", body: { device_token: a.device_token, pin } });
-      rememberAccount(r.user, a.device_token); enterApp(r.token);
-    } catch (e) {
-      if (/remembered|Too many|Sign in with Google/.test(e.message)) {
-        setAccounts(savedAccounts().filter(x => x.email !== a.email));
-        paneGoogle(); loginErr(e.message);
-      } else { padFail(e.message); go(); }
-    }
-  });
-  go();
-}
-function paneCreatePin(token, user) {
-  loginErr("");
-  let first = null;
-  setPane(`<div class="acct" style="cursor:default">${avatar(user)}<span class="who"><b>${esc(user.name || user.email)}</b><span>${esc(user.email)}</span></span></div>
-    ${pinPadHtml("Create a 4-digit quick PIN", "Next time on this device, just tap your name and enter it.")}`);
-  TOKEN = token;      // signed in already; we only need the PIN saved
-  const ask = () => padStart(async pin => {
-    if (first === null) { first = pin; $(".login-sub b").textContent = "Enter it again to confirm"; return ask(); }
-    if (pin !== first) { first = null; $(".login-sub b").textContent = "Create a 4-digit quick PIN"; padFail("The two PINs didn't match — try again."); return ask(); }
-    try {
-      await api("/auth/set-pin", { method: "POST", body: { pin } });
-      const list = savedAccounts(); const me = list.find(x => x.email === user.email); if (me) { me.has_pin = true; setAccounts(list); }
-      toast("Quick PIN saved"); enterApp(token);
-    } catch (e) { first = null; padFail(e.message); ask(); }
-  });
-  ask();
+  if (el) { el.style.opacity = ".6"; el.style.pointerEvents = "none"; }
+  try {
+    const r = await api("/auth/quick", { method: "POST", body: { device_token: a.device_token } });
+    rememberAccount(r.user, a.device_token); enterApp(r.token);
+  } catch (e) {
+    if (el) { el.style.opacity = ""; el.style.pointerEvents = ""; }
+    if (/remembered|Sign in with Google/.test(e.message)) { setAccounts(savedAccounts().filter(x => x.email !== a.email)); paneGoogle(); }
+    loginErr(e.message);
+  }
 }
 function forgetAccount(i) {
   const list = savedAccounts(), a = list[i]; if (!a) return;
@@ -981,7 +932,7 @@ async function handleGoogleReturn() {
   try {
     const r = await api("/auth/google/exchange", { method: "POST", body: { code: params.get("glogin") } });
     rememberAccount(r.user, r.device_token);
-    if (!r.user.has_pin) paneCreatePin(r.token, r.user); else enterApp(r.token);
+    enterApp(r.token);
   } catch (e) { await showLogin(); loginErr(e.message); }
   return true;
 }
@@ -3442,7 +3393,7 @@ async function loadSignin() {
       <p class="small muted" style="margin-top:-4px">${cid ? "✅ Google sign-in is on." : "Paste the Client ID from Google Cloud to turn on “Continue with Google”."}</p>
       <h4 style="margin:16px 0 6px">People who can sign in</h4>
       <div class="user-list">${users.length ? users.map(u => `<div class="dev-row"><span>${u.picture ? `<img class="u-av" src="${esc(u.picture)}" referrerpolicy="no-referrer" alt="">` : "👤"}
-          <b>${esc(u.name || u.email)}</b> <span class="muted">${esc(u.email)}${u.last_login_at ? ` · last in ${fmtDate(manilaParts(new Date(u.last_login_at)).date)}` : " · hasn't signed in yet"}${u.has_pin ? " · quick PIN set" : ""}${u.devices ? ` · ${u.devices} device${u.devices === 1 ? "" : "s"}` : ""}</span></span>
+          <b>${esc(u.name || u.email)}</b> <span class="muted">${esc(u.email)}${u.last_login_at ? ` · last in ${fmtDate(manilaParts(new Date(u.last_login_at)).date)}` : " · hasn't signed in yet"}${u.devices ? ` · ${u.devices} device${u.devices === 1 ? "" : "s"}` : ""}</span></span>
           <span class="row" style="gap:10px">${u.devices ? `<button class="link" onclick="forgetUserDevices(${u.id})">sign out devices</button>` : ""}
             ${me && me.id === u.id ? `<span class="small muted">you</span>` : `<button class="link red" onclick="removeUser(${u.id}, '${esc(u.email)}')">remove</button>`}</span></div>`).join("")
         : `<p class="small muted">Nobody yet. Add your own Google email first.</p>`}</div>
@@ -3452,8 +3403,7 @@ async function loadSignin() {
         <button class="btn">Add</button></form>
       <div class="rule-row" style="margin-top:14px;border-top:1px solid var(--border)">
         <label class="switch"><input type="checkbox" ${sharedOn ? "checked" : ""} onchange="saveSetting('allow_shared_pin', this.checked ? '1' : '0')"><span></span></label>
-        <span class="rl-txt">Allow the old shared PIN too <span class="small muted">— turn this off once everyone can sign in with Google</span></span></div>
-      ${me ? `<button class="btn ghost sm" style="margin-top:10px" onclick="changeQuickPin()">Change my 4-digit quick PIN</button>` : ""}`;
+        <span class="rl-txt">Allow the old shared PIN too <span class="small muted">— turn this off once everyone can sign in with Google</span></span></div>`;
   } catch (e) { const b = $("#signinBody"); if (b) b.innerHTML = `<span class="small muted">${esc(e.message)}</span>`; }
 }
 async function addUser(e) {
@@ -3468,13 +3418,6 @@ async function removeUser(id, email) {
 async function forgetUserDevices(id) {
   if (!confirm("Forget all remembered devices for this person? They'll need Google sign-in again on each device.")) return;
   try { await api(`/users/${id}/forget-devices`, { method: "POST" }); loadSignin(); } catch (e) { toast(e.message, true); }
-}
-async function changeQuickPin() {
-  const a = prompt("New 4-digit quick PIN:"); if (a === null) return;
-  const b = prompt("Enter it again:"); if (b === null) return;
-  if (a !== b) return toast("The two PINs didn't match", true);
-  try { await api("/auth/set-pin", { method: "POST", body: { pin: a.trim() } }); toast("Quick PIN changed"); loadSignin(); }
-  catch (e) { toast(e.message, true); }
 }
 
 // ---- Notification rules (admin) ----------------------------------------------------------
