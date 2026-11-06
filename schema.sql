@@ -378,3 +378,30 @@ CREATE TABLE IF NOT EXISTS notif_log (            -- so each reminder is sent on
     sent_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 DELETE FROM notif_log WHERE sent_at < now() - interval '60 days';
+
+-- v8: Google sign-in with per-person accounts + quick 4-digit PIN on remembered devices
+CREATE TABLE IF NOT EXISTS app_users (            -- people allowed to sign in (by Google email)
+    id             SERIAL PRIMARY KEY,
+    email          TEXT NOT NULL UNIQUE,          -- stored lowercase
+    name           TEXT NOT NULL DEFAULT '',
+    picture        TEXT NOT NULL DEFAULT '',
+    pin_hash       TEXT,                          -- quick-login PIN (same on all of this person's devices)
+    active         BOOLEAN NOT NULL DEFAULT true,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_login_at  TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS device_logins (        -- a phone/computer that remembers someone after Google sign-in
+    id            SERIAL PRIMARY KEY,
+    user_id       INT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    token_hash    TEXT NOT NULL UNIQUE,
+    failed        INT NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS login_codes (          -- one-time hand-off from the Google redirect back to the app
+    code_hash   TEXT PRIMARY KEY,
+    user_id     INT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_id INT REFERENCES app_users(id) ON DELETE CASCADE;
+DELETE FROM login_codes WHERE expires_at < now();

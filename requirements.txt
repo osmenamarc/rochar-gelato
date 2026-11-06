@@ -3,3 +3,5 @@ uvicorn
 psycopg[binary,pool]
 pydantic
 pywebpush
+google-auth
+requests

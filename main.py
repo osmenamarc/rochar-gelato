@@ -30,7 +30,9 @@ from typing import List, Optional
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
-from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
+from urllib.parse import parse_qs, quote
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
@@ -161,11 +163,17 @@ def _locked_out() -> bool:
     return len(_failed_logins) >= 10
 
 
-def new_session(cur) -> str:
+def new_session(cur, user_id: Optional[int] = None) -> str:
     token = secrets.token_urlsafe(32)
-    cur.execute("INSERT INTO sessions (token_hash, expires_at) VALUES (%s, now() + %s * interval '1 day');",
-                (token_hash(token), SESSION_DAYS))
+    cur.execute("INSERT INTO sessions (token_hash, expires_at, user_id) VALUES (%s, now() + %s * interval '1 day', %s);",
+                (token_hash(token), SESSION_DAYS, user_id))
     return token
+
+
+def setting(cur, key: str, default: str = "") -> str:
+    cur.execute("SELECT value FROM settings WHERE key = %s;", (key,))
+    r = cur.fetchone()
+    return r["value"] if r and r["value"] is not None else default
 
 
 def session_valid(token: str) -> bool:
@@ -178,8 +186,13 @@ def session_valid(token: str) -> bool:
 
 @app.get("/auth/status")
 def auth_status():
-    with db() as conn:
-        return {"pin_set": bool(conn.execute("SELECT 1 FROM admin_auth WHERE id = 1;").fetchone())}
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM admin_auth WHERE id = 1;")
+        pin_set = bool(cur.fetchone())
+        cur.execute("SELECT COUNT(*) AS n FROM app_users WHERE active;")
+        users = cur.fetchone()["n"]
+        return {"pin_set": pin_set, "google_client_id": setting(cur, "google_client_id"),
+                "shared_pin": setting(cur, "allow_shared_pin", "1") != "0" or not users, "users": users}
 
 
 @app.post("/auth/setup")
@@ -198,11 +211,117 @@ def auth_login(p: PinPayload):
     if _locked_out():
         raise HTTPException(429, "Too many wrong PINs. Try again in 15 minutes.")
     with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) AS n FROM app_users WHERE active;")
+        users = cur.fetchone()["n"]
+        if setting(cur, "allow_shared_pin", "1") == "0" and users:
+            raise HTTPException(403, "The shared PIN is switched off. Sign in with Google.")
         cur.execute("SELECT 1 FROM admin_auth WHERE id = 1 AND pin_hash = crypt(%s, pin_hash);", (p.pin,))
         if not cur.fetchone():
             _failed_logins.append(time.time())
             raise HTTPException(401, "Wrong PIN.")
         return {"token": new_session(cur)}
+
+
+# ---- Google sign-in (redirect flow: works inside the Home Screen app too) ----------------
+FRONT_URLS = {"admin": os.environ.get("ADMIN_URL", "https://admin.rochargelato.com/"),
+              "app": os.environ.get("APP_URL", "https://app.rochargelato.com/")}
+
+
+def verify_google(credential: str, client_id: str) -> dict:
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as grequests
+    info = id_token.verify_oauth2_token(credential, grequests.Request(), client_id)
+    if not info.get("email") or not info.get("email_verified"):
+        raise ValueError("Google didn't confirm this email address.")
+    return info
+
+
+def user_out(u) -> dict:
+    return {"id": u["id"], "email": u["email"], "name": u["name"], "picture": u["picture"], "has_pin": bool(u["pin_hash"])}
+
+
+@app.post("/auth/google/redirect/{site}")
+async def google_redirect(site: str, request: Request):
+    """Google posts the signed-in person here; we check them and send them back to the app with a one-time code."""
+    if site not in FRONT_URLS:
+        raise HTTPException(404, "Unknown site.")
+    back = FRONT_URLS[site]
+    form = parse_qs((await request.body()).decode())
+    credential = (form.get("credential") or [""])[0]
+    try:
+        with db() as conn, conn.cursor() as cur:
+            client_id = setting(cur, "google_client_id")
+            if not client_id:
+                raise ValueError("Google sign-in isn't set up yet.")
+            info = verify_google(credential, client_id)
+            email = info["email"].strip().lower()
+            cur.execute("SELECT * FROM app_users WHERE email = %s AND active;", (email,))
+            u = cur.fetchone()
+            if not u:
+                return RedirectResponse(f"{back}#glogin_error={quote(email + ' is not allowed to sign in. Ask the owner to add you in Settings.')}", 303)
+            cur.execute("""UPDATE app_users SET name = CASE WHEN name = '' THEN %s ELSE name END, picture = %s, last_login_at = now()
+                           WHERE id = %s;""", (info.get("name", ""), info.get("picture", ""), u["id"]))
+            code = secrets.token_urlsafe(24)
+            cur.execute("INSERT INTO login_codes (code_hash, user_id, expires_at) VALUES (%s, %s, now() + interval '3 minutes');",
+                        (token_hash(code), u["id"]))
+        return RedirectResponse(f"{back}#glogin={code}", 303)
+    except ValueError as e:
+        return RedirectResponse(f"{back}#glogin_error={quote(str(e) or 'Google sign-in failed. Try again.')}", 303)
+    except Exception as e:
+        print(f"google sign-in error: {e}", flush=True)
+        return RedirectResponse(f"{back}#glogin_error={quote('Google sign-in failed. Try again.')}", 303)
+
+
+class CodeIn(BaseModel):
+    code: str
+
+
+@app.post("/auth/google/exchange")
+def google_exchange(p: CodeIn):
+    """Turns the one-time code into a session + a device key so this device can use the quick PIN next time."""
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM login_codes WHERE code_hash = %s AND expires_at > now() RETURNING user_id;", (token_hash(p.code),))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(401, "That sign-in link expired. Sign in with Google again.")
+        cur.execute("SELECT * FROM app_users WHERE id = %s AND active;", (r["user_id"],))
+        u = cur.fetchone()
+        if not u:
+            raise HTTPException(403, "This account was removed.")
+        device = secrets.token_urlsafe(32)
+        cur.execute("INSERT INTO device_logins (user_id, token_hash) VALUES (%s, %s);", (u["id"], token_hash(device)))
+        return {"token": new_session(cur, u["id"]), "device_token": device, "user": user_out(u)}
+
+
+class QuickIn(BaseModel):
+    device_token: str
+    pin: str
+
+
+@app.post("/auth/quick")
+def quick_login(p: QuickIn):
+    """Remembered account + 4-digit PIN. Five wrong PINs forget the device (Google sign-in needed again)."""
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""SELECT d.id AS did, d.failed, u.* FROM device_logins d JOIN app_users u ON u.id = d.user_id
+                       WHERE d.token_hash = %s;""", (token_hash(p.device_token),))
+        r = cur.fetchone()
+        if not r or not r["active"]:
+            raise HTTPException(410, "This account isn't remembered on this device anymore. Sign in with Google.")
+        if not r["pin_hash"]:
+            raise HTTPException(409, "No quick PIN set yet. Sign in with Google once more to create it.")
+        cur.execute("SELECT %s::text = crypt(%s, %s::text) AS ok;", (r["pin_hash"], p.pin, r["pin_hash"]))
+        if not cur.fetchone()["ok"]:
+            left = 4 - r["failed"]
+            if left <= 0:
+                cur.execute("DELETE FROM device_logins WHERE id = %s;", (r["did"],))
+                conn.commit()
+                raise HTTPException(410, "Too many wrong PINs. Sign in with Google again.")
+            cur.execute("UPDATE device_logins SET failed = failed + 1 WHERE id = %s;", (r["did"],))
+            conn.commit()
+            raise HTTPException(401, f"Wrong PIN — {left} tr{'y' if left == 1 else 'ies'} left.")
+        cur.execute("UPDATE device_logins SET failed = 0, last_used_at = now() WHERE id = %s;", (r["did"],))
+        cur.execute("UPDATE app_users SET last_login_at = now() WHERE id = %s;", (r["id"],))
+        return {"token": new_session(cur, r["id"]), "user": user_out(r)}
 
 
 def require_login(authorization: str = Header(default="")):
@@ -221,6 +340,90 @@ api = APIRouter(dependencies=[Depends(require_login)])
 def auth_logout(token: str = Depends(require_login)):
     with db() as conn:
         conn.execute("DELETE FROM sessions WHERE token_hash = %s;", (token_hash(token),))
+    return {"ok": True}
+
+
+def session_user(cur, token: str):
+    cur.execute("""SELECT u.* FROM sessions s JOIN app_users u ON u.id = s.user_id WHERE s.token_hash = %s;""", (token_hash(token),))
+    return cur.fetchone()
+
+
+@api.get("/me")
+def me(token: str = Depends(require_login)):
+    with db() as conn, conn.cursor() as cur:
+        u = session_user(cur, token)
+        return user_out(u) if u else None
+
+
+class SetPinIn(BaseModel):
+    pin: str
+
+
+@api.post("/auth/set-pin")
+def set_quick_pin(p: SetPinIn, token: str = Depends(require_login)):
+    if not (p.pin.isdigit() and len(p.pin) == 4):
+        raise HTTPException(400, "The quick PIN must be exactly 4 digits.")
+    with db() as conn, conn.cursor() as cur:
+        u = session_user(cur, token)
+        if not u:
+            raise HTTPException(400, "Sign in with Google first — the quick PIN belongs to your Google account.")
+        cur.execute("UPDATE app_users SET pin_hash = crypt(%s, gen_salt('bf')) WHERE id = %s;", (p.pin, u["id"]))
+        cur.execute("UPDATE device_logins SET failed = 0 WHERE user_id = %s;", (u["id"],))
+    return {"ok": True}
+
+
+class UserIn(BaseModel):
+    email: str
+    name: str = ""
+
+
+@api.get("/users")
+def list_users():
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""SELECT u.id, u.email, u.name, u.picture, u.active, u.created_at, u.last_login_at, (u.pin_hash IS NOT NULL) AS has_pin,
+                              (SELECT COUNT(*) FROM device_logins d WHERE d.user_id = u.id) AS devices
+                       FROM app_users u ORDER BY u.created_at;""")
+        return rows(cur)
+
+
+@api.post("/users")
+def add_user(p: UserIn):
+    email = p.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(400, "Enter a valid email address.")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO app_users (email, name) VALUES (%s, %s)
+                       ON CONFLICT (email) DO UPDATE SET active = true, name = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE app_users.name END
+                       RETURNING id;""", (email, p.name.strip()))
+        return {"id": cur.fetchone()["id"]}
+
+
+@api.delete("/users/{user_id}")
+def remove_user(user_id: int, token: str = Depends(require_login)):
+    """Removing someone also signs them out everywhere and forgets their devices."""
+    with db() as conn, conn.cursor() as cur:
+        me_u = session_user(cur, token)
+        if me_u and me_u["id"] == user_id:
+            raise HTTPException(400, "You can't remove yourself while signed in.")
+        cur.execute("DELETE FROM app_users WHERE id = %s;", (user_id,))
+    return {"ok": True}
+
+
+@api.post("/users/{user_id}/forget-devices")
+def forget_devices(user_id: int):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM device_logins WHERE user_id = %s;", (user_id,))
+    return {"ok": True}
+
+
+class ForgetIn(BaseModel):
+    device_token: str
+
+
+@app.post("/auth/forget-device")
+def forget_this_device(p: ForgetIn):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM device_logins WHERE token_hash = %s;", (token_hash(p.device_token),))
     return {"ok": True}
 
 
@@ -1942,7 +2145,7 @@ def get_item_image(item_id: int):
 # ----------------------------------------------------------------------------
 
 SETTING_KEYS = ("msg_customer_header", "msg_customer_footer", "msg_rider_location", "msg_rider_df",
-                "copy_label_customer", "copy_label_location", "copy_label_df")
+                "copy_label_customer", "copy_label_location", "copy_label_df", "google_client_id", "allow_shared_pin")
 
 
 @api.get("/settings")
