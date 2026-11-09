@@ -454,3 +454,6 @@ BEGIN
     DELETE FROM recipes;
   END IF;
 END $$;
+
+-- v10: ingredient brand
+ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS brand TEXT NOT NULL DEFAULT '';

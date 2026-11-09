@@ -1978,8 +1978,10 @@ def json_dumps(v):
 GRAM_FACTOR = {"g": 1, "gram": 1, "grams": 1, "gr": 1, "ml": 1, "kg": 0.001, "kilo": 0.001, "l": 0.001, "liter": 0.001, "litre": 0.001}
 
 INGREDIENT_SQL = """
-    SELECT ri.id, ri.name, ri.material_id, ri.notes,
+    SELECT ri.id, ri.brand, ri.name, ri.material_id, ri.notes,
            m.name AS material_name, m.variant AS material_variant, m.base_unit, m.content_qty, m.unit_cost AS material_cost,
+           (SELECT MAX(pu.purchased_at) FROM purchase_lines pl JOIN purchases pu ON pu.id = pl.purchase_id
+             WHERE pl.item_id = ri.material_id AND pl.qty > 0) AS last_purchased_at,
            (SELECT COUNT(DISTINCT bl.recipe_id) FROM batch_recipe_lines bl WHERE bl.ingredient_id = ri.id) AS used_in
     FROM recipe_ingredients ri LEFT JOIN items m ON m.id = ri.material_id
 """
@@ -1998,6 +2000,7 @@ def ingredient_out(r) -> dict:
 
 class IngredientIn(BaseModel):
     name: str
+    brand: str = ""
     material_id: Optional[int] = None
     notes: str = ""
 
@@ -2016,7 +2019,7 @@ def check_material(cur, material_id):
 def list_ingredients():
     with db() as conn, conn.cursor() as cur:
         refresh_costs(cur)
-        cur.execute(INGREDIENT_SQL + " ORDER BY lower(ri.name);")
+        cur.execute(INGREDIENT_SQL + " ORDER BY lower(ri.brand), lower(ri.name);")
         return [ingredient_out(r) for r in cur.fetchall()]
 
 
@@ -2027,8 +2030,8 @@ def add_ingredient(p: IngredientIn):
         raise HTTPException(400, "Give the ingredient a name.")
     with db() as conn, conn.cursor() as cur:
         try:
-            cur.execute("INSERT INTO recipe_ingredients (name, material_id, notes) VALUES (%s, %s, %s) RETURNING id;",
-                        (name, check_material(cur, p.material_id), p.notes.strip()))
+            cur.execute("INSERT INTO recipe_ingredients (name, brand, material_id, notes) VALUES (%s, %s, %s, %s) RETURNING id;",
+                        (name, p.brand.strip(), check_material(cur, p.material_id), p.notes.strip()))
         except psycopg.errors.UniqueViolation:
             raise HTTPException(409, f"“{name}” is already in your ingredients.")
         return {"id": cur.fetchone()["id"]}
@@ -2043,7 +2046,7 @@ def edit_ingredient(ing_id: int, changes: dict = Body(...)):
             changes["material_id"] = check_material(cur, int(changes["material_id"]) if changes["material_id"] else None)
         try:
             apply_patch(cur, "recipe_ingredients", ing_id, changes,
-                        {"name": as_text, "notes": as_text, "material_id": lambda v: v})
+                        {"name": as_text, "brand": as_text, "notes": as_text, "material_id": lambda v: v})
         except psycopg.errors.UniqueViolation:
             raise HTTPException(409, "Another ingredient already has that name.")
     return {"ok": True}

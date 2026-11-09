@@ -2862,7 +2862,7 @@ async function viewRecipeDetail() {
     ${r.notes ? `<p class="muted" style="margin-top:-6px">📝 ${esc(r.notes)}</p>` : ""}
     <div class="card"><div class="table-wrap"><table class="recipe-table">
       <thead><tr><th class="num" style="width:36px">#</th><th>Ingredient</th><th class="num">Weight (g)</th><th class="num">W%</th><th class="num">Cost</th></tr></thead>
-      <tbody>${r.lines.map((l, i) => `<tr><td class="num muted">${i + 1}</td><td>${esc(l.name)}</td><td class="num">${grams(l.grams)}</td><td class="num">${pct(l.pct)}</td>
+      <tbody>${r.lines.map((l, i) => `<tr><td class="num muted">${i + 1}</td><td>${l.brand ? `<span class="muted">${esc(l.brand)}</span> ` : ""}${esc(l.name)}</td><td class="num">${grams(l.grams)}</td><td class="num">${pct(l.pct)}</td>
           <td class="num">${l.cost !== null ? money(l.cost) : `<span class="small muted" title="${l.material_id ? "the linked material has no price or no gram unit yet" : "not linked to a material"}">—</span>`}</td></tr>`).join("")
         || `<tr><td colspan="5" class="empty">No ingredients yet — tap Edit.</td></tr>`}</tbody>
       <tfoot><tr class="tot"><td></td><td><b>Total</b></td><td class="num"><b>${grams(r.total_grams)} g</b></td><td class="num"><b>100%</b></td><td class="num"><b>${money(r.batch_cost)}</b></td></tr></tfoot>
@@ -2877,7 +2877,7 @@ function drawRecipeEditor() {
     <form class="card" id="recipeForm" onsubmit="saveRecipe(event)" autocomplete="off">
       <div class="grid2"><label class="field"><span>Recipe name</span><input name="name" value="${esc(r.name)}" placeholder="e.g. Cheesecake Gelato" required></label>
         <label class="field"><span>Notes · optional</span><input name="notes" value="${esc(r.notes || "")}" placeholder="e.g. 4 kg batch, age overnight"></label></div>
-      <datalist id="ingList">${S.ingredients.map(i => `<option value="${esc(i.name)}">`).join("")}</datalist>
+      <datalist id="ingList">${S.ingredients.map(i => `<option value="${esc(i.name)}">${i.brand ? esc(i.brand) : ""}</option>`).join("")}</datalist>
       <div class="table-wrap"><table class="recipe-table edit">
         <thead><tr><th style="width:70px">Order</th><th>Ingredient</th><th class="num" style="width:140px">Weight (g)</th><th class="num" style="width:80px">W%</th><th class="num" style="width:110px">Cost</th><th style="width:36px"></th></tr></thead>
         <tbody id="rlBody"></tbody>
@@ -2953,38 +2953,44 @@ async function viewIngredients() {
   S.ingredients = ings;
   const mats = S.items.filter(i => MATERIAL_CATEGORIES_JS.includes(i.category) && i.active);
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Recipes</h2></div>
+    <div class="section-title"><h2 class="serif">Recipes</h2><button class="btn" onclick="addIngredientModal()">+ Add ingredient</button></div>
     ${recipeTabs()}
-    <form class="card row" style="align-items:end;gap:10px;flex-wrap:wrap" onsubmit="addIngredient(event)">
-      <label class="field" style="flex:2;min-width:180px;margin:0"><span>New ingredient</span><input name="name" placeholder="e.g. Water, Bearbrand Milk Powder" required></label>
-      <label class="field" style="flex:2;min-width:180px;margin:0"><span>Linked material · optional (for cost)</span>
-        <select name="material_id"><option value="">— none (e.g. water) —</option>${mats.map(m => `<option value="${m.id}">${esc(itemLabel(m.name, m.variant))}</option>`).join("")}</select></label>
-      <button class="btn">Add</button></form>
     <div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>Ingredient</th><th>Linked material</th><th class="num">Cost per g</th><th class="num">Cost per kg</th><th class="num">Used in</th></tr></thead>
+      <thead><tr><th>Brand</th><th>Product</th><th class="num">Cost/g</th><th>Last date purchased</th></tr></thead>
       <tbody>${ings.map(i => `<tr class="clickable" onclick="editIngredient(${i.id})">
+          <td>${i.brand ? esc(i.brand) : `<span class="muted">—</span>`}</td>
           <td><b>${esc(i.name)}</b>${i.notes ? `<br><span class="small muted">${esc(i.notes)}</span>` : ""}</td>
-          <td>${i.material_id ? esc(itemLabel(i.material_name, i.material_variant)) : `<span class="muted">—</span>`}</td>
-          <td class="num">${i.cost_per_g !== null ? money4(i.cost_per_g) : `<span class="muted">${i.material_id ? "set gram unit / price" : "—"}</span>`}</td>
-          <td class="num">${i.cost_per_g !== null ? money(i.cost_per_g * 1000) : "—"}</td>
-          <td class="num">${i.used_in ? `${i.used_in} recipe${i.used_in === 1 ? "" : "s"}` : `<span class="muted">—</span>`}</td></tr>`).join("")
-        || `<tr><td colspan="5" class="empty">No ingredients yet — add them above.</td></tr>`}</tbody>
+          <td class="num">${i.cost_per_g !== null ? money4(i.cost_per_g) : `<span class="muted" title="${i.material_id ? "set the Material's recipe unit to grams / buy it once" : "not linked to a Material"}">—</span>`}</td>
+          <td>${i.last_purchased_at ? fmtDate(manilaParts(new Date(i.last_purchased_at)).date, false) : `<span class="muted">—</span>`}</td></tr>`).join("")
+        || `<tr><td colspan="4" class="empty">No ingredients yet — add them above.</td></tr>`}</tbody>
     </table></div>
     <p class="small muted" style="margin-bottom:0">Cost per gram comes from the linked Material's latest purchase price and its recipe unit (set the Material's recipe unit to grams, e.g. 1 kg bag = 1000 g).</p></div>`;
 }
 const MATERIAL_CATEGORIES_JS = ["Raw Material", "Packaging"];
+function addIngredientModal() {
+  const mats = S.items.filter(i => MATERIAL_CATEGORIES_JS.includes(i.category) && i.active);
+  openModal("Add ingredient", `<form id="ingForm" onsubmit="addIngredient(event)">
+      <div class="grid2"><label class="field"><span>Brand · optional</span><input name="brand" placeholder="e.g. Bearbrand"></label>
+        <label class="field"><span>Product</span><input name="name" placeholder="e.g. Milk Powder, Water" required></label></div>
+      <label class="field"><span>Linked material · optional (for cost)</span>
+        <select name="material_id"><option value="">— none (e.g. water) —</option>${mats.map(m => `<option value="${m.id}">${esc(itemLabel(m.name, m.variant))}</option>`).join("")}</select></label>
+      <p class="hint">Link it to the Material you buy so Cost/g and Last date purchased fill in by themselves.</p>
+      <div class="row edit-actions"><span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Add ingredient</button></div>
+    </form>`);
+  setTimeout(() => $("#ingForm [name=brand]")?.focus(), 250);
+}
 async function addIngredient(e) {
   e.preventDefault(); const f = e.target;
   try {
-    await api("/recipe-ingredients", { method: "POST", body: { name: f.name.value, material_id: f.material_id.value ? Number(f.material_id.value) : null } });
-    toast("Added"); go("recipes", { keepScroll: true });
+    await api("/recipe-ingredients", { method: "POST", body: { brand: f.brand.value, name: f.name.value, material_id: f.material_id.value ? Number(f.material_id.value) : null } });
+    closeModal(); toast("Ingredient added"); go("recipes", { keepScroll: true });
   } catch (err) { toast(err.message, true); }
 }
 function editIngredient(id) {
   const i = S.ingredients.find(x => x.id === id); if (!i) return;
   const mats = S.items.filter(m => MATERIAL_CATEGORIES_JS.includes(m.category));
-  editModal({ title: i.name, url: `/recipe-ingredients/${i.id}`, obj: i, after: () => go("recipes", { keepScroll: true }),
-    fields: [{ name: "name", label: "Name" },
+  editModal({ title: (i.brand ? i.brand + " " : "") + i.name, url: `/recipe-ingredients/${i.id}`, obj: i, after: () => go("recipes", { keepScroll: true }),
+    fields: [{ name: "brand", label: "Brand" }, { name: "name", label: "Product" },
       { name: "material_id", label: "Linked material (for cost)", type: "select", options: [["", "— none —"], ...mats.map(m => [String(m.id), itemLabel(m.name, m.variant)])],
         view: o => o.material_id ? esc(itemLabel(o.material_name, o.material_variant)) : `<span class="muted">none</span>` },
       { name: "notes", label: "Notes", type: "textarea" }],
@@ -3070,15 +3076,9 @@ async function viewClients(tier) {
   S.clientList = list;
   const isR = tier === "Reseller";
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">${isR ? "Resellers" : "Customers"}</h2><span class="muted">${list.length} ${isR ? "partners" : "clients"}</span></div>
-    <div class="card"><h3>Add ${isR ? "a reseller / stockist" : "a customer"}</h3>
-      <form class="row" onsubmit="addClient(event, '${tier}')" style="align-items:end">
-        <label class="field" style="flex:2;min-width:160px"><span>Name</span><input name="name" required></label>
-        <label class="field" style="flex:1;min-width:120px"><span>Phone</span><input name="phone"></label>
-        <label class="field" style="flex:2;min-width:160px"><span>Delivery address</span><input name="address"></label>
-        <label class="field" style="flex:2;min-width:140px"><span>Special notes</span><input name="notes"></label>
-        <button class="btn" style="margin-bottom:10px">Add</button></form>
-      ${isR ? "" : `<p class="hint">New names typed on phone orders are added here automatically when the order is finished.</p>`}</div>
+    <div class="section-title"><h2 class="serif">${isR ? "Resellers" : "Customers"}</h2>
+      <div class="row" style="gap:10px"><span class="muted">${list.length} ${isR ? "partners" : "clients"}</span>
+        <button class="btn" onclick="addClientModal('${tier}')">+ Add ${isR ? "reseller" : "customer"}</button></div></div>
     ${selCard("clients", editClientModal, `<div class="table-wrap"><table>
       <thead><tr><th>Name</th><th>Phone</th><th>Delivery address</th><th>Special notes</th><th>Type</th><th class="num">Orders</th><th class="num">Bought</th><th>Last order</th>
         <th class="num">Owes</th></tr></thead>
@@ -3094,11 +3094,24 @@ async function viewClients(tier) {
         || `<tr><td colspan="9" class="empty">None yet.</td></tr>`}</tbody>
     </table></div><p class="small muted">Select a client and tap the pencil to edit, see their order history${isR ? ", or set their price list" : ""}. Changing the type to ${isR ? "Retail" : "Reseller"} moves them to the ${isR ? "Customers" : "Resellers"} page.</p>`)}`;
 }
+function addClientModal(tier) {
+  const isR = tier === "Reseller";
+  openModal(isR ? "Add reseller / stockist" : "Add customer", `<form id="clientForm" onsubmit="addClient(event, '${tier}')">
+      <label class="field"><span>Name</span><input name="name" required></label>
+      <div class="grid2"><label class="field"><span>Phone</span><input name="phone" type="tel"></label>
+        <label class="field"><span>Phone 2 · optional</span><input name="phone2" type="tel"></label></div>
+      <label class="field"><span>Delivery address</span><input name="address"></label>
+      <label class="field"><span>Special notes</span><input name="notes"></label>
+      ${isR ? "" : `<p class="hint">New names typed on phone orders are added automatically too.</p>`}
+      <div class="row edit-actions"><span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Add</button></div>
+    </form>`);
+  setTimeout(() => $("#clientForm [name=name]")?.focus(), 250);
+}
 async function addClient(e, tier) {
   e.preventDefault(); const f = e.target;
   try {
-    await api("/customers", { method: "POST", body: { name: f.name.value, phone: f.phone.value, address: f.address.value, notes: f.notes.value, tier } });
-    toast("Added"); await loadCustomers(); await refresh(); $("form.row [name=name]")?.focus();
+    await api("/customers", { method: "POST", body: { name: f.name.value, phone: f.phone.value, phone2: f.phone2.value, address: f.address.value, notes: f.notes.value, tier } });
+    closeModal(); toast("Added"); await loadCustomers(); refresh();
   } catch (err) { toast(err.message, true); }
 }
 function editClientModal(id) {
@@ -3473,18 +3486,24 @@ async function loadSignin() {
           <span class="row" style="gap:10px">${u.devices ? `<button class="link" onclick="forgetUserDevices(${u.id})">sign out devices</button>` : ""}
             ${me && me.id === u.id ? `<span class="small muted">you</span>` : `<button class="link red" onclick="removeUser(${u.id}, '${esc(u.email)}')">remove</button>`}</span></div>`).join("")
         : `<p class="small muted">Nobody yet. Add your own Google email first.</p>`}</div>
-      <form class="row" style="gap:8px;margin-top:8px;align-items:end" onsubmit="addUser(event)">
-        <label class="field" style="flex:2;margin:0"><span>Google email</span><input name="email" type="email" required placeholder="name@gmail.com"></label>
-        <label class="field" style="flex:1;margin:0"><span>Name (optional)</span><input name="name"></label>
-        <button class="btn">Add</button></form>
+      <button class="btn ghost sm" style="margin-top:8px" onclick="addUserModal()">+ Add person</button>
       <div class="rule-row" style="margin-top:14px;border-top:1px solid var(--border)">
         <label class="switch"><input type="checkbox" ${sharedOn ? "checked" : ""} onchange="saveSetting('allow_shared_pin', this.checked ? '1' : '0')"><span></span></label>
         <span class="rl-txt">Allow the old shared PIN too <span class="small muted">— turn this off once everyone can sign in with Google</span></span></div>`;
   } catch (e) { const b = $("#signinBody"); if (b) b.innerHTML = `<span class="small muted">${esc(e.message)}</span>`; }
 }
+function addUserModal() {
+  openModal("Add a person", `<form id="userForm" onsubmit="addUser(event)">
+      <label class="field"><span>Google email</span><input name="email" type="email" required placeholder="name@gmail.com"></label>
+      <label class="field"><span>Name · optional</span><input name="name"></label>
+      <p class="hint">They can then sign in with “Continue with Google” on the admin site and the phone app.</p>
+      <div class="row edit-actions"><span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Add</button></div>
+    </form>`);
+  setTimeout(() => $("#userForm [name=email]")?.focus(), 250);
+}
 async function addUser(e) {
   e.preventDefault(); const f = e.target;
-  try { await api("/users", { method: "POST", body: { email: f.email.value, name: f.name.value } }); toast("Added — they can now sign in with Google"); loadSignin(); }
+  try { await api("/users", { method: "POST", body: { email: f.email.value, name: f.name.value } }); closeModal(); toast("Added — they can now sign in with Google"); loadSignin(); }
   catch (err) { toast(err.message, true); }
 }
 async function removeUser(id, email) {
