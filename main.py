@@ -613,16 +613,6 @@ def refresh_costs(cur):
                ORDER BY l.item_id, p.purchased_at DESC, l.id DESC) lp
         WHERE i.id = lp.item_id AND i.category IN ('Raw Material', 'Packaging') AND i.unit_cost <> lp.unit_price;
     """)
-    cur.execute("""
-        UPDATE items i SET unit_cost = c.cost
-        FROM (SELECT r.product_id,
-                     ROUND(COALESCE(SUM(rl.qty * m.unit_cost / NULLIF(m.content_qty, 0)), 0) / r.yield_qty, 2) AS cost
-                FROM recipes r
-                LEFT JOIN recipe_lines rl ON rl.product_id = r.product_id
-                LEFT JOIN items m ON m.id = rl.material_id
-               GROUP BY r.product_id, r.yield_qty) c
-        WHERE i.id = c.product_id AND i.unit_cost <> c.cost;
-    """)
 
 
 def require_material(cur, name: str, item_id: Optional[int] = None) -> int:
@@ -1983,101 +1973,211 @@ def json_dumps(v):
 # Recipes — ingredient amounts per batch; cost follows the latest purchases
 # ----------------------------------------------------------------------------
 
-class RecipeLineIn(BaseModel):
-    material_id: int
-    qty: float = Field(gt=0)
+# Ingredients you build first (Water, milk powder, sugar…). One can be linked to a
+# Material so its cost per gram follows the latest purchase; the rest just have no cost.
+GRAM_FACTOR = {"g": 1, "gram": 1, "grams": 1, "gr": 1, "ml": 1, "kg": 0.001, "kilo": 0.001, "l": 0.001, "liter": 0.001, "litre": 0.001}
 
-
-class RecipeIn(BaseModel):
-    yield_qty: float = Field(gt=0)
-    notes: str = ""
-    lines: List[RecipeLineIn]
-
-
-RECIPE_LINES_SQL = """
-    SELECT rl.id, rl.material_id, m.name, m.variant, m.category, m.base_unit, m.content_qty, rl.qty,
-           m.unit_cost AS material_cost,
-           ROUND(m.unit_cost / NULLIF(m.content_qty, 0), 4) AS cost_per_base,
-           ROUND(rl.qty * m.unit_cost / NULLIF(m.content_qty, 0), 2) AS line_cost,
-           lp.purchased_at AS price_from
-    FROM recipe_lines rl JOIN items m ON m.id = rl.material_id
-    LEFT JOIN LATERAL (
-        SELECT p.purchased_at FROM purchase_lines l JOIN purchases p ON p.id = l.purchase_id
-        WHERE l.item_id = m.id AND l.qty > 0 ORDER BY p.purchased_at DESC, l.id DESC LIMIT 1) lp ON true
-    WHERE rl.product_id = %s ORDER BY m.category, m.name;
+INGREDIENT_SQL = """
+    SELECT ri.id, ri.name, ri.material_id, ri.notes,
+           m.name AS material_name, m.variant AS material_variant, m.base_unit, m.content_qty, m.unit_cost AS material_cost,
+           (SELECT COUNT(DISTINCT bl.recipe_id) FROM batch_recipe_lines bl WHERE bl.ingredient_id = ri.id) AS used_in
+    FROM recipe_ingredients ri LEFT JOIN items m ON m.id = ri.material_id
 """
 
 
-@api.get("/recipes")
-def list_recipes():
-    """Every finished product, with its recipe cost (if it has a recipe)."""
+def ingredient_out(r) -> dict:
+    r = {k: clean(v) for k, v in r.items()}
+    cpg = None
+    if r["material_id"] and r["material_cost"] and r["content_qty"]:
+        f = GRAM_FACTOR.get((r["base_unit"] or "").strip().lower())
+        if f:
+            cpg = r["material_cost"] / r["content_qty"] * f
+    r["cost_per_g"] = round(cpg, 5) if cpg is not None else None
+    return r
+
+
+class IngredientIn(BaseModel):
+    name: str
+    material_id: Optional[int] = None
+    notes: str = ""
+
+
+def check_material(cur, material_id):
+    if material_id is None:
+        return None
+    cur.execute("SELECT category FROM items WHERE id = %s;", (material_id,))
+    m = cur.fetchone()
+    if not m or m["category"] not in MATERIAL_CATEGORIES:
+        raise HTTPException(400, "Link to an item from Materials.")
+    return material_id
+
+
+@api.get("/recipe-ingredients")
+def list_ingredients():
     with db() as conn, conn.cursor() as cur:
         refresh_costs(cur)
-        cur.execute(f"""
-            SELECT i.id AS product_id, i.name, i.variant, i.category, i.selling_price, i.unit_cost, i.active,
-                   r.yield_qty, r.notes, r.updated_at,
-                   (SELECT COUNT(*) FROM recipe_lines rl WHERE rl.product_id = i.id) AS line_count,
-                   (SELECT COUNT(*) FROM recipe_lines rl JOIN items m ON m.id = rl.material_id
-                     WHERE rl.product_id = i.id AND m.unit_cost = 0) AS missing_prices,
-                   (SELECT COALESCE(SUM(rl.qty * m.unit_cost / NULLIF(m.content_qty, 0)), 0)
-                      FROM recipe_lines rl JOIN items m ON m.id = rl.material_id WHERE rl.product_id = i.id) AS batch_cost
-            FROM items i LEFT JOIN recipes r ON r.product_id = i.id
-            WHERE i.category IN ('Mini', 'Pint', 'Cake')
-            ORDER BY {CATEGORY_ORDER.replace('category', 'i.category')}, i.name, i.variant;
-        """)
-        return rows(cur)
+        cur.execute(INGREDIENT_SQL + " ORDER BY lower(ri.name);")
+        return [ingredient_out(r) for r in cur.fetchall()]
 
 
-@api.get("/recipes/{product_id}")
-def get_recipe(product_id: int):
+@api.post("/recipe-ingredients")
+def add_ingredient(p: IngredientIn):
+    name = p.name.strip()
+    if not name:
+        raise HTTPException(400, "Give the ingredient a name.")
     with db() as conn, conn.cursor() as cur:
-        cur.execute("SELECT id, name, variant, category, selling_price, unit_cost FROM items WHERE id = %s;", (product_id,))
-        prod = one(cur)
-        if not prod:
-            raise HTTPException(404, "Product not found.")
-        cur.execute("SELECT * FROM recipes WHERE product_id = %s;", (product_id,))
-        r = one(cur)
-        cur.execute(RECIPE_LINES_SQL, (product_id,))
-        lines = rows(cur)
-    batch = round(sum(l["line_cost"] or 0 for l in lines), 2)
-    y = r["yield_qty"] if r else 1
-    return {"product": prod, "exists": bool(r), "yield_qty": y, "notes": (r or {}).get("notes", ""),
-            "lines": lines, "batch_cost": batch, "cost_per_unit": round(batch / y, 2) if y else None}
+        try:
+            cur.execute("INSERT INTO recipe_ingredients (name, material_id, notes) VALUES (%s, %s, %s) RETURNING id;",
+                        (name, check_material(cur, p.material_id), p.notes.strip()))
+        except psycopg.errors.UniqueViolation:
+            raise HTTPException(409, f"“{name}” is already in your ingredients.")
+        return {"id": cur.fetchone()["id"]}
 
 
-@api.put("/recipes/{product_id}")
-def save_recipe(product_id: int, p: RecipeIn):
-    ids = [l.material_id for l in p.lines]
-    if len(ids) != len(set(ids)):
-        raise HTTPException(400, "The same material is listed twice.")
+@api.patch("/recipe-ingredients/{ing_id}")
+def edit_ingredient(ing_id: int, changes: dict = Body(...)):
     with db() as conn, conn.cursor() as cur:
-        cur.execute("SELECT category FROM items WHERE id = %s;", (product_id,))
-        prod = cur.fetchone()
-        if not prod or prod["category"] not in SELL_CATEGORIES:
-            raise HTTPException(400, "Recipes are for finished products (Mini / Pint / Cake).")
-        for mid in ids:
-            cur.execute("SELECT category FROM items WHERE id = %s;", (mid,))
-            m = cur.fetchone()
-            if not m or m["category"] not in MATERIAL_CATEGORIES:
-                raise HTTPException(400, "Recipe ingredients must come from Materials.")
-        cur.execute("""INSERT INTO recipes (product_id, yield_qty, notes) VALUES (%s, %s, %s)
-                       ON CONFLICT (product_id) DO UPDATE SET yield_qty = EXCLUDED.yield_qty, notes = EXCLUDED.notes, updated_at = now();""",
-                    (product_id, p.yield_qty, p.notes.strip()))
-        cur.execute("DELETE FROM recipe_lines WHERE product_id = %s;", (product_id,))
-        for l in p.lines:
-            cur.execute("INSERT INTO recipe_lines (product_id, material_id, qty) VALUES (%s, %s, %s);",
-                        (product_id, l.material_id, l.qty))
-        refresh_costs(cur)
-    return get_recipe(product_id)
+        if "name" in changes and not as_text(changes["name"]):
+            raise HTTPException(400, "The name can't be blank.")
+        if "material_id" in changes:
+            changes["material_id"] = check_material(cur, int(changes["material_id"]) if changes["material_id"] else None)
+        try:
+            apply_patch(cur, "recipe_ingredients", ing_id, changes,
+                        {"name": as_text, "notes": as_text, "material_id": lambda v: v})
+        except psycopg.errors.UniqueViolation:
+            raise HTTPException(409, "Another ingredient already has that name.")
+    return {"ok": True}
 
 
-@api.delete("/recipes/{product_id}")
-def delete_recipe(product_id: int):
-    """Removes the recipe; the product keeps its last cost (editable by hand again)."""
-    with db() as conn:
-        r = conn.execute("DELETE FROM recipes WHERE product_id = %s RETURNING product_id;", (product_id,)).fetchone()
+@api.delete("/recipe-ingredients/{ing_id}")
+def delete_ingredient(ing_id: int):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("""SELECT string_agg(DISTINCT br.name, ', ') AS names FROM batch_recipe_lines bl
+                       JOIN batch_recipes br ON br.id = bl.recipe_id WHERE bl.ingredient_id = %s;""", (ing_id,))
+        used = cur.fetchone()["names"]
+        if used:
+            raise HTTPException(400, f"Still used in: {used}. Take it out of those recipes first.")
+        cur.execute("DELETE FROM recipe_ingredients WHERE id = %s;", (ing_id,))
+    return {"ok": True}
+
+
+# Batch recipes — grams per ingredient for one batch, in your own order.
+class BatchLineIn(BaseModel):
+    ingredient_id: Optional[int] = None
+    ingredient_name: str = ""          # a new name creates the ingredient on save
+    grams: float = Field(ge=0)
+
+
+class BatchRecipeIn(BaseModel):
+    name: str
+    notes: str = ""
+    lines: List[BatchLineIn] = []
+
+
+def recipe_detail(cur, recipe_id: int) -> dict:
+    cur.execute("SELECT * FROM batch_recipes WHERE id = %s;", (recipe_id,))
+    r = one(cur)
     if not r:
-        raise HTTPException(404, "No recipe to remove.")
+        raise HTTPException(404, "Recipe not found.")
+    cur.execute(INGREDIENT_SQL.replace("FROM recipe_ingredients ri",
+        "FROM batch_recipe_lines bl JOIN recipe_ingredients ri ON ri.id = bl.ingredient_id").replace(
+        "SELECT ri.id,", "SELECT bl.id AS line_id, bl.grams, bl.position, ri.id AS ingredient_id, ri.id,")
+        + " WHERE bl.recipe_id = %s ORDER BY bl.position, bl.id;", (recipe_id,))
+    lines = [ingredient_out(x) for x in cur.fetchall()]
+    total = sum(l["grams"] for l in lines)
+    cost, missing = 0.0, 0
+    for l in lines:
+        l["pct"] = round(l["grams"] / total * 100, 3) if total else 0
+        l["cost"] = round(l["grams"] * l["cost_per_g"], 2) if l["cost_per_g"] is not None else None
+        if l["cost"] is None:
+            missing += 1
+        else:
+            cost += l["cost"]
+    r.update({"lines": lines, "total_grams": round(total, 3), "batch_cost": round(cost, 2), "missing_costs": missing,
+              "cost_per_kg": round(cost / total * 1000, 2) if total else None})
+    return r
+
+
+def save_lines(cur, recipe_id: int, lines: List[BatchLineIn]):
+    cur.execute("DELETE FROM batch_recipe_lines WHERE recipe_id = %s;", (recipe_id,))
+    for pos, l in enumerate(lines, start=1):
+        ing = l.ingredient_id
+        if not ing:
+            name = l.ingredient_name.strip()
+            if not name:
+                continue
+            cur.execute("SELECT id FROM recipe_ingredients WHERE lower(name) = lower(%s);", (name,))
+            found = cur.fetchone()
+            if found:
+                ing = found["id"]
+            else:
+                cur.execute("INSERT INTO recipe_ingredients (name) VALUES (%s) RETURNING id;", (name,))
+                ing = cur.fetchone()["id"]
+        cur.execute("INSERT INTO batch_recipe_lines (recipe_id, ingredient_id, grams, position) VALUES (%s, %s, %s, %s);",
+                    (recipe_id, ing, l.grams, pos))
+
+
+@api.get("/batch-recipes")
+def list_batch_recipes():
+    with db() as conn, conn.cursor() as cur:
+        refresh_costs(cur)
+        cur.execute("SELECT id FROM batch_recipes ORDER BY lower(name);")
+        out = []
+        for r in cur.fetchall():
+            d = recipe_detail(cur, r["id"])
+            d["line_count"] = len(d.pop("lines"))
+            out.append(d)
+        return out
+
+
+@api.get("/batch-recipes/{recipe_id}")
+def get_batch_recipe(recipe_id: int):
+    with db() as conn, conn.cursor() as cur:
+        refresh_costs(cur)
+        return recipe_detail(cur, recipe_id)
+
+
+@api.post("/batch-recipes")
+def create_batch_recipe(p: BatchRecipeIn):
+    if not p.name.strip():
+        raise HTTPException(400, "Give the recipe a name.")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO batch_recipes (name, notes) VALUES (%s, %s) RETURNING id;", (p.name.strip(), p.notes.strip()))
+        rid = cur.fetchone()["id"]
+        save_lines(cur, rid, p.lines)
+        return recipe_detail(cur, rid)
+
+
+@api.put("/batch-recipes/{recipe_id}")
+def update_batch_recipe(recipe_id: int, p: BatchRecipeIn):
+    if not p.name.strip():
+        raise HTTPException(400, "Give the recipe a name.")
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE batch_recipes SET name = %s, notes = %s, updated_at = now() WHERE id = %s RETURNING id;",
+                    (p.name.strip(), p.notes.strip(), recipe_id))
+        if not cur.fetchone():
+            raise HTTPException(404, "Recipe not found.")
+        save_lines(cur, recipe_id, p.lines)
+        return recipe_detail(cur, recipe_id)
+
+
+@api.post("/batch-recipes/{recipe_id}/duplicate")
+def duplicate_batch_recipe(recipe_id: int):
+    with db() as conn, conn.cursor() as cur:
+        src = recipe_detail(cur, recipe_id)
+        cur.execute("INSERT INTO batch_recipes (name, notes) VALUES (%s, %s) RETURNING id;", (src["name"] + " (copy)", src["notes"]))
+        rid = cur.fetchone()["id"]
+        cur.execute("""INSERT INTO batch_recipe_lines (recipe_id, ingredient_id, grams, position)
+                       SELECT %s, ingredient_id, grams, position FROM batch_recipe_lines WHERE recipe_id = %s;""", (rid, recipe_id))
+        return recipe_detail(cur, rid)
+
+
+@api.delete("/batch-recipes/{recipe_id}")
+def delete_batch_recipe(recipe_id: int):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM batch_recipes WHERE id = %s RETURNING id;", (recipe_id,))
+        if not cur.fetchone():
+            raise HTTPException(404, "Recipe not found.")
     return {"ok": True}
 
 

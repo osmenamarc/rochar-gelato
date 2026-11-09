@@ -405,3 +405,52 @@ CREATE TABLE IF NOT EXISTS login_codes (          -- one-time hand-off from the 
 );
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_id INT REFERENCES app_users(id) ON DELETE CASCADE;
 DELETE FROM login_codes WHERE expires_at < now();
+
+-- v9: batch recipes (not tied to products) built from a separate ingredient list
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+    id           SERIAL PRIMARY KEY,
+    name         TEXT NOT NULL,
+    material_id  INT REFERENCES items(id) ON DELETE SET NULL,   -- optional: cost follows this material's latest purchase
+    notes        TEXT NOT NULL DEFAULT '',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS recipe_ingredients_name_idx ON recipe_ingredients (lower(name));
+CREATE TABLE IF NOT EXISTS batch_recipes (
+    id          SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    notes       TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS batch_recipe_lines (
+    id             SERIAL PRIMARY KEY,
+    recipe_id      INT NOT NULL REFERENCES batch_recipes(id) ON DELETE CASCADE,
+    ingredient_id  INT NOT NULL REFERENCES recipe_ingredients(id),
+    grams          NUMERIC(14,3) NOT NULL CHECK (grams >= 0),
+    position       INT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS batch_recipe_lines_recipe_idx ON batch_recipe_lines (recipe_id, position);
+
+-- one-time move of the old per-product recipes into batch recipes (products then keep a hand-set cost)
+DO $$
+DECLARE r RECORD; new_id INT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM recipes) THEN
+    INSERT INTO recipe_ingredients (name, material_id)
+      SELECT DISTINCT ON (lower(lbl)) lbl, mid FROM (
+        SELECT CASE WHEN m.variant <> '' THEN m.name || ' (' || m.variant || ')' ELSE m.name END AS lbl, m.id AS mid
+        FROM recipe_lines rl JOIN items m ON m.id = rl.material_id) x
+      ON CONFLICT DO NOTHING;
+    FOR r IN SELECT rc.product_id, rc.notes, i.name, i.variant FROM recipes rc JOIN items i ON i.id = rc.product_id LOOP
+      INSERT INTO batch_recipes (name, notes)
+        VALUES (CASE WHEN r.variant <> '' THEN r.name || ' (' || r.variant || ')' ELSE r.name END, r.notes)
+        RETURNING id INTO new_id;
+      INSERT INTO batch_recipe_lines (recipe_id, ingredient_id, grams, position)
+        SELECT new_id, ri.id, rl.qty, ROW_NUMBER() OVER (ORDER BY m.category, m.name)
+        FROM recipe_lines rl JOIN items m ON m.id = rl.material_id
+        JOIN recipe_ingredients ri ON lower(ri.name) = lower(CASE WHEN m.variant <> '' THEN m.name || ' (' || m.variant || ')' ELSE m.name END)
+        WHERE rl.product_id = r.product_id;
+    END LOOP;
+    DELETE FROM recipes;
+  END IF;
+END $$;

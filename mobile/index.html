@@ -294,6 +294,15 @@
   .notif-help ol { padding-left: 20px; line-height: 1.7; }
   .dev-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); color: var(--ink); }
   .dev-row:first-child { border-top: none; }
+  .recipe-table td, .recipe-table th { padding: 9px 10px; }
+  .recipe-table tfoot .tot td { background: #fff7d6; border-top: 2px solid #ecdca0; }
+  .recipe-table.edit input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .recipe-table.edit input.num { text-align: right; }
+  .recipe-table .ord { border: 1px solid var(--border); background: #fff; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; color: var(--accent); font-size: 10px; }
+  .recipe-table .ord:disabled { opacity: .3; cursor: default; }
+  .recipe-table .ord-wrap { display: flex; gap: 4px; }
+  .recipe-table.edit td { vertical-align: middle; }
+  .recipe-table tr.moved td { background: var(--gold-soft); transition: background .5s; }
   .u-av { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 4px; }
   /* Phone menu sheet */
   .tab-menu { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
@@ -2654,9 +2663,9 @@ function editCountLineModal(lineId) {
 // share one list in the backend but are kept on separate pages.
 const CATALOG = {
   products: { title: "Products", cats: SELL_CATS, filterKey: "prodFilter", one: "product", sell: true,
-    note: "Finished goods — they show up as buttons on the phone POS, grouped Mini / Pint / Cake. Unit cost fills in automatically once a product has a recipe." },
+    note: "Finished goods — they show up as buttons on the phone POS, grouped Mini / Pint / Cake. Set each product's unit cost by hand." },
   materials: { title: "Materials", cats: MAT_CATS, filterKey: "matFilter", one: "material", sell: false,
-    note: "Raw materials and packaging you buy. Their cost follows the latest purchase automatically, and recipes use it to cost your products. They never show on the POS." },
+    note: "Raw materials and packaging you buy. Their cost follows the latest purchase automatically, and recipe ingredients linked to them use it for cost. They never show on the POS." },
 };
 const BASE_UNITS = [["", "— same as buy unit —"], ["g", "grams (g)"], ["ml", "millilitres (ml)"], ["pc", "pieces (pc)"]];
 const imgUrl = i => i && i.image_updated_at ? `${API_BASE}/item-images/${i.id}?v=${Date.parse(i.image_updated_at)}` : null;
@@ -2666,7 +2675,6 @@ const recipeUnit = m => m.base_unit || buyUnit(m);
 const perRecipeUnit = m => Number(m.unit_cost || 0) / (Number(m.content_qty) || 1);
 function costView(i) {
   if (!Number(i.unit_cost)) return `<span class="badge b-amber">not set</span>`;
-  if (isSellable(i) && i.has_recipe) return `${money(i.unit_cost)} <span class="badge b-green">recipe</span>`;
   if (!isSellable(i) && i.latest_price !== null && i.latest_price !== undefined)
     return `${money(i.unit_cost)} <span class="small muted">/ ${esc(buyUnit(i))} · bought ${fmtDate(manilaParts(new Date(i.latest_price_at)).date)}</span>`;
   return `${money(i.unit_cost)} <span class="small muted">manual</span>`;
@@ -2742,11 +2750,11 @@ function openProductModal(kind = "products") {
         <label class="field"><span>${C.sell ? "Variant · optional" : "Buy unit"}</span><input name="variant" autocomplete="off" placeholder="${C.sell ? "e.g. 475ml, 8-inch" : "how you buy it: 1 kg bag, pack of 50, pc"}"></label>
         ${C.sell ? "" : `<label class="field"><span>Recipe unit</span><select name="base_unit">${BASE_UNITS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>
           <label class="field"><span>How many recipe units in one buy unit?</span><input name="content_qty" type="number" step="any" min="0" inputmode="decimal" placeholder="e.g. 1000 (g in a 1 kg bag)"></label>`}
-        <label class="field"><span>Unit cost (₱) · optional</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="${C.sell ? "or set a recipe" : "fills in from your purchases"}"></label>
+        <label class="field"><span>Unit cost (₱) · optional</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="${C.sell ? "e.g. 85" : "fills in from your purchases"}"></label>
         ${C.sell ? `<label class="field"><span>Selling price (₱)</span><input name="selling_price" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>` : ""}
       </div>
       <p class="hint">${C.sell
-        ? "Shows up on the phone POS under its category. Give it a recipe (Recipes page) and its cost is worked out for you."
+        ? "Shows up on the phone POS under its category."
         : "Price is per buy unit (e.g. per 1 kg bag) and updates itself from your latest purchase. The recipe unit lets recipes use grams/ml while you buy by the bag."}</p>
       <div class="form-error" id="productError"></div>
       <div class="row" style="justify-content:flex-end">
@@ -2789,8 +2797,7 @@ function editProductModal(id) {
     fields: sell ? [
       { name: "name", label: "Name" }, { name: "category", label: "Category", type: "select", options: SELL_CATS },
       { name: "variant", label: "Variant · optional" }, { name: "selling_price", label: "Selling price (₱)", type: "money" },
-      { name: "unit_cost", label: "Unit cost (₱)", type: "money", view: costView, disabled: i.has_recipe,
-        hint: i.has_recipe ? "Worked out from the recipe — change the recipe instead." : "Or give it a recipe so it's worked out for you." },
+      { name: "unit_cost", label: "Unit cost (₱)", type: "money", view: costView },
       { name: "margin", label: "Margin", viewOnly: true, view: () => m }, { name: "active", label: "Active (on the POS)", type: "bool" }]
     : [
       { name: "name", label: "Name" }, { name: "category", label: "Category", type: "select", options: MAT_CATS },
@@ -2801,120 +2808,189 @@ function editProductModal(id) {
       { name: "unit_cost", label: "Cost per buy unit (₱)", type: "money", view: costView,
         hint: i.latest_price !== null && i.latest_price !== undefined ? "Updates itself from your latest purchase — a manual change is replaced by the next purchase." : "Fills in automatically from your next purchase." },
       { name: "active", label: "Active", type: "bool" }],
-    buttons: sell ? `<button type="button" class="btn ghost sm" onclick="openRecipe(${i.id})">${i.has_recipe ? "View recipe" : "Add recipe"}</button>` : "",
     onRemove: () => api(`/items/${i.id}`, { method: "DELETE" }),
     removeConfirm: `Remove “${itemLabel(i.name, i.variant)}” for good? Past sales and counts keep their records. (To just hide it, set Active to No instead.)` });
 }
 
 // ============================================================================
-// RECIPES — ingredients per batch → cost per unit, following latest purchase prices
+// RECIPES — per batch: grams of each ingredient, in your order. Ingredients come from
+// your own list (Recipes → Ingredients); one linked to a Material gets its cost per gram.
 // ============================================================================
+const grams = n => { const x = Number(n || 0); return x.toLocaleString(undefined, { maximumFractionDigits: 2 }); };
+const pct = n => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + "%";
+const money4 = n => "₱" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+function recipeTabs() {
+  const t = S.recipeTab || "recipes";
+  return `<div class="seg" style="margin-bottom:14px">
+    <button class="${t === "recipes" ? "on" : ""}" onclick="S.recipeTab='recipes'; S.recipeId=null; S.recipeEdit=false; go('recipes')">Recipes</button>
+    <button class="${t === "ingredients" ? "on" : ""}" onclick="S.recipeTab='ingredients'; go('recipes')">Ingredients</button></div>`;
+}
 async function viewRecipes() {
-  const [list] = await Promise.all([api("/recipes"), loadItems()]);
-  S.recipes = list;
+  if ((S.recipeTab || "recipes") === "ingredients") return viewIngredients();
+  if (S.recipeId) return viewRecipeDetail();
+  const list = await api("/batch-recipes");
+  S.batchRecipes = list;
   $("#view").innerHTML = `
-    <div class="section-title"><h2 class="serif">Recipes</h2></div>
-    ${selCard("recipes", openRecipe, `<div class="table-wrap"><table>
-      <thead><tr><th></th><th>Product</th><th>Category</th><th class="num">One batch makes</th><th class="num">Ingredients</th>
-        <th class="num">Batch cost</th><th class="num">Cost / unit</th><th class="num">Price</th><th class="num">Margin</th></tr></thead>
-      <tbody>${list.map(r => { const it = S.items.find(x => x.id === r.product_id) || r;
-        const has = r.yield_qty !== null && r.yield_qty !== undefined;
-        const cpu = has ? r.batch_cost / r.yield_qty : null;
-        const m = has && r.selling_price && cpu ? Math.round((1 - cpu / r.selling_price) * 100) + "%" : "—";
-        return `<tr data-row="${r.product_id}" style="${r.active ? "" : "opacity:.5"}">
-        <td style="width:52px">${thumb({ ...it, id: r.product_id, name: r.name })}</td>
-        <td><b>${esc(r.name)}</b>${r.variant ? ` <span class="muted">${esc(r.variant)}</span>` : ""}
-          ${r.missing_prices ? `<br><span class="badge b-amber">${r.missing_prices} ingredient${r.missing_prices === 1 ? "" : "s"} without a price</span>` : ""}</td>
-        <td>${esc(r.category)}</td>
-        ${has ? `<td class="num">${qty(r.yield_qty)}</td><td class="num">${r.line_count}</td><td class="num">${money(r.batch_cost)}</td>
-          <td class="num"><b>${money(cpu)}</b></td>` : `<td colspan="4" class="muted">No recipe yet — tap to add one</td>`}
-        <td class="num">${money(r.selling_price)}</td><td class="num">${m}</td></tr>`; }).join("") || `<tr><td colspan="9" class="empty">Add products first (Products page).</td></tr>`}</tbody>
-    </table></div><p class="small muted">Costs use each material's latest purchase price, so they update by themselves when you log a purchase at a new price.
-      Recipes use Materials — set each material's recipe unit (e.g. 1 kg bag = 1000 g) on the Materials page.</p>`, "Tap a product to see or build its recipe")}`;
+    <div class="section-title"><h2 class="serif">Recipes</h2><button class="btn" onclick="newRecipe()">+ New recipe</button></div>
+    ${recipeTabs()}
+    <div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Recipe</th><th class="num">Batch weight</th><th class="num">Ingredients</th><th class="num">Batch cost</th><th class="num">Cost per kg</th></tr></thead>
+      <tbody>${list.map(r => `<tr class="clickable" onclick="openRecipe(${r.id})">
+          <td><b>${esc(r.name)}</b>${r.notes ? `<br><span class="small muted">${esc(r.notes)}</span>` : ""}</td>
+          <td class="num">${grams(r.total_grams)} g</td><td class="num">${r.line_count}</td>
+          <td class="num">${money(r.batch_cost)}${r.missing_costs ? ` <span class="badge b-amber" title="ingredients without a cost">${r.missing_costs} no cost</span>` : ""}</td>
+          <td class="num">${r.cost_per_kg !== null ? money(r.cost_per_kg) : "—"}</td></tr>`).join("")
+        || `<tr><td colspan="5" class="empty">No recipes yet. Build your ingredient list first (Ingredients tab), then tap “+ New recipe”.</td></tr>`}</tbody>
+    </table></div></div>`;
 }
-async function openRecipe(productId) {
-  try {
-    if (!S.items.length) await loadItems();
-    const r = await api(`/recipes/${productId}`); S.recipe = r;
-    const p = r.product, catLabel = p.category.toLowerCase();
-    if (!r.exists) {
-      return openModal(itemLabel(p.name, p.variant), `
-        <p class="muted" style="margin-top:0">No recipe yet. Add the ingredients and amounts for one batch, and how many ${catLabel}s it makes — the cost per ${catLabel} is worked out from your latest purchase prices.</p>
-        <div class="row edit-actions"><span style="flex:1"></span><button class="btn" onclick="recipeEditForm()">Create recipe</button></div>`);
-    }
-    const margin = p.selling_price && r.cost_per_unit ? Math.round((1 - r.cost_per_unit / p.selling_price) * 100) + "%" : "—";
-    openModal(itemLabel(p.name, p.variant), `
-      <div class="tiles" style="grid-template-columns:repeat(3,1fr)">
-        <div class="tile"><div class="label">Cost per ${catLabel}</div><div class="value">${money(r.cost_per_unit)}</div></div>
-        <div class="tile"><div class="label">Price</div><div class="value">${money(p.selling_price)}</div></div>
-        <div class="tile"><div class="label">Margin</div><div class="value">${margin}</div></div></div>
-      <p class="small muted" style="margin-top:0">One batch makes <b>${qty(r.yield_qty)}</b> ${catLabel}${r.yield_qty == 1 ? "" : "s"} · batch cost ${money(r.batch_cost)}</p>
-      <table><thead><tr><th>Ingredient</th><th class="num">Amount</th><th class="num">Price used</th><th class="num">Cost</th></tr></thead><tbody>
-      ${r.lines.map(l => `<tr><td>${esc(l.name)}${l.variant ? ` <span class="muted small">(${esc(l.variant)})</span>` : ""}</td>
-        <td class="num">${qty(l.qty)} ${esc(l.base_unit || l.variant || "")}</td>
-        <td class="num small">${Number(l.material_cost) ? `${money(l.cost_per_base)}/${esc(l.base_unit || "unit")}<br><span class="muted">${l.price_from ? "bought " + fmtDate(manilaParts(new Date(l.price_from)).date) : "manual price"}</span>` : `<span class="badge b-amber">no price yet</span>`}</td>
-        <td class="num">${money(l.line_cost)}</td></tr>`).join("")}
-      <tr><td colspan="3"><b>Batch total</b></td><td class="num"><b>${money(r.batch_cost)}</b></td></tr></tbody></table>
-      ${r.notes ? `<p class="small muted">📝 ${esc(r.notes)}</p>` : ""}`, pencilBtn("recipeEditForm()"));
-  } catch (err) { toast(err.message, true); }
+function openRecipe(id) { S.recipeId = id; S.recipeEdit = false; go("recipes"); }
+function newRecipe() { S.recipeId = "new"; S.recipeEdit = true; go("recipes"); }
+async function viewRecipeDetail() {
+  const [ings, r] = await Promise.all([api("/recipe-ingredients"),
+    S.recipeId === "new" ? Promise.resolve({ id: null, name: "", notes: "", lines: [], total_grams: 0, batch_cost: 0, missing_costs: 0, cost_per_kg: null })
+                         : api(`/batch-recipes/${S.recipeId}`)]);
+  S.ingredients = ings; S.recipe = r;
+  if (S.recipeEdit) {
+    S.rlines = r.lines.length ? r.lines.map(l => ({ name: l.name, grams: l.grams })) : [{ name: "", grams: "" }, { name: "", grams: "" }, { name: "", grams: "" }];
+    return drawRecipeEditor();
+  }
+  $("#view").innerHTML = `
+    <div class="section-title"><div><button class="link" onclick="S.recipeId=null; go('recipes')">‹ All recipes</button>
+        <h2 class="serif" style="margin-top:4px">${esc(r.name)}</h2></div>
+      <div class="row" style="gap:8px"><button class="btn ghost" onclick="dupRecipe(${r.id})">Duplicate</button>
+        <button class="btn" onclick="S.recipeEdit=true; go('recipes', { keepScroll: true })">✎ Edit</button></div></div>
+    ${r.notes ? `<p class="muted" style="margin-top:-6px">📝 ${esc(r.notes)}</p>` : ""}
+    <div class="card"><div class="table-wrap"><table class="recipe-table">
+      <thead><tr><th class="num" style="width:36px">#</th><th>Ingredient</th><th class="num">Weight (g)</th><th class="num">W%</th><th class="num">Cost</th></tr></thead>
+      <tbody>${r.lines.map((l, i) => `<tr><td class="num muted">${i + 1}</td><td>${esc(l.name)}</td><td class="num">${grams(l.grams)}</td><td class="num">${pct(l.pct)}</td>
+          <td class="num">${l.cost !== null ? money(l.cost) : `<span class="small muted" title="${l.material_id ? "the linked material has no price or no gram unit yet" : "not linked to a material"}">—</span>`}</td></tr>`).join("")
+        || `<tr><td colspan="5" class="empty">No ingredients yet — tap Edit.</td></tr>`}</tbody>
+      <tfoot><tr class="tot"><td></td><td><b>Total</b></td><td class="num"><b>${grams(r.total_grams)} g</b></td><td class="num"><b>100%</b></td><td class="num"><b>${money(r.batch_cost)}</b></td></tr></tfoot>
+    </table></div>
+    <p class="small muted" style="margin-bottom:0">${r.cost_per_kg !== null ? `Cost per kg: <b>${money(r.cost_per_kg)}</b>. ` : ""}${r.missing_costs ? `${r.missing_costs} ingredient${r.missing_costs === 1 ? " has" : "s have"} no cost — link ${r.missing_costs === 1 ? "it" : "them"} to a Material in the Ingredients tab if you buy ${r.missing_costs === 1 ? "it" : "them"}.` : "Costs follow your latest purchase prices."}</p></div>`;
 }
-function recipeLineRow(l = {}) {
-  const mats = S.items.filter(i => !isSellable(i) && (i.active || i.id === l.material_id));
-  return `<div class="eline rline">
-    <select data-k="material_id" onchange="recipeCalc()"><option value="">— ingredient —</option>${mats.map(m => `<option value="${m.id}" ${m.id === l.material_id ? "selected" : ""}>${esc(itemLabel(m.name, m.variant))}</option>`).join("")}</select>
-    <input data-k="qty" type="number" step="any" min="0" inputmode="decimal" value="${l.qty ?? ""}" placeholder="amount" oninput="recipeCalc()">
-    <span class="small muted rl-cost"></span>
-    <button type="button" class="rm" title="Remove line" onclick="this.parentElement.remove(); recipeCalc()">×</button></div>`;
-}
-function recipeEditForm() {
-  const r = S.recipe, p = r.product, catLabel = p.category.toLowerCase();
-  openModal(`Recipe · ${itemLabel(p.name, p.variant)}`, `
-    <form id="recipeForm" onsubmit="saveRecipe(event)">
-      <label class="field"><span>One batch makes how many ${catLabel}s?</span><input name="yield_qty" type="number" step="any" min="0" inputmode="decimal" value="${r.exists ? r.yield_qty : ""}" placeholder="e.g. 12" required oninput="recipeCalc()"></label>
-      <div class="lines edit-lines"><div class="line-head">Ingredient · Amount per batch · Cost</div>
-        <div id="rlines">${(r.lines.length ? r.lines : [{}, {}, {}]).map(recipeLineRow).join("")}</div>
-        <button type="button" class="link" onclick="$('#rlines').insertAdjacentHTML('beforeend', recipeLineRow())">+ add ingredient</button></div>
-      <div class="total-box"><span id="rcBatch">Batch ₱0</span><span id="rcUnit">₱0 per ${catLabel}</span></div>
-      <label class="field"><span>Notes · optional</span><input name="notes" value="${esc(r.notes || "")}" placeholder="e.g. churn 12 min, age base overnight"></label>
-      <p class="hint">Amounts are in each ingredient's recipe unit (set on the Materials page). Include packaging too — e.g. 12 tubs, 12 lids for a batch of 12 pints.</p>
-      <div class="form-error" id="editError"></div>
+function drawRecipeEditor() {
+  const r = S.recipe;
+  $("#view").innerHTML = `
+    <div class="section-title"><div><button class="link" onclick="${r.id ? `S.recipeEdit=false; go('recipes')` : `S.recipeId=null; go('recipes')`}">‹ ${r.id ? "Cancel" : "All recipes"}</button>
+      <h2 class="serif" style="margin-top:4px">${r.id ? "Edit recipe" : "New recipe"}</h2></div></div>
+    <form class="card" id="recipeForm" onsubmit="saveRecipe(event)" autocomplete="off">
+      <div class="grid2"><label class="field"><span>Recipe name</span><input name="name" value="${esc(r.name)}" placeholder="e.g. Cheesecake Gelato" required></label>
+        <label class="field"><span>Notes · optional</span><input name="notes" value="${esc(r.notes || "")}" placeholder="e.g. 4 kg batch, age overnight"></label></div>
+      <datalist id="ingList">${S.ingredients.map(i => `<option value="${esc(i.name)}">`).join("")}</datalist>
+      <div class="table-wrap"><table class="recipe-table edit">
+        <thead><tr><th style="width:70px">Order</th><th>Ingredient</th><th class="num" style="width:140px">Weight (g)</th><th class="num" style="width:80px">W%</th><th class="num" style="width:110px">Cost</th><th style="width:36px"></th></tr></thead>
+        <tbody id="rlBody"></tbody>
+        <tfoot><tr class="tot"><td></td><td><b>Total</b></td><td class="num"><b id="rlTotG"></b></td><td class="num"><b>100%</b></td><td class="num"><b id="rlTotC"></b></td><td></td></tr></tfoot>
+      </table></div>
+      <button type="button" class="add-link" onclick="S.rlines.push({ name: '', grams: '' }); drawRecipeLines(true)">+ add ingredient</button>
+      <p class="small muted">Pick from your ingredient list, or type a new name — it's added to your list when you save.</p>
+      <div class="form-error" id="recipeErr"></div>
       <div class="row edit-actions">
-        ${r.exists ? `<button type="button" class="icon-btn danger" title="Remove recipe" onclick="removeRecipe()">${ICON_TRASH}</button>` : ""}
-        <span style="flex:1"></span><button type="button" class="btn ghost" onclick="${r.exists ? `openRecipe(${p.id})` : "closeModal()"}">Cancel</button><button class="btn">Save recipe</button></div>
-    </form>`);
-  recipeCalc();
+        ${r.id ? `<button type="button" class="icon-btn danger" title="Remove this recipe" onclick="removeRecipe()">${ICON_TRASH}</button>` : ""}
+        <span style="flex:1"></span><button class="btn" id="recipeSave">Save recipe</button></div>
+    </form>`;
+  drawRecipeLines();
 }
-function recipeCalc() {
-  const f = $("#recipeForm"); if (!f) return;
-  let batch = 0;
-  $$("#rlines .rline").forEach(row => {
-    const m = S.items.find(i => i.id === Number($("[data-k=material_id]", row).value)), q = Number($("[data-k=qty]", row).value || 0);
-    const cell = $(".rl-cost", row);
-    if (!m) { cell.textContent = ""; $("[data-k=qty]", row).placeholder = "amount"; return; }
-    $("[data-k=qty]", row).placeholder = recipeUnit(m);
-    const c = q * perRecipeUnit(m); batch += c;
-    cell.innerHTML = Number(m.unit_cost) ? `${esc(recipeUnit(m))} · ${money(c)}` : `${esc(recipeUnit(m))} · <span class="badge b-amber">no price</span>`;
+function ingByName(n) { const k = (n || "").trim().toLowerCase(); return S.ingredients.find(i => i.name.toLowerCase() === k); }
+function drawRecipeLines(focusLast = false) {
+  const body = $("#rlBody"); if (!body) return;
+  body.innerHTML = S.rlines.map((l, i) => `<tr data-i="${i}">
+      <td><div class="ord-wrap"><button type="button" class="ord" onclick="moveLine(${i}, -1)" ${i === 0 ? "disabled" : ""} aria-label="Move up">▲</button>
+          <button type="button" class="ord" onclick="moveLine(${i}, 1)" ${i === S.rlines.length - 1 ? "disabled" : ""} aria-label="Move down">▼</button></div></td>
+      <td><input list="ingList" value="${esc(l.name)}" placeholder="Ingredient" oninput="S.rlines[${i}].name=this.value; recipeTotals()"></td>
+      <td><input type="number" step="any" min="0" inputmode="decimal" class="num" value="${l.grams}" placeholder="0" oninput="S.rlines[${i}].grams=this.value; recipeTotals()"></td>
+      <td class="num rl-pct"></td><td class="num rl-cost"></td>
+      <td><button type="button" class="rm" title="Remove" onclick="S.rlines.splice(${i},1); drawRecipeLines()">×</button></td></tr>`).join("");
+  recipeTotals();
+  if (focusLast) { const ins = $$("#rlBody tr:last-child input"); if (ins[0]) ins[0].focus(); }
+}
+function moveLine(i, d) {
+  const j = i + d; if (j < 0 || j >= S.rlines.length) return;
+  [S.rlines[i], S.rlines[j]] = [S.rlines[j], S.rlines[i]]; drawRecipeLines();
+  const row = $(`#rlBody tr[data-i="${j}"]`); if (row) { row.classList.add("moved"); setTimeout(() => row.classList.remove("moved"), 500); }
+}
+function recipeTotals() {
+  const tot = S.rlines.reduce((s, l) => s + Number(l.grams || 0), 0);
+  let cost = 0;
+  $$("#rlBody tr").forEach(tr => {
+    const l = S.rlines[Number(tr.dataset.i)], g = Number(l.grams || 0), ing = ingByName(l.name);
+    $(".rl-pct", tr).textContent = tot ? pct(g / tot * 100) : "—";
+    const c = ing && ing.cost_per_g !== null ? g * ing.cost_per_g : null;
+    if (c !== null) cost += c;
+    $(".rl-cost", tr).innerHTML = !l.name.trim() ? "" : !ing ? `<span class="badge b-blue">new</span>` : c !== null ? money(c) : `<span class="small muted">—</span>`;
   });
-  const y = Number(f.yield_qty.value || 0), cat = S.recipe.product.category.toLowerCase();
-  $("#rcBatch").textContent = `Batch ${money(batch)}`;
-  $("#rcUnit").textContent = y > 0 ? `${money(batch / y)} per ${cat}` : `— per ${cat}`;
+  $("#rlTotG").textContent = grams(tot) + " g"; $("#rlTotC").textContent = money(cost);
 }
 async function saveRecipe(e) {
-  e.preventDefault(); const f = e.target, p = S.recipe.product;
+  e.preventDefault();
+  const f = e.target, err = $("#recipeErr"), btn = $("#recipeSave"); err.textContent = "";
+  const lines = S.rlines.filter(l => l.name.trim() || l.grams !== "");
+  const bad = lines.find(l => !l.name.trim()); if (bad) { err.textContent = "Every line with grams needs an ingredient."; return; }
+  const names = lines.map(l => l.name.trim().toLowerCase());
+  if (new Set(names).size !== names.length) { err.textContent = "The same ingredient is listed twice."; return; }
+  const body = { name: f.name.value, notes: f.notes.value,
+    lines: lines.map(l => { const ing = ingByName(l.name); return ing ? { ingredient_id: ing.id, grams: Number(l.grams || 0) } : { ingredient_name: l.name.trim(), grams: Number(l.grams || 0) }; }) };
+  btn.disabled = true; btn.textContent = "Saving…";
   try {
-    const lines = $$("#rlines .rline").map(r => ({ material_id: Number($("[data-k=material_id]", r).value), qty: Number($("[data-k=qty]", r).value || 0) }))
-      .filter(l => l.material_id || l.qty);
-    lines.forEach(l => { need(l.material_id, "Choose the ingredient for every line."); need(l.qty > 0, "Every ingredient needs an amount."); });
-    need(lines.length, "Add at least one ingredient.");
-    const y = Number(f.yield_qty.value || 0); need(y > 0, "Enter how many one batch makes.");
-    await api(`/recipes/${p.id}`, { method: "PUT", body: { yield_qty: y, notes: f.notes.value, lines } });
-    toast("Recipe saved — cost updated"); await loadItems(); openRecipe(p.id); refresh();
-  } catch (err) { $("#editError").textContent = err.message; }
+    const r = await api(S.recipe.id ? `/batch-recipes/${S.recipe.id}` : "/batch-recipes", { method: S.recipe.id ? "PUT" : "POST", body });
+    S.recipeId = r.id; S.recipeEdit = false; toast("Recipe saved"); go("recipes");
+  } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = "Save recipe"; }
 }
 async function removeRecipe() {
-  if (!confirm("Remove this recipe? The product keeps its current cost, which you can then edit by hand.")) return;
-  try { await api(`/recipes/${S.recipe.product.id}`, { method: "DELETE" }); closeModal(); toast("Recipe removed"); await loadItems(); refresh(); }
-  catch (err) { $("#editError").textContent = err.message; }
+  if (!confirm(`Remove the recipe “${S.recipe.name}”?`)) return;
+  try { await api(`/batch-recipes/${S.recipe.id}`, { method: "DELETE" }); toast("Recipe removed"); S.recipeId = null; S.recipeEdit = false; go("recipes"); }
+  catch (e) { toast(e.message, true); }
+}
+async function dupRecipe(id) {
+  try { const r = await api(`/batch-recipes/${id}/duplicate`, { method: "POST" }); toast("Copy made — rename it"); S.recipeId = r.id; S.recipeEdit = true; go("recipes"); }
+  catch (e) { toast(e.message, true); }
+}
+
+// ---- Ingredients list (build this first)
+async function viewIngredients() {
+  const [ings] = await Promise.all([api("/recipe-ingredients"), S.items.length ? null : loadItems()]);
+  S.ingredients = ings;
+  const mats = S.items.filter(i => MATERIAL_CATEGORIES_JS.includes(i.category) && i.active);
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">Recipes</h2></div>
+    ${recipeTabs()}
+    <form class="card row" style="align-items:end;gap:10px;flex-wrap:wrap" onsubmit="addIngredient(event)">
+      <label class="field" style="flex:2;min-width:180px;margin:0"><span>New ingredient</span><input name="name" placeholder="e.g. Water, Bearbrand Milk Powder" required></label>
+      <label class="field" style="flex:2;min-width:180px;margin:0"><span>Linked material · optional (for cost)</span>
+        <select name="material_id"><option value="">— none (e.g. water) —</option>${mats.map(m => `<option value="${m.id}">${esc(itemLabel(m.name, m.variant))}</option>`).join("")}</select></label>
+      <button class="btn">Add</button></form>
+    <div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Ingredient</th><th>Linked material</th><th class="num">Cost per g</th><th class="num">Cost per kg</th><th class="num">Used in</th></tr></thead>
+      <tbody>${ings.map(i => `<tr class="clickable" onclick="editIngredient(${i.id})">
+          <td><b>${esc(i.name)}</b>${i.notes ? `<br><span class="small muted">${esc(i.notes)}</span>` : ""}</td>
+          <td>${i.material_id ? esc(itemLabel(i.material_name, i.material_variant)) : `<span class="muted">—</span>`}</td>
+          <td class="num">${i.cost_per_g !== null ? money4(i.cost_per_g) : `<span class="muted">${i.material_id ? "set gram unit / price" : "—"}</span>`}</td>
+          <td class="num">${i.cost_per_g !== null ? money(i.cost_per_g * 1000) : "—"}</td>
+          <td class="num">${i.used_in ? `${i.used_in} recipe${i.used_in === 1 ? "" : "s"}` : `<span class="muted">—</span>`}</td></tr>`).join("")
+        || `<tr><td colspan="5" class="empty">No ingredients yet — add them above.</td></tr>`}</tbody>
+    </table></div>
+    <p class="small muted" style="margin-bottom:0">Cost per gram comes from the linked Material's latest purchase price and its recipe unit (set the Material's recipe unit to grams, e.g. 1 kg bag = 1000 g).</p></div>`;
+}
+const MATERIAL_CATEGORIES_JS = ["Raw Material", "Packaging"];
+async function addIngredient(e) {
+  e.preventDefault(); const f = e.target;
+  try {
+    await api("/recipe-ingredients", { method: "POST", body: { name: f.name.value, material_id: f.material_id.value ? Number(f.material_id.value) : null } });
+    toast("Added"); go("recipes", { keepScroll: true });
+  } catch (err) { toast(err.message, true); }
+}
+function editIngredient(id) {
+  const i = S.ingredients.find(x => x.id === id); if (!i) return;
+  const mats = S.items.filter(m => MATERIAL_CATEGORIES_JS.includes(m.category));
+  editModal({ title: i.name, url: `/recipe-ingredients/${i.id}`, obj: i, after: () => go("recipes", { keepScroll: true }),
+    fields: [{ name: "name", label: "Name" },
+      { name: "material_id", label: "Linked material (for cost)", type: "select", options: [["", "— none —"], ...mats.map(m => [String(m.id), itemLabel(m.name, m.variant)])],
+        view: o => o.material_id ? esc(itemLabel(o.material_name, o.material_variant)) : `<span class="muted">none</span>` },
+      { name: "notes", label: "Notes", type: "textarea" }],
+    top: `<p class="small muted" style="margin-top:0">${i.cost_per_g !== null ? `Cost: ${money4(i.cost_per_g)} per g · ${money(i.cost_per_g * 1000)} per kg` : "No cost yet."} · used in ${i.used_in} recipe${i.used_in === 1 ? "" : "s"}</p>`,
+    onRemove: () => api(`/recipe-ingredients/${i.id}`, { method: "DELETE" }),
+    removeConfirm: `Remove “${i.name}” from your ingredients?` });
 }
 
 // ============================================================================
