@@ -732,7 +732,7 @@ const NAV_GROUPS = [
   ["CLIENTS", [["customers", "Customers"], ["resellers", "Resellers"]]],
   ["FINANCE", [["reconciliation", "Reconciliation"], ["receivables", "Receivables"], ["liabilities", "Liabilities"]]],
   ["OPERATIONS", [["products", "Products"], ["recipes", "Recipes"], ["materials", "Materials"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["inventory", "Inventory"]]],
-  ["SYSTEM", [["settings", "Settings"]]],
+  ["SYSTEM", [["settings", "Settings"], ["system", "System"]]],
 ];
 const TABS = MODE === "mobile"
   ? [["schedule", "Schedule"], ["pos", "POS"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"], ["notifs", "Notifs"]]
@@ -879,9 +879,9 @@ function paneGoogle() {
   setPane(`<p class="login-sub">Sign in to continue</p>
     ${st.google_client_id ? `<div class="gbtn-wrap" id="gbtn"><span class="small muted">Loading Google…</span></div>` : `<p class="small muted">Google sign-in isn't set up yet.</p>`}
     ${savedAccounts().length ? `<button class="login-link" onclick="paneAccounts()">‹ Back to saved accounts</button><br>` : ""}
-    ${st.shared_pin !== false ? `<button class="login-link" onclick="paneSharedPin()">Use the shared PIN instead</button>` : ""}`);
+    ${st.shared_pin && !st.google_only ? `<button class="login-link" onclick="paneSharedPin()">Use the shared PIN instead</button>` : ""}`);
   if (st.google_client_id) renderGoogleButton(st.google_client_id);
-  else if (st.shared_pin !== false) paneSharedPin();
+  else if (st.shared_pin) paneSharedPin();
 }
 function loadGis() {
   return new Promise((res, rej) => {
@@ -971,6 +971,7 @@ const ICON_PATHS = {
   orders: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
   schedule: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  system: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   notifs: '<path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/>',
   pos: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   sales: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
@@ -1009,8 +1010,9 @@ function renderTabs() {
     if (a && a.offsetWidth) { const w = a.offsetWidth * .56, x = a.offsetLeft + (a.offsetWidth - w) / 2; ind.style.width = w + "px"; ind.style.transform = `translateX(${x}px)`; S.indPos = { x, w }; }
     return;
   }
+  const canSystem = !!(S.me && S.me.can_system);
   $("#tabs").innerHTML = `<div class="brand"><img class="mark" src="brand/monogram.png" alt="R"><span><img src="brand/wordmark.png" alt="Rochar"></span></div>` +
-    NAV_GROUPS.map(([g, list]) => `<div class="grp"><span>${g}</span></div>` + list.map(btn).join("")).join("");
+    NAV_GROUPS.map(([g, list]) => `<div class="grp"><span>${g}</span></div>` + list.filter(([k]) => k !== "system" || canSystem).map(btn).join("")).join("");
 }
 function openTabMenu() {
   const more = TABS.filter(t => !MOBILE_MAIN.includes(t[0]));
@@ -1127,6 +1129,7 @@ async function start() {
 }
 function applyBoot(b, save = true) {
   S.settings = b.settings; S.items = b.items; S.customers = b.customers || [];
+  if (b.me) { S.me = b.me; renderTabs(); }
   S.prices = {}; (b.prices || []).forEach(p => { (S.prices[p.customer_id] = S.prices[p.customer_id] || {})[p.item_id] = p.price; });
   if (b.schedule) {
     S.schedCache[b.schedule.date_from] = b.schedule.orders;
@@ -3447,9 +3450,6 @@ async function viewSettings() {
       </div>
       <div class="field" style="margin-top:6px"><span>How the buttons will look</span><div class="cs-buttons" id="pv_buttons"></div></div>
     </div>
-    <div class="card" id="signinCard"><h3>Sign-in</h3>
-      <div id="signinBody"><div class="loading"><span class="spinner"></span></div></div>
-    </div>
     <div class="card" id="notifCard"><h3>Phone notifications</h3>
       <p class="small muted" style="margin-top:0">Reminders sent to phones that turned notifications on (phone app → Menu → Notifs). Each phone can also mute any of these for itself.</p>
       <div id="ruleList"><div class="loading"><span class="spinner"></span></div></div>
@@ -3457,39 +3457,51 @@ async function viewSettings() {
         <button class="btn ghost sm" onclick="addRule('before')">+ Reminder before delivery</button>
         <button class="btn ghost sm" onclick="addRule('summary')">+ Daily summary</button></div>
       <h4 style="margin:18px 0 6px">Phones signed up</h4><div id="deviceList" class="small muted">Loading…</div>
-    </div>
-    <div class="card"><h3>Change PIN</h3>
+    </div>`;
+  previewCopy();
+  loadRuleEditor();
+}
+
+// ---- System (owner only): who can sign in, Google sign-in status
+async function viewSystem() {
+  const me = S.me = await api("/me"); renderTabs();
+  if (!me.can_system) { $("#view").innerHTML = `<div class="card empty">Only the owner can open System.</div>`; return; }
+  $("#view").innerHTML = `
+    <div class="section-title"><h2 class="serif">System</h2><span class="muted">${me.is_owner ? "Owner" : "Setup"}</span></div>
+    <div class="card" id="signinCard"><h3>Sign-in</h3><div id="signinBody"><div class="loading"><span class="spinner"></span></div></div></div>
+    ${me.google_only ? "" : `<div class="card"><h3>Shared PIN</h3>
+      <p class="small muted" style="margin-top:0">Only used until Google sign-in is switched on — then it stops working by itself.</p>
       <form id="pinForm" class="grid3" onsubmit="changePin(event)">
         <label class="field"><span>Current PIN</span><input name="current_pin" type="password" inputmode="numeric" required></label>
         <label class="field"><span>New PIN (4–12 digits)</span><input name="new_pin" type="password" inputmode="numeric" required></label>
         <div style="align-self:end;margin-bottom:10px"><button class="btn">Change PIN</button></div>
-      </form><p class="small muted">Changing the PIN logs out every other phone and computer.</p></div>`;
-  previewCopy();
-  loadRuleEditor();
+      </form></div>`}`;
   loadSignin();
 }
 
 // ---- Sign-in settings (admin): Google client ID, who may sign in, shared PIN on/off ----------
 async function loadSignin() {
   try {
-    const [users, me] = await Promise.all([api("/users"), api("/me")]);
+    const [users, me, st] = await Promise.all([api("/users"), api("/me"), api("/auth/status")]);
     const box = await onScreen("#signinBody"); if (!box) return;
-    const s = S.settings, cid = s.google_client_id || "", sharedOn = (s.allow_shared_pin || "1") !== "0";
-    box.innerHTML = `
-      <p class="small muted" style="margin-top:0">${me ? `Signed in as <b>${esc(me.name || me.email)}</b> (${esc(me.email)}).` : "You're signed in with the shared PIN."}</p>
-      <label class="field"><span>Google Client ID</span>
-        <input value="${esc(cid)}" placeholder="something.apps.googleusercontent.com" onchange="saveSetting('google_client_id', this.value.trim()).then(loadSignin)"></label>
-      <p class="small muted" style="margin-top:-4px">${cid ? "✅ Google sign-in is on." : "Paste the Client ID from Google Cloud to turn on “Continue with Google”."}</p>
+    const cid = st.google_client_id || "";
+    const status = me.google_only
+      ? `<div class="locked-banner">✅ <b>Google sign-in is on.</b> Only the people below can get in; the shared PIN no longer works.</div>`
+      : `<div class="overdue" style="font-weight:500">Google sign-in isn't fully on yet — the shared PIN still works.
+          ${!me.owner_set ? "<br>• The owner's Gmail isn't set on the server yet (OWNER_EMAIL)." : ""}
+          ${!cid ? "<br>• The Google Client ID isn't set yet." : ""}</div>`;
+    box.innerHTML = `${status}
+      <p class="small muted">${me.id ? `Signed in as <b>${esc(me.name || me.email)}</b> (${esc(me.email)})${me.is_owner ? " — owner" : ""}.` : "You're signed in with the shared PIN."}</p>
+      ${me.client_id_from_env ? `<p class="small muted">Google Client ID: set on the server.</p>`
+        : `<label class="field"><span>Google Client ID</span>
+            <input value="${esc(cid)}" placeholder="something.apps.googleusercontent.com" onchange="saveSetting('google_client_id', this.value.trim()).then(loadSignin)"></label>`}
       <h4 style="margin:16px 0 6px">People who can sign in</h4>
-      <div class="user-list">${users.length ? users.map(u => `<div class="dev-row"><span>${u.picture ? `<img class="u-av" src="${esc(u.picture)}" referrerpolicy="no-referrer" alt="">` : "👤"}
-          <b>${esc(u.name || u.email)}</b> <span class="muted">${esc(u.email)}${u.last_login_at ? ` · last in ${fmtDate(manilaParts(new Date(u.last_login_at)).date)}` : " · hasn't signed in yet"}${u.devices ? ` · ${u.devices} device${u.devices === 1 ? "" : "s"}` : ""}</span></span>
+      <div class="user-list">${users.map(u => `<div class="dev-row"><span>${u.picture ? `<img class="u-av" src="${esc(u.picture)}" referrerpolicy="no-referrer" alt="">` : "👤"}
+          <b>${esc(u.name || u.email)}</b>${u.is_owner ? ` <span class="badge b-blue">owner</span>` : ""} <span class="muted">${esc(u.email)}${u.last_login_at ? ` · last in ${fmtDate(manilaParts(new Date(u.last_login_at)).date)}` : " · hasn't signed in yet"}${u.devices ? ` · ${u.devices} device${u.devices === 1 ? "" : "s"}` : ""}</span></span>
           <span class="row" style="gap:10px">${u.devices ? `<button class="link" onclick="forgetUserDevices(${u.id})">sign out devices</button>` : ""}
-            ${me && me.id === u.id ? `<span class="small muted">you</span>` : `<button class="link red" onclick="removeUser(${u.id}, '${esc(u.email)}')">remove</button>`}</span></div>`).join("")
-        : `<p class="small muted">Nobody yet. Add your own Google email first.</p>`}</div>
-      <button class="btn ghost sm" style="margin-top:8px" onclick="addUserModal()">+ Add person</button>
-      <div class="rule-row" style="margin-top:14px;border-top:1px solid var(--border)">
-        <label class="switch"><input type="checkbox" ${sharedOn ? "checked" : ""} onchange="saveSetting('allow_shared_pin', this.checked ? '1' : '0')"><span></span></label>
-        <span class="rl-txt">Allow the old shared PIN too <span class="small muted">— turn this off once everyone can sign in with Google</span></span></div>`;
+            ${u.is_owner || (me.id && me.id === u.id) ? `<span class="small muted">${u.is_owner ? "can't be removed" : "you"}</span>` : `<button class="link red" onclick="removeUser(${u.id}, '${esc(u.email)}')">remove</button>`}</span></div>`).join("")
+        || `<p class="small muted">${me.owner_set ? "The owner is added automatically on first Google sign-in." : "Nobody yet."}</p>`}</div>
+      <button class="btn ghost sm" style="margin-top:8px" onclick="addUserModal()">+ Add person</button>`;
   } catch (e) { const b = $("#signinBody"); if (b) b.innerHTML = `<span class="small muted">${esc(e.message)}</span>`; }
 }
 function addUserModal() {
@@ -3692,7 +3704,7 @@ const VIEWS = {
   notifs: viewNotifs, pos: viewPOS, orders: viewSchedule, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
   dashboard: viewDashboard, customers: viewCustomers, resellers: viewResellers, reconciliation: viewReconciliation,
   receivables: viewReceivables, liabilities: viewLiabilities, inventory: viewInventory,
-  products: viewProducts, recipes: viewRecipes, materials: viewMaterials, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings,
+  products: viewProducts, recipes: viewRecipes, materials: viewMaterials, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings, system: viewSystem,
 };
 window.addEventListener("hashchange", () => {
   const h = location.hash.slice(1);

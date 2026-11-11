@@ -176,12 +176,31 @@ def setting(cur, key: str, default: str = "") -> str:
     return r["value"] if r and r["value"] is not None else default
 
 
+# The owner's Gmail and the Google Client ID live in Render's Environment settings for the
+# backend (OWNER_EMAIL, GOOGLE_CLIENT_ID). Once both are set, sign-in is Google only:
+# the owner gets in automatically and sees the System tab; others need to be added by the owner.
+OWNER_EMAIL = os.environ.get("OWNER_EMAIL", "").strip().lower()
+
+
+def google_client_id(cur) -> str:
+    return os.environ.get("GOOGLE_CLIENT_ID", "").strip() or setting(cur, "google_client_id")
+
+
+def google_only(cur) -> bool:
+    return bool(OWNER_EMAIL and google_client_id(cur))
+
+
 def session_valid(token: str) -> bool:
     if not token:
         return False
-    with db() as conn:
-        return bool(conn.execute("SELECT 1 FROM sessions WHERE token_hash = %s AND expires_at > now();",
-                                 (token_hash(token),)).fetchone())
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT user_id FROM sessions WHERE token_hash = %s AND expires_at > now();", (token_hash(token),))
+        r = cur.fetchone()
+        if not r:
+            return False
+        if r["user_id"] is None and google_only(cur):      # old shared-PIN logins end once Google sign-in is on
+            return False
+        return True
 
 
 @app.get("/auth/status")
@@ -191,8 +210,9 @@ def auth_status():
         pin_set = bool(cur.fetchone())
         cur.execute("SELECT COUNT(*) AS n FROM app_users WHERE active;")
         users = cur.fetchone()["n"]
-        return {"pin_set": pin_set, "google_client_id": setting(cur, "google_client_id"),
-                "shared_pin": setting(cur, "allow_shared_pin", "1") != "0" or not users, "users": users}
+        g_only = google_only(cur)
+        return {"pin_set": pin_set, "google_client_id": google_client_id(cur), "google_only": g_only,
+                "shared_pin": not g_only and (setting(cur, "allow_shared_pin", "1") != "0" or not users), "users": users}
 
 
 @app.post("/auth/setup")
@@ -211,6 +231,8 @@ def auth_login(p: PinPayload):
     if _locked_out():
         raise HTTPException(429, "Too many wrong PINs. Try again in 15 minutes.")
     with db() as conn, conn.cursor() as cur:
+        if google_only(cur):
+            raise HTTPException(403, "Sign in with Google.")
         cur.execute("SELECT COUNT(*) AS n FROM app_users WHERE active;")
         users = cur.fetchone()["n"]
         if setting(cur, "allow_shared_pin", "1") == "0" and users:
@@ -236,8 +258,13 @@ def verify_google(credential: str, client_id: str) -> dict:
     return info
 
 
+def is_owner(u) -> bool:
+    return bool(u and OWNER_EMAIL and u["email"] == OWNER_EMAIL)
+
+
 def user_out(u) -> dict:
-    return {"id": u["id"], "email": u["email"], "name": u["name"], "picture": u["picture"], "has_pin": bool(u["pin_hash"])}
+    return {"id": u["id"], "email": u["email"], "name": u["name"], "picture": u["picture"], "has_pin": bool(u["pin_hash"]),
+            "is_owner": is_owner(u)}
 
 
 @app.post("/auth/google/redirect/{site}")
@@ -250,15 +277,18 @@ async def google_redirect(site: str, request: Request):
     credential = (form.get("credential") or [""])[0]
     try:
         with db() as conn, conn.cursor() as cur:
-            client_id = setting(cur, "google_client_id")
+            client_id = google_client_id(cur)
             if not client_id:
                 raise ValueError("Google sign-in isn't set up yet.")
             info = verify_google(credential, client_id)
             email = info["email"].strip().lower()
+            if email == OWNER_EMAIL:          # the owner can always get in
+                cur.execute("""INSERT INTO app_users (email) VALUES (%s)
+                               ON CONFLICT (email) DO UPDATE SET active = true;""", (email,))
             cur.execute("SELECT * FROM app_users WHERE email = %s AND active;", (email,))
             u = cur.fetchone()
             if not u:
-                return RedirectResponse(f"{back}#glogin_error={quote(email + ' is not allowed to sign in. Ask the owner to add you in Settings.')}", 303)
+                return RedirectResponse(f"{back}#glogin_error={quote(email + ' is not allowed to sign in. Ask the owner to add you.')}", 303)
             cur.execute("""UPDATE app_users SET name = CASE WHEN name = '' THEN %s ELSE name END, picture = %s, last_login_at = now()
                            WHERE id = %s;""", (info.get("name", ""), info.get("picture", ""), u["id"]))
             code = secrets.token_urlsafe(24)
@@ -339,7 +369,13 @@ def session_user(cur, token: str):
 def me(token: str = Depends(require_login)):
     with db() as conn, conn.cursor() as cur:
         u = session_user(cur, token)
-        return user_out(u) if u else None
+        g_only = google_only(cur)
+        out = user_out(u) if u else {"id": None, "email": "", "name": "Shared PIN", "picture": "", "has_pin": False, "is_owner": False}
+        out["google_only"] = g_only
+        out["can_system"] = out["is_owner"] or not g_only     # before Google is on, the PIN login sets things up
+        out["owner_set"] = bool(OWNER_EMAIL)
+        out["client_id_from_env"] = bool(os.environ.get("GOOGLE_CLIENT_ID", "").strip())
+        return out
 
 
 class SetPinIn(BaseModel):
@@ -364,16 +400,30 @@ class UserIn(BaseModel):
     name: str = ""
 
 
-@api.get("/users")
+def require_owner(token: str = Depends(require_login)):
+    """System tab actions: only the owner once Google sign-in is on (the shared PIN can still set things up before that)."""
+    with db() as conn, conn.cursor() as cur:
+        if not google_only(cur):
+            return token
+        u = session_user(cur, token)
+        if not is_owner(u):
+            raise HTTPException(403, "Only the owner can do this.")
+    return token
+
+
+@api.get("/users", dependencies=[Depends(require_owner)])
 def list_users():
     with db() as conn, conn.cursor() as cur:
         cur.execute("""SELECT u.id, u.email, u.name, u.picture, u.active, u.created_at, u.last_login_at, (u.pin_hash IS NOT NULL) AS has_pin,
                               (SELECT COUNT(*) FROM device_logins d WHERE d.user_id = u.id) AS devices
-                       FROM app_users u ORDER BY u.created_at;""")
-        return rows(cur)
+                       FROM app_users u ORDER BY (u.email = %s) DESC, u.created_at;""", (OWNER_EMAIL,))
+        out = rows(cur)
+        for u in out:
+            u["is_owner"] = bool(OWNER_EMAIL and u["email"] == OWNER_EMAIL)
+        return out
 
 
-@api.post("/users")
+@api.post("/users", dependencies=[Depends(require_owner)])
 def add_user(p: UserIn):
     email = p.email.strip().lower()
     if "@" not in email or "." not in email.split("@")[-1]:
@@ -385,18 +435,22 @@ def add_user(p: UserIn):
         return {"id": cur.fetchone()["id"]}
 
 
-@api.delete("/users/{user_id}")
+@api.delete("/users/{user_id}", dependencies=[Depends(require_owner)])
 def remove_user(user_id: int, token: str = Depends(require_login)):
     """Removing someone also signs them out everywhere and forgets their devices."""
     with db() as conn, conn.cursor() as cur:
         me_u = session_user(cur, token)
         if me_u and me_u["id"] == user_id:
             raise HTTPException(400, "You can't remove yourself while signed in.")
+        cur.execute("SELECT email FROM app_users WHERE id = %s;", (user_id,))
+        t = cur.fetchone()
+        if t and t["email"] == OWNER_EMAIL:
+            raise HTTPException(400, "The owner can't be removed.")
         cur.execute("DELETE FROM app_users WHERE id = %s;", (user_id,))
     return {"ok": True}
 
 
-@api.post("/users/{user_id}/forget-devices")
+@api.post("/users/{user_id}/forget-devices", dependencies=[Depends(require_owner)])
 def forget_devices(user_id: int):
     with db() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM device_logins WHERE user_id = %s;", (user_id,))
@@ -2250,8 +2304,10 @@ def get_settings():
 
 
 @api.patch("/settings")
-def patch_settings(changes: dict = Body(...)):
+def patch_settings(changes: dict = Body(...), token: str = Depends(require_login)):
     with db() as conn, conn.cursor() as cur:
+        if ({"google_client_id", "allow_shared_pin"} & set(changes)) and google_only(cur) and not is_owner(session_user(cur, token)):
+            raise HTTPException(403, "Only the owner can change sign-in settings.")
         for k, v in changes.items():
             if k in SETTING_KEYS:
                 cur.execute("""INSERT INTO settings (key, value) VALUES (%s, %s)
@@ -2260,10 +2316,10 @@ def patch_settings(changes: dict = Body(...)):
 
 
 @api.get("/boot")
-def boot(day: Optional[date] = None):
+def boot(day: Optional[date] = None, token: str = Depends(require_login)):
     """Everything the app needs to open, in one trip."""
     d = day or today_manila()
-    return {"settings": get_settings(), "items": list_items(include_inactive=True), "customers": list_customers(),
+    return {"settings": get_settings(), "items": list_items(include_inactive=True), "customers": list_customers(), "me": me(token),
             "prices": all_custom_prices(), "schedule": order_schedule(d, d, include_open=True)}
 
 
