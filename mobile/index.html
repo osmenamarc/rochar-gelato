@@ -1972,6 +1972,7 @@ function drawOrderCard(id) {
         <div><span>Delivery fee</span><span class="oc-df">${money(o.delivery_fee)}</span></div>
         <div class="grand"><span>Total</span><span class="oc-grand">${money(o.total)}</span></div>
       </div>
+      ${copyButtons(id)}
       <div class="field"><span>Customer</span>
         <div class="typeahead">
           <input data-f="customer_name" data-search="${id}" autocomplete="off" placeholder="Type 2–3 letters to search clients…" value="${esc(o.customer_name)}">
@@ -2001,7 +2002,6 @@ function drawOrderCard(id) {
         <label class="field"><span>Delivery fee (₱)</span><input data-f="delivery_fee" type="number" inputmode="decimal" min="0" step="any" value="${Number(o.delivery_fee) || ""}" placeholder="0"></label>
         <label class="field"><span>Rider name</span><input data-f="rider_name" value="${esc(o.rider_name)}"></label>
       </div>
-      ${copyButtons(id)}
       <div class="row spread" style="margin-top:10px">
         <span></span>
         <button type="button" class="link red" onclick="cancelOrder(${id})">🗑 Delete order</button>
@@ -2138,7 +2138,8 @@ function copyButtons(id) {
       <span class="cb-txt"><small>Copy</small>${esc(copyLabel(k, def))}</span></button>`).join("")}</div>`;
 }
 async function copyOrder(id, which, el) {
-  const o = S.orders.find(x => x.id === id); if (!o) return;
+  const o = S.orders.find(x => x.id === id) || Object.values(S.schedCache || {}).flat().find(x => x.id === id)
+    || (S.history || []).find(x => x.id === id); if (!o) return;
   if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), copyLabel("customer", "Total Info")); }
   if (which === "location") await copyText(fillVars(S.settings.msg_rider_location, o), copyLabel("location", "Loc Guide"));
   if (which === "df") await copyText(fillVars(S.settings.msg_rider_df, o), copyLabel("df", "Rider GCash"));
@@ -2170,6 +2171,7 @@ function schedCard(o) {
       <div class="sc-tags"><span class="badge ${live ? "b-amber" : "b-green"}">${live ? "Live" : "Done"}</span>
         ${o.payment_status === "credit" ? `<span class="badge b-amber">Credit</span>` : `<span class="badge b-gray">${esc(o.payment_method)}</span>`}
         ${o.customer_tier === "Reseller" ? `<span class="badge b-blue">Reseller</span>` : ""}<span class="small muted">#${o.id}</span></div>
+      <div onclick="event.stopPropagation()">${copyButtons(o.id)}</div>
     </div></div>`;
 }
 // ---- Schedule data: one day at a time, kept in memory (and on the phone) so switching days is instant
