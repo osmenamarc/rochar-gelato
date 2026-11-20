@@ -457,3 +457,47 @@ END $$;
 
 -- v10: ingredient brand
 ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS brand TEXT NOT NULL DEFAULT '';
+
+-- v11: one-time load of the 500 g base batch recipes Marc sent (Nov 2026). Runs once; editing/deleting them later is safe.
+DO $$
+DECLARE d JSONB := '{"ing": [{"k": "water", "brand": "", "name": "Water", "aliases": ["water"], "pats": []}, {"k": "bear", "brand": "Bearbrand", "name": "Milk Powder", "aliases": ["bearbrand milk powder", "bear brand milk powder", "bearbrand"], "pats": ["%bear%brand%"]}, {"k": "arla", "brand": "Arla", "name": "Whipping Cream", "aliases": ["arla whipping cream", "whipping cream"], "pats": ["%whipping%"]}, {"k": "sucrose", "brand": "", "name": "Sucrose", "aliases": ["sucrose", "sugar", "white sugar"], "pats": ["%sucrose%", "white sugar", "sugar", "refined sugar%"]}, {"k": "dex", "brand": "", "name": "Dextrose", "aliases": ["dextrose"], "pats": ["%dextrose%"]}, {"k": "smp", "brand": "", "name": "Skim Milk Powder", "aliases": ["skim milk powder", "smp"], "pats": ["%skim%"]}, {"k": "inulin", "brand": "", "name": "Inulin", "aliases": ["inulin"], "pats": ["%inulin%"]}, {"k": "salt", "brand": "", "name": "Salt", "aliases": ["salt"], "pats": ["%salt%"]}, {"k": "base6", "brand": "Mec3", "name": "Base6", "aliases": ["mec3 base6", "mec3 base 6", "base6", "base 6"], "pats": ["%base%6%", "%mec3%", "%mec 3%"]}, {"k": "vbean", "brand": "", "name": "Vanilla Bean", "aliases": ["vanilla bean", "vanilla beans", "vanilla pod"], "pats": ["%vanilla bean%", "%vanilla pod%"]}, {"k": "neco", "brand": "Neco", "name": "Vanilla Imitation Flavor", "aliases": ["neco vanilla imitation flavor", "neco vanilla", "vanilla imitation flavor"], "pats": ["%neco%", "%imitation%"]}, {"k": "bbutter", "brand": "", "name": "Brown Butter", "aliases": ["brown butter"], "pats": ["%butter%"]}, {"k": "horlicks", "brand": "Horlicks", "name": "Malt Powder", "aliases": ["horlicks powder", "horlicks"], "pats": ["%horlick%"]}, {"k": "polv", "brand": "Goldilocks", "name": "Polvoron", "aliases": ["goldilocks polvoron", "polvoron"], "pats": ["%polvoron%"]}, {"k": "cc", "brand": "Philadelphia", "name": "Cream Cheese", "aliases": ["philadelphia cream cheese", "cream cheese"], "pats": ["%cream cheese%", "%philadelphia%"]}, {"k": "dchoc", "brand": "Beryl''s", "name": "Dark Chocolate", "aliases": ["beryl''s dark chocolate", "beryls dark chocolate", "dark chocolate"], "pats": ["%beryl%", "%dark choc%"]}, {"k": "cocoa", "brand": "Hershey''s", "name": "Unsweetened Cocoa Powder", "aliases": ["hershey''s 100% natural unsweetened cocoa powder", "hershey''s cocoa powder", "cocoa powder"], "pats": ["%cocoa%"]}, {"k": "vext", "brand": "", "name": "Vanilla Extract", "aliases": ["vanilla extract"], "pats": ["%vanilla extract%"]}, {"k": "matcha", "brand": "", "name": "Matcha", "aliases": ["matcha", "matcha powder"], "pats": ["%matcha%"]}], "rec": [{"name": "Vanilla Gelato", "lines": [{"k": "water", "g": 215.96}, {"k": "bear", "g": 35.67}, {"k": "arla", "g": 146.01}, {"k": "sucrose", "g": 58.11}, {"k": "dex", "g": 17.75}, {"k": "smp", "g": 15.37}, {"k": "inulin", "g": 6.01}, {"k": "salt", "g": 0.83}, {"k": "base6", "g": 2.5}, {"k": "vbean", "g": 1.67}, {"k": "neco", "g": 0.12}]}, {"name": "Malted Polvoron", "lines": [{"k": "water", "g": 219.015}, {"k": "bear", "g": 28.141}, {"k": "arla", "g": 120.784}, {"k": "sucrose", "g": 49.839}, {"k": "dex", "g": 9.736}, {"k": "inulin", "g": 5.541}, {"k": "salt", "g": 1.521}, {"k": "bbutter", "g": 5.005}, {"k": "neco", "g": 0.3}, {"k": "base6", "g": 2.505}, {"k": "horlicks", "g": 3.506}, {"k": "polv", "g": 54.106}]}, {"name": "Matcha Gelato", "lines": [{"k": "water", "g": 212.13}, {"k": "bear", "g": 35.04}, {"k": "arla", "g": 143.42}, {"k": "sucrose", "g": 57.08}, {"k": "dex", "g": 18.37}, {"k": "smp", "g": 17.38}, {"k": "inulin", "g": 5.89}, {"k": "salt", "g": 0.5}, {"k": "base6", "g": 2.5}, {"k": "neco", "g": 0.2}, {"k": "matcha", "g": 7.5}]}, {"name": "Cheesecake Gelato", "lines": [{"k": "water", "g": 221.999}, {"k": "bear", "g": 36.508}, {"k": "cc", "g": 152.854}, {"k": "sucrose", "g": 64.096}, {"k": "dex", "g": 13.52}, {"k": "inulin", "g": 7.511}, {"k": "salt", "g": 0.755}, {"k": "vext", "g": 0.251}, {"k": "base6", "g": 2.505}]}, {"name": "Chocolate Gelato", "lines": [{"k": "water", "g": 225.454}, {"k": "arla", "g": 107.116}, {"k": "bear", "g": 37.181}, {"k": "dchoc", "g": 32.895}, {"k": "cocoa", "g": 21.791}, {"k": "sucrose", "g": 38.85}, {"k": "dex", "g": 32.947}, {"k": "salt", "g": 0.756}, {"k": "base6", "g": 2.505}, {"k": "neco", "g": 0.504}]}]}'::jsonb; i JSONB; r JSONB; l JSONB; ing_id INT; mat INT; rid INT; pos INT; ids JSONB := '{}'::jsonb; p TEXT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM app_secrets WHERE key = 'seed_recipes_2026_11') THEN RETURN; END IF;
+  FOR i IN SELECT * FROM jsonb_array_elements(d->'ing') LOOP
+    SELECT id INTO ing_id FROM recipe_ingredients
+      WHERE lower(name) IN (SELECT jsonb_array_elements_text(i->'aliases'))
+         OR lower(trim(brand || ' ' || name)) IN (SELECT jsonb_array_elements_text(i->'aliases'))
+      ORDER BY id LIMIT 1;
+    IF ing_id IS NULL THEN
+      INSERT INTO recipe_ingredients (name, brand) VALUES (i->>'name', i->>'brand') ON CONFLICT DO NOTHING RETURNING id INTO ing_id;
+      IF ing_id IS NULL THEN SELECT id INTO ing_id FROM recipe_ingredients WHERE lower(name) = lower(i->>'name'); END IF;
+    ELSE
+      UPDATE recipe_ingredients SET brand = i->>'brand' WHERE id = ing_id AND brand = '';
+    END IF;
+    -- link to a Material for cost, only when exactly one material clearly matches
+    IF (SELECT material_id FROM recipe_ingredients WHERE id = ing_id) IS NULL THEN
+      FOR p IN SELECT jsonb_array_elements_text(i->'pats') LOOP
+        IF (SELECT count(*) FROM items WHERE category = 'Raw Material' AND active AND lower(name) LIKE p) = 1 THEN
+          SELECT id INTO mat FROM items WHERE category = 'Raw Material' AND active AND lower(name) LIKE p;
+          UPDATE recipe_ingredients SET material_id = mat WHERE id = ing_id; EXIT;
+        END IF;
+      END LOOP;
+    END IF;
+    ids := ids || jsonb_build_object(i->>'k', ing_id);
+  END LOOP;
+  FOR r IN SELECT * FROM jsonb_array_elements(d->'rec') LOOP
+    SELECT id INTO rid FROM batch_recipes WHERE lower(name) = lower(r->>'name') ORDER BY id LIMIT 1;
+    IF rid IS NULL THEN
+      INSERT INTO batch_recipes (name, notes) VALUES (r->>'name', 'Base batch 500 g') RETURNING id INTO rid;
+    ELSE   -- same name already there: replace its lines with the ones Marc sent
+      DELETE FROM batch_recipe_lines WHERE recipe_id = rid;
+      UPDATE batch_recipes SET notes = CASE WHEN notes = '' THEN 'Base batch 500 g' ELSE notes END, updated_at = now() WHERE id = rid;
+    END IF;
+    pos := 0;
+    FOR l IN SELECT * FROM jsonb_array_elements(r->'lines') LOOP
+      INSERT INTO batch_recipe_lines (recipe_id, ingredient_id, grams, position) VALUES (rid, (ids->>(l->>'k'))::int, (l->>'g')::numeric, pos);
+      pos := pos + 1;
+    END LOOP;
+  END LOOP;
+  INSERT INTO app_secrets (key, value) VALUES ('seed_recipes_2026_11', now()::text);
+END $$;

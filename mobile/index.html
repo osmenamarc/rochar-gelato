@@ -266,6 +266,10 @@
   @media (max-width: 900px) { .copy-set { grid-template-columns: 1fr; } }
   .cs-col { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--hover); }
   .cs-head { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+  .mult-bar { gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .mult-bar input { width: 80px; text-align: right; }
+  .mult-bar .chip { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .mult-bar .chip.on { background: var(--ink, #222); color: #fff; border-color: transparent; }
   .cs-preview { margin: 0; white-space: pre-wrap; font: 13px/1.45 Inter, sans-serif; background: #fff; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
   .cs-buttons { max-width: 420px; }
   .var-box { border: 1px dashed #e2d2bf; border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; background: #fff; }
@@ -828,7 +832,7 @@ function closeModal() {
   const d = $("#modal");
   if (!d.open || d.classList.contains("closing")) return;
   d.classList.add("closing");
-  d.addEventListener("animationend", () => { d.classList.remove("closing"); d.close(); }, { once: true });
+  d.addEventListener("animationend", () => { if (d.classList.contains("closing")) { d.classList.remove("closing"); d.close(); } }, { once: true });
 }
 $("#modal").addEventListener("cancel", e => { e.preventDefault(); closeModal(); });   // Esc key
 $("#modal").addEventListener("click", e => { if (e.target === $("#modal")) closeModal(); });   // click outside
@@ -2846,7 +2850,7 @@ async function viewRecipes() {
         || `<tr><td colspan="5" class="empty">No recipes yet. Build your ingredient list first (Ingredients tab), then tap “+ New recipe”.</td></tr>`}</tbody>
     </table></div></div>`;
 }
-function openRecipe(id) { S.recipeId = id; S.recipeEdit = false; go("recipes"); }
+function openRecipe(id) { S.recipeId = id; S.recipeEdit = false; S.recipeMult = 1; go("recipes"); }
 function newRecipe() { S.recipeId = "new"; S.recipeEdit = true; go("recipes"); }
 async function viewRecipeDetail() {
   const [ings, r] = await Promise.all([api("/recipe-ingredients"),
@@ -2863,14 +2867,28 @@ async function viewRecipeDetail() {
       <div class="row" style="gap:8px"><button class="btn ghost" onclick="dupRecipe(${r.id})">Duplicate</button>
         <button class="btn" onclick="S.recipeEdit=true; go('recipes', { keepScroll: true })">✎ Edit</button></div></div>
     ${r.notes ? `<p class="muted" style="margin-top:-6px">📝 ${esc(r.notes)}</p>` : ""}
-    <div class="card"><div class="table-wrap"><table class="recipe-table">
+    <div class="card"><div class="row mult-bar">
+      <span class="small muted">Multiply by</span>
+      <input id="recipeMult" type="number" step="any" min="0" inputmode="decimal" value="${S.recipeMult || 1}" oninput="applyMult(this.value)">
+      ${[1, 2, 4, 8].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}
+    </div>
+    <div class="table-wrap"><table class="recipe-table">
       <thead><tr><th class="num" style="width:36px">#</th><th>Ingredient</th><th class="num">Weight (g)</th><th class="num">W%</th><th class="num">Cost</th></tr></thead>
-      <tbody>${r.lines.map((l, i) => `<tr><td class="num muted">${i + 1}</td><td>${l.brand ? `<span class="muted">${esc(l.brand)}</span> ` : ""}${esc(l.name)}</td><td class="num">${grams(l.grams)}</td><td class="num">${pct(l.pct)}</td>
-          <td class="num">${l.cost !== null ? money(l.cost) : `<span class="small muted" title="${l.material_id ? "the linked material has no price or no gram unit yet" : "not linked to a material"}">—</span>`}</td></tr>`).join("")
+      <tbody>${r.lines.map((l, i) => `<tr><td class="num muted">${i + 1}</td><td>${l.brand ? `<span class="muted">${esc(l.brand)}</span> ` : ""}${esc(l.name)}</td><td class="num" data-g="${l.grams}">${grams(l.grams)}</td><td class="num">${pct(l.pct)}</td>
+          <td class="num" ${l.cost !== null ? `data-c="${l.cost}"` : ""}>${l.cost !== null ? money(l.cost) : `<span class="small muted" title="${l.material_id ? "the linked material has no price or no gram unit yet" : "not linked to a material"}">—</span>`}</td></tr>`).join("")
         || `<tr><td colspan="5" class="empty">No ingredients yet — tap Edit.</td></tr>`}</tbody>
-      <tfoot><tr class="tot"><td></td><td><b>Total</b></td><td class="num"><b>${grams(r.total_grams)} g</b></td><td class="num"><b>100%</b></td><td class="num"><b>${money(r.batch_cost)}</b></td></tr></tfoot>
+      <tfoot><tr class="tot"><td></td><td><b>Total</b></td><td class="num"><b data-g="${r.total_grams}" data-unit=" g">${grams(r.total_grams)} g</b></td><td class="num"><b>100%</b></td><td class="num"><b data-c="${r.batch_cost}">${money(r.batch_cost)}</b></td></tr></tfoot>
     </table></div>
     <p class="small muted" style="margin-bottom:0">${r.cost_per_kg !== null ? `Cost per kg: <b>${money(r.cost_per_kg)}</b>. ` : ""}${r.missing_costs ? `${r.missing_costs} ingredient${r.missing_costs === 1 ? " has" : "s have"} no cost — link ${r.missing_costs === 1 ? "it" : "them"} to a Material in the Ingredients tab if you buy ${r.missing_costs === 1 ? "it" : "them"}.` : "Costs follow your latest purchase prices."}</p></div>`;
+  applyMult(S.recipeMult || 1);
+}
+// Show the batch scaled up/down (view only — the saved recipe stays at its base size).
+function applyMult(v, setInput = false) {
+  const m = Number(v); S.recipeMult = m > 0 ? m : 1;
+  if (setInput) $("#recipeMult").value = S.recipeMult;
+  $$(".recipe-table [data-g]").forEach(el => el.textContent = grams(Number(el.dataset.g) * S.recipeMult) + (el.dataset.unit || ""));
+  $$(".recipe-table [data-c]").forEach(el => el.textContent = money(Number(el.dataset.c) * S.recipeMult));
+  $$(".mult-bar .chip").forEach(b => b.classList.toggle("on", b.textContent === "×" + S.recipeMult));
 }
 function drawRecipeEditor() {
   const r = S.recipe;
@@ -3498,7 +3516,8 @@ async function loadSignin() {
       <h4 style="margin:16px 0 6px">People who can sign in</h4>
       <div class="user-list">${users.map(u => `<div class="dev-row"><span>${u.picture ? `<img class="u-av" src="${esc(u.picture)}" referrerpolicy="no-referrer" alt="">` : "👤"}
           <b>${esc(u.name || u.email)}</b>${u.is_owner ? ` <span class="badge b-blue">owner</span>` : ""} <span class="muted">${esc(u.email)}${u.last_login_at ? ` · last in ${fmtDate(manilaParts(new Date(u.last_login_at)).date)}` : " · hasn't signed in yet"}${u.devices ? ` · ${u.devices} device${u.devices === 1 ? "" : "s"}` : ""}</span></span>
-          <span class="row" style="gap:10px">${u.devices ? `<button class="link" onclick="forgetUserDevices(${u.id})">sign out devices</button>` : ""}
+          <span class="row" style="gap:10px">${!u.is_owner && !u.last_login_at ? `<button class="link" onclick="reInvite(${u.id}, '${esc(u.email)}')">send invite</button><button class="link" onclick="copyInvite('${esc(u.email)}')">copy invite</button>` : ""}
+            ${u.devices ? `<button class="link" onclick="forgetUserDevices(${u.id})">sign out devices</button>` : ""}
             ${u.is_owner || (me.id && me.id === u.id) ? `<span class="small muted">${u.is_owner ? "can't be removed" : "you"}</span>` : `<button class="link red" onclick="removeUser(${u.id}, '${esc(u.email)}')">remove</button>`}</span></div>`).join("")
         || `<p class="small muted">${me.owner_set ? "The owner is added automatically on first Google sign-in." : "Nobody yet."}</p>`}</div>
       <button class="btn ghost sm" style="margin-top:8px" onclick="addUserModal()">+ Add person</button>`;
@@ -3508,15 +3527,32 @@ function addUserModal() {
   openModal("Add a person", `<form id="userForm" onsubmit="addUser(event)">
       <label class="field"><span>Google email</span><input name="email" type="email" required placeholder="name@gmail.com"></label>
       <label class="field"><span>Name · optional</span><input name="name"></label>
-      <p class="hint">They can then sign in with “Continue with Google” on the admin site and the phone app.</p>
+      <p class="hint">An invite email with the links is sent to them. Only people on this list can get in.</p>
       <div class="row edit-actions"><span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Add</button></div>
     </form>`);
   setTimeout(() => $("#userForm [name=email]")?.focus(), 250);
 }
 async function addUser(e) {
   e.preventDefault(); const f = e.target;
-  try { await api("/users", { method: "POST", body: { email: f.email.value, name: f.name.value } }); closeModal(); toast("Added — they can now sign in with Google"); loadSignin(); }
+  try {
+    const r = await api("/users", { method: "POST", body: { email: f.email.value, name: f.name.value } });
+    closeModal(); loadSignin();
+    if (r.invite === "sent") toast("Added — invite email sent");
+    else { toast(r.invite === "failed" ? "Added — but the invite email couldn't be sent" : "Added — email invites aren't set up yet", true); copyInvite(f.email.value.trim().toLowerCase()); }
+  }
   catch (err) { toast(err.message, true); }
+}
+async function reInvite(id, email) {
+  try { const r = await api(`/users/${id}/invite`, { method: "POST" });
+    if (r.invite === "sent") toast(`Invite sent to ${email}`); else { toast("Email invites aren't working yet — copy the invite instead", true); copyInvite(email); } }
+  catch (e) { toast(e.message, true); }
+}
+async function copyInvite(email) {
+  try { const r = await api(`/users/invite-text?email=${encodeURIComponent(email)}`);
+    openModal("Invite message", `<p class="small muted" style="margin-top:0">Send this to ${esc(email)} by Messenger or text:</p>
+      <pre class="cs-preview">${esc(r.text)}</pre>
+      <div class="row edit-actions"><span style="flex:1"></span><button class="btn" onclick="copyText(${esc(JSON.stringify(r.text))}, 'Invite'); closeModal()">Copy message</button></div>`); }
+  catch (e) { toast(e.message, true); }
 }
 async function removeUser(id, email) {
   if (!confirm(`Remove ${email}? They're signed out everywhere and can't sign in again unless you re-add them.`)) return;

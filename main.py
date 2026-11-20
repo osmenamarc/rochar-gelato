@@ -423,8 +423,63 @@ def list_users():
         return out
 
 
+# ---- invite emails (sent from the owner's Gmail through Gmail's SMTP with an app password)
+SMTP_USER = os.environ.get("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").replace(" ", "").strip()
+APP_LINK = FRONT_URLS["app"]
+ADMIN_LINK = FRONT_URLS["admin"]
+
+
+def invite_text(email: str, inviter: str) -> str:
+    return (f"Hi! {inviter or 'Rochar Gelato'} added you to the Rochar Gelato system.\n\n"
+            f"Phone app: {APP_LINK}\nAdmin (computer): {ADMIN_LINK}\n\n"
+            f"Open either link and tap “Continue with Google”, then choose {email}. "
+            "After the first time, just tap your name to get in.\n\n"
+            "Tip for iPhone: in Safari tap Share → Add to Home Screen to use it like an app.")
+
+
+def send_invite(email: str, inviter: str) -> str:
+    """Returns 'sent', 'not_configured' or 'failed'."""
+    if not (SMTP_USER and SMTP_PASSWORD):
+        return "not_configured"
+    import smtplib
+    from email.message import EmailMessage
+    msg = EmailMessage()
+    msg["Subject"] = "You're invited to Rochar Gelato"
+    msg["From"] = f"Rochar Gelato <{SMTP_USER}>"
+    msg["To"] = email
+    msg.set_content(invite_text(email, inviter))
+    try:
+        with smtplib.SMTP(os.environ.get("SMTP_HOST", "smtp.gmail.com"), int(os.environ.get("SMTP_PORT", "587")), timeout=15) as smtp:
+            smtp.starttls()
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+            smtp.send_message(msg)
+        return "sent"
+    except Exception as e:
+        print(f"invite email failed: {e}", flush=True)
+        return "failed"
+
+
+@api.get("/users/invite-text", dependencies=[Depends(require_owner)])
+def get_invite_text(email: str, token: str = Depends(require_login)):
+    with db() as conn, conn.cursor() as cur:
+        u = session_user(cur, token)
+    return {"text": invite_text(email.strip().lower(), u["name"] if u else ""), "email_ready": bool(SMTP_USER and SMTP_PASSWORD)}
+
+
+@api.post("/users/{user_id}/invite", dependencies=[Depends(require_owner)])
+def resend_invite(user_id: int, token: str = Depends(require_login)):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT email FROM app_users WHERE id = %s;", (user_id,))
+        t = cur.fetchone()
+        if not t:
+            raise HTTPException(404, "Not found.")
+        u = session_user(cur, token)
+    return {"invite": send_invite(t["email"], u["name"] if u else "")}
+
+
 @api.post("/users", dependencies=[Depends(require_owner)])
-def add_user(p: UserIn):
+def add_user(p: UserIn, token: str = Depends(require_login)):
     email = p.email.strip().lower()
     if "@" not in email or "." not in email.split("@")[-1]:
         raise HTTPException(400, "Enter a valid email address.")
@@ -432,7 +487,9 @@ def add_user(p: UserIn):
         cur.execute("""INSERT INTO app_users (email, name) VALUES (%s, %s)
                        ON CONFLICT (email) DO UPDATE SET active = true, name = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE app_users.name END
                        RETURNING id;""", (email, p.name.strip()))
-        return {"id": cur.fetchone()["id"]}
+        uid = cur.fetchone()["id"]
+        me_u = session_user(cur, token)
+    return {"id": uid, "invite": send_invite(email, me_u["name"] if me_u else ""), "email_ready": bool(SMTP_USER and SMTP_PASSWORD)}
 
 
 @api.delete("/users/{user_id}", dependencies=[Depends(require_owner)])
