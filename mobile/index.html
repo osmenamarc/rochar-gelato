@@ -287,7 +287,10 @@
   .m-total { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 13px 14px; border-radius: 12px; background: #f8ecdc; font-size: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
   .m-recipe-top select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
   .m-recipe-top .mult-bar { margin-bottom: 0; }
-  .m-recipe { width: 100%; font-size: 16px; }
+  .m-recipe { width: 100%; font-size: 16px; table-layout: fixed; }
+  .m-recipe th.m-w { width: 116px; }
+  .ing-scroll { white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-right: 8px; }
+  .ing-scroll::-webkit-scrollbar { display: none; }
   .m-recipe td, .m-recipe th { padding: 11px 4px; }
   .m-recipe tbody tr:last-child td { border-bottom: none; }
   .recipe-table td.num, .recipe-table th.num { white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; text-align: right; }
@@ -2931,8 +2934,8 @@ async function pickMRecipe(v) { S.mRecipe = Number(v); try { localStorage.setIte
 async function drawMRecipe(id) {
   const r = await api(`/batch-recipes/${id}`), box = $("#mRecipeBody"); if (!box) return;
   // (weights are filled in by applyMult so they follow the multiplier)
-  box.innerHTML = `<table class="recipe-table m-recipe"><thead><tr><th>Ingredient</th><th class="num">Weight</th></tr></thead>
-    <tbody>${r.lines.map(l => `<tr><td>${esc((l.brand ? l.brand + " " : "") + l.name)}</td><td class="num" data-g="${l.grams}" data-unit=" g"></td></tr>`).join("")
+  box.innerHTML = `<table class="recipe-table m-recipe"><thead><tr><th>Ingredient</th><th class="num m-w">Weight</th></tr></thead>
+    <tbody>${r.lines.map(l => `<tr><td><div class="ing-scroll">${esc((l.brand ? l.brand + " " : "") + l.name)}</div></td><td class="num" data-g="${l.grams}" data-unit=" g"></td></tr>`).join("")
       || `<tr><td colspan="2" class="empty">No ingredients yet.</td></tr>`}</tbody>
     </table><div class="m-total"><span>Total</span><span data-g="${r.total_grams}" data-unit=" g"></span></div>
     ${r.notes ? `<p class="small muted" style="margin:6px 0 4px">📝 ${esc(r.notes)}</p>` : ""}`;
