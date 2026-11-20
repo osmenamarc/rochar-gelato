@@ -199,6 +199,9 @@
   .seg button.on.credit { background: var(--amber); color: #fff; }
   /* copy buttons: big, obvious "Copied ✓" state */
   .copy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
+  .copy-grid.two { grid-template-columns: 1fr 1fr; margin-top: -2px; }
+  .copy-grid.two .copy-btn { flex-direction: row; justify-content: center; gap: 8px; min-height: 52px; padding-top: 10px; padding-bottom: 10px; }
+  .live-card .copy-grid.two { margin-top: 8px; }
   .copy-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 76px; padding: 10px 6px;
     border: 1.5px solid #e2d2bf; background: var(--cream); color: var(--accent); border-radius: 14px; cursor: pointer; text-align: center;
     font-weight: 600; font-size: 13px; line-height: 1.2; position: relative; top: 0;
@@ -2135,12 +2138,18 @@ function copyButtons(id) {
   return `<div class="copy-grid">${COPY_KINDS.map(([k, def]) => `
     <button type="button" class="copy-btn" onclick="copyOrder(${id}, '${k}', this)">
       <span class="cb-ic">${COPY_ICON}</span>
-      <span class="cb-txt"><small>Copy</small>${esc(copyLabel(k, def))}</span></button>`).join("")}</div>`;
+      <span class="cb-txt"><small>Copy</small>${esc(copyLabel(k, def))}</span></button>`).join("")}</div>
+    <div class="copy-grid two">${[["phone", "Number"], ["address", "Address"]].map(([k, label]) => `
+    <button type="button" class="copy-btn" onclick="copyOrder(${id}, '${k}', this)">
+      <span class="cb-ic">${COPY_ICON}</span>
+      <span class="cb-txt"><small>Copy</small>${label}</span></button>`).join("")}</div>`;
 }
 async function copyOrder(id, which, el) {
   const o = S.orders.find(x => x.id === id) || Object.values(S.schedCache || {}).flat().find(x => x.id === id)
     || (S.history || []).find(x => x.id === id); if (!o) return;
   if (which === "customer") { if (!o.items.length) return toast("Add items first", true); await copyText(orderMessage(o), copyLabel("customer", "Total Info")); }
+  if (which === "phone") { if (!o.phone) return toast("No number on this order yet", true); await copyText(o.phone, "Number"); }
+  if (which === "address") { if (!o.address) return toast("No address on this order yet", true); await copyText(o.address, "Address"); }
   if (which === "location") await copyText(fillVars(S.settings.msg_rider_location, o), copyLabel("location", "Loc Guide"));
   if (which === "df") await copyText(fillVars(S.settings.msg_rider_df, o), copyLabel("df", "Rider GCash"));
   if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
