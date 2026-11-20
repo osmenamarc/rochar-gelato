@@ -93,11 +93,31 @@ def day_range(date_from: Optional[date], date_to: Optional[date]):
     return start, end
 
 
+SEED_PHOTOS = Path(__file__).with_name("seed_photos")
+
+
+def load_seed_photos(conn):
+    """One-time: product photos Marc sent (seed_photos/<keyword>.jpg) go on every Mini/Pint/Cake
+    product whose name contains that keyword. Runs once per photo set; later edits in the app win."""
+    key = "seed_photos_2026_11_20"
+    if not SEED_PHOTOS.is_dir() or conn.execute("SELECT 1 FROM app_secrets WHERE key = %s;", (key,)).fetchone():
+        return
+    for f in sorted(SEED_PHOTOS.glob("*.jpg")):
+        rows = conn.execute("SELECT id FROM items WHERE category = ANY(%s) AND lower(name) LIKE %s;",
+                            (list(SELL_CATEGORIES), f"%{f.stem.lower()}%")).fetchall()
+        for (item_id,) in rows:
+            conn.execute("""INSERT INTO item_images (item_id, mime, data) VALUES (%s, 'image/jpeg', %s)
+                            ON CONFLICT (item_id) DO UPDATE SET mime = EXCLUDED.mime, data = EXCLUDED.data, updated_at = now();""",
+                         (item_id, f.read_bytes()))
+    conn.execute("INSERT INTO app_secrets (key, value) VALUES (%s, now()::text);", (key,))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         conn.execute(SCHEMA_FILE.read_text())
         conn.execute("DELETE FROM sessions WHERE expires_at < now();")
+        load_seed_photos(conn)
     POOL.open(wait=True, timeout=30)
     worker = threading.Thread(target=background_loop, daemon=True, name="rochar-jobs")
     worker.start()
