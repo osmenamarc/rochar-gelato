@@ -488,10 +488,10 @@ BEGIN
   FOR r IN SELECT * FROM jsonb_array_elements(d->'rec') LOOP
     SELECT id INTO rid FROM batch_recipes WHERE lower(name) = lower(r->>'name') ORDER BY id LIMIT 1;
     IF rid IS NULL THEN
-      INSERT INTO batch_recipes (name, notes) VALUES (r->>'name', 'Base batch 500 g') RETURNING id INTO rid;
+      INSERT INTO batch_recipes (name, notes) VALUES (r->>'name', '') RETURNING id INTO rid;
     ELSE   -- same name already there: replace its lines with the ones Marc sent
       DELETE FROM batch_recipe_lines WHERE recipe_id = rid;
-      UPDATE batch_recipes SET notes = CASE WHEN notes = '' THEN 'Base batch 500 g' ELSE notes END, updated_at = now() WHERE id = rid;
+      UPDATE batch_recipes SET notes = CASE WHEN notes = '' THEN '' ELSE notes END, updated_at = now() WHERE id = rid;
     END IF;
     pos := 0;
     FOR l IN SELECT * FROM jsonb_array_elements(r->'lines') LOOP
@@ -514,3 +514,6 @@ BEGIN
    WHERE l.recipe_id = t.id AND ri.id = l.ingredient_id AND lower(ri.name) = 'water';
   INSERT INTO app_secrets (key, value) VALUES ('seed_recipes_2026_11_round', now()::text);
 END $$;
+
+-- v13: drop the "Base batch 500 g" note from the loaded recipes
+UPDATE batch_recipes SET notes = '' WHERE notes = 'Base batch 500 g';
