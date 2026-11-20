@@ -293,6 +293,12 @@
   .ing-scroll::-webkit-scrollbar { display: none; }
   .m-recipe td, .m-recipe th { padding: 11px 4px; }
   .m-recipe tbody tr:last-child td { border-bottom: none; }
+  .m-recipe { border-collapse: separate; border-spacing: 0; }
+  .m-recipe tbody td { border-bottom: none; padding: 12px 12px; }
+  .m-recipe thead th { padding: 10px 12px; }
+  .m-recipe tbody tr:nth-child(even) td { background: #f8f3ee; }
+  .m-recipe tbody tr:nth-child(even) td:first-child { border-radius: 10px 0 0 10px; }
+  .m-recipe tbody tr:nth-child(even) td:last-child { border-radius: 0 10px 10px 0; }
   .recipe-table td.num, .recipe-table th.num { white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; text-align: right; }
   .m-recipe td.num { font-weight: 600; }
   .mult-bar .chip { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
