@@ -351,6 +351,10 @@
   .kx-del { border: none; background: none; color: #b5483a; cursor: pointer; padding: 6px; }
   .kx-del svg { width: 18px; height: 18px; }
   @media (min-width: 900px) { .kx-rail { width: 120px; } .kx-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; padding: 18px; } }
+  .filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .filter-sel { -webkit-appearance: none; appearance: none; min-width: 200px; font: 600 15px Inter, sans-serif; color: var(--ink); cursor: pointer;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23322218' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+    border: 1px solid var(--border); border-radius: 12px; padding: 10px 40px 10px 14px; }
   .pos-k { display: flex; gap: 10px; align-items: flex-start; }
   .pos-k .kx-rail { position: sticky; top: 84px; border: none; border-radius: 16px; box-shadow: 0 1px 6px rgba(50,34,24,.07); overflow: visible; }
   .pos-k .kx-grid { overflow: visible; padding: 0; }
@@ -1542,7 +1546,7 @@ function kioskDraw() {
           return `<button type="button" class="${c === KX.cat ? "on" : ""}" onclick="KX.cat='${c}'; kioskDraw()">${esc(c)}${cn ? `<i>${cn}</i>` : ""}</button>`; }).join("")}</nav>
       <div class="kx-grid">${items.map(i => { const q = KX.qty[i.id] || 0; return `<div class="kx-tile ${q ? "in" : ""}" id="kt${i.id}" onclick="kioskSet(${i.id}, 1)">
           <div class="kx-img">${imgUrl(i) ? `<img src="${imgUrl(i)}" alt="" loading="lazy">` : `<span>${esc(initials(i.name))}</span>`}${q ? `<b class="kx-q">${qty(q)}</b>` : ""}</div>
-          <div class="kx-name">${esc(i.name)}${i.variant ? `<small>${esc(i.variant)}</small>` : ""}</div>
+          <div class="kx-name">${esc(i.name)}</div>
           <div class="kx-price">${money(priceFor(o, i))}</div>
           ${q ? `<button type="button" class="kx-minus" onclick="event.stopPropagation(); kioskSet(${i.id}, -1)" aria-label="Remove one">−</button>` : ""}</div>`; }).join("")
         || `<div class="empty">No products here.</div>`}</div></div>
@@ -1621,7 +1625,7 @@ function posDrawGrid() {
   const grid = $("#posGrid"); if (!grid) return;
   grid.innerHTML = sellables().filter(i => i.category === S.posCat).map(i => `<div class="kx-tile" id="mr${i.id}" onclick="tapItem(${i.id})">
       <div class="kx-img">${imgUrl(i) ? `<img src="${imgUrl(i)}" alt="" loading="lazy">` : `<span>${esc(initials(i.name))}</span>`}<b class="kx-q" id="mq${i.id}"></b></div>
-      <div class="kx-name">${esc(i.name)}${i.variant ? `<small>${esc(i.variant)}</small>` : ""}</div>
+      <div class="kx-name">${esc(i.name)}</div>
       <div class="kx-price">${money(i.selling_price)}</div>
       <button type="button" class="kx-minus" id="mm${i.id}" onclick="event.stopPropagation(); tapItem(${i.id}, -1)" aria-label="Remove one">−</button></div>`).join("")
     || `<div class="empty">No products here.</div>`;
@@ -2874,16 +2878,18 @@ async function viewCatalog(kind) {
   const list = S.items.filter(i => C.cats.includes(i.category) && (f === "All" || i.category === f));
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">${C.title}</h2><button class="btn" onclick="openProductModal('${kind}')">+ Add ${C.one}</button></div>
-    <div class="chips">${["All", ...C.cats].map(c => `<button class="${f === c ? "active" : ""}" onclick="S['${C.filterKey}']='${c}';refresh()">${c}</button>`).join("")}</div>
+    <div class="filter-row"><select class="filter-sel" onchange="S['${C.filterKey}']=this.value; refresh()">
+      ${["All", ...C.cats].map(c => `<option value="${c}" ${f === c ? "selected" : ""}>${c === "All" ? "All categories" : c}</option>`).join("")}</select>
+      <span class="small muted">${list.length} ${list.length === 1 ? C.one : C.title.toLowerCase()}</span></div>
     ${selCard(kind, editProductModal, `<div class="table-wrap"><table>
-      <thead><tr>${C.sell ? `<th></th>` : ""}<th>Name</th><th>Category</th><th>${C.sell ? "Variant" : "Buy unit"}</th>${C.sell ? "" : `<th>Recipe unit</th>`}
+      <thead><tr>${C.sell ? `<th></th>` : ""}<th>Name</th><th>Category</th>${C.sell ? "" : `<th>Buy unit</th><th>Recipe unit</th>`}
         <th class="num">Unit cost</th>${C.sell ? `<th class="num">Selling price</th><th class="num">Margin</th>` : ""}<th>Active</th></tr></thead>
       <tbody>${list.map(i => {
         const m = C.sell && i.selling_price && i.unit_cost ? Math.round((1 - i.unit_cost / i.selling_price) * 100) + "%" : "";
         return `<tr data-row="${i.id}" style="${i.active ? "" : "opacity:.5"}">
         ${C.sell ? `<td style="width:52px">${thumb(i)}</td>` : ""}
-        <td><b>${esc(i.name)}</b></td><td>${esc(i.category)}</td><td>${esc(i.variant) || `<span class="muted">—</span>`}</td>
-        ${C.sell ? "" : `<td>${i.base_unit ? `1 ${esc(buyUnit(i))} = ${qty(i.content_qty)} ${esc(i.base_unit)}` : `<span class="muted">—</span>`}</td>`}
+        <td><b>${esc(i.name)}</b></td><td>${esc(i.category)}</td>
+        ${C.sell ? "" : `<td>${esc(i.variant) || `<span class="muted">—</span>`}</td><td>${i.base_unit ? `1 ${esc(buyUnit(i))} = ${qty(i.content_qty)} ${esc(i.base_unit)}` : `<span class="muted">—</span>`}</td>`}
         <td class="num">${costView(i)}</td>
         ${C.sell ? `<td class="num">${money(i.selling_price)}</td><td class="num">${m}</td>` : ""}
         <td>${i.active ? "Yes" : "No"}</td></tr>`; }).join("") || `<tr><td colspan="8" class="empty">None yet — tap “+ Add ${C.one}”.</td></tr>`}</tbody>
@@ -2934,7 +2940,7 @@ function openProductModal(kind = "products") {
       ${C.sell ? photoEditor(null) : ""}
       <div class="grid2">
         <label class="field"><span>Name *</span><input name="name" required autocomplete="off" placeholder="${C.sell ? "e.g. Basque Burnt Cheesecake" : "e.g. Powdered milk, Pint tub"}"></label>
-        <label class="field"><span>${C.sell ? "Variant · optional" : "Buy unit"}</span><input name="variant" autocomplete="off" placeholder="${C.sell ? "e.g. 475ml, 8-inch" : "how you buy it: 1 kg bag, pack of 50, pc"}"></label>
+        ${C.sell ? "" : `<label class="field"><span>Buy unit</span><input name="variant" autocomplete="off" placeholder="how you buy it: 1 kg bag, pack of 50, pc"></label>`}
         ${C.sell ? "" : `<label class="field"><span>Recipe unit</span><select name="base_unit">${BASE_UNITS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>
           <label class="field"><span>How many recipe units in one buy unit?</span><input name="content_qty" type="number" step="any" min="0" inputmode="decimal" placeholder="e.g. 1000 (g in a 1 kg bag)"></label>`}
         <label class="field"><span>Unit cost (₱) · optional</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="${C.sell ? "e.g. 85" : "fills in from your purchases"}"></label>
@@ -2960,7 +2966,7 @@ async function addProduct(e) {
   const gel = SELL_CATS.includes(f.category.value);
   try {
     need(f.name.value.trim(), "Name is required.");
-    const item = await api("/items", { method: "POST", body: { name: f.name.value, category: f.category.value, variant: f.variant.value,
+    const item = await api("/items", { method: "POST", body: { name: f.name.value, category: f.category.value, variant: f.variant ? f.variant.value : "",
       unit_cost: Number(f.unit_cost.value || 0), selling_price: gel ? Number(f.selling_price.value || 0) : 0,
       base_unit: f.base_unit ? f.base_unit.value : "", content_qty: f.content_qty && f.content_qty.value ? Number(f.content_qty.value) : 1 } });
     if (S.pendingPhoto) { await api(`/items/${item.id}/image`, { method: "PUT", body: { mime: "image/jpeg", data_b64: S.pendingPhoto } }); S.pendingPhoto = null; }
@@ -2983,7 +2989,7 @@ function editProductModal(id) {
     top: sell ? photoEditor(i) : "",
     fields: sell ? [
       { name: "name", label: "Name" }, { name: "category", label: "Category", type: "select", options: SELL_CATS },
-      { name: "variant", label: "Variant · optional" }, { name: "selling_price", label: "Selling price (₱)", type: "money" },
+      { name: "selling_price", label: "Selling price (₱)", type: "money" },
       { name: "unit_cost", label: "Unit cost (₱)", type: "money", view: costView },
       { name: "margin", label: "Margin", viewOnly: true, view: () => m }, { name: "active", label: "Active (on the POS)", type: "bool" }]
     : [

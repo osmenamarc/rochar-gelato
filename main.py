@@ -765,10 +765,12 @@ def create_item(p: ItemPayload):
             cur.execute("""
                 INSERT INTO items (name, category, variant, unit_cost, selling_price, active, base_unit, content_qty)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING *;
-            """, (p.name.strip(), as_category(p.category), p.variant.strip(), as_money(p.unit_cost),
+            """, (p.name.strip(), as_category(p.category),
+                  # products have no separate variant: the category (Mini / Pint / Cake) is the size
+                  as_category(p.category) if as_category(p.category) in SELL_CATEGORIES else p.variant.strip(), as_money(p.unit_cost),
                   as_money(p.selling_price), p.active, p.base_unit.strip(), as_content(p.content_qty or 1)))
         except psycopg.errors.UniqueViolation:
-            raise HTTPException(409, "That product + size already exists.")
+            raise HTTPException(409, f"{p.name.strip()} already exists in {as_category(p.category)}.")
         return one(cur)
 
 
@@ -779,6 +781,8 @@ def patch_item(item_id: int, changes: dict = Body(...)):
     with db() as conn, conn.cursor() as cur:
         try:
             apply_patch(cur, "items", item_id, changes, ITEM_FIELDS)
+            cur.execute("UPDATE items SET variant = category WHERE id = %s AND category = ANY(%s) AND variant <> category;",
+                        (item_id, list(SELL_CATEGORIES)))
         except psycopg.errors.UniqueViolation:
             raise HTTPException(409, "That product + size already exists.")
         refresh_costs(cur)

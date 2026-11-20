@@ -533,3 +533,9 @@ BEGIN
   END IF;
   INSERT INTO app_secrets (key, value) VALUES ('recipe_matcha_2026_11_20', now()::text);
 END $$;
+
+-- v15: products have no separate variant — the category (Mini / Pint / Cake) is it.
+-- (skips any product where that would clash with another of the same name + category)
+UPDATE items i SET variant = i.category
+ WHERE i.category IN ('Mini', 'Pint', 'Cake') AND i.variant <> i.category
+   AND NOT EXISTS (SELECT 1 FROM items x WHERE x.id <> i.id AND x.name = i.name AND (x.variant = i.category OR x.category = i.category));
