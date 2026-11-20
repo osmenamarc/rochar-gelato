@@ -351,6 +351,12 @@
   .kx-del { border: none; background: none; color: #b5483a; cursor: pointer; padding: 6px; }
   .kx-del svg { width: 18px; height: 18px; }
   @media (min-width: 900px) { .kx-rail { width: 120px; } .kx-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; padding: 18px; } }
+  .pos-k { display: flex; gap: 10px; align-items: flex-start; }
+  .pos-k .kx-rail { position: sticky; top: 84px; border: none; border-radius: 16px; box-shadow: 0 1px 6px rgba(50,34,24,.07); overflow: visible; }
+  .pos-k .kx-grid { overflow: visible; padding: 0; }
+  .kx-q:empty, .kx-tile:not(.in) .kx-minus { display: none; }
+  .pos-bar { position: sticky; bottom: 0; margin: 14px -4px 0; border-radius: 18px; border: none; z-index: 5; }
+  body.mobile .pos-bar { bottom: calc(74px + env(safe-area-inset-bottom)); padding-bottom: 12px; }
   .cs-preview { margin: 0; white-space: pre-wrap; font: 13px/1.45 Inter, sans-serif; background: #fff; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
   .cs-buttons { max-width: 420px; }
   .var-box { border: 1px dashed #e2d2bf; border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; background: #fff; }
@@ -1593,39 +1599,47 @@ async function viewPOS() {
   setTimeout(posBackground, 300);
   S.openCount = S.orders.length; renderTabs();
   for (const id of Object.keys(TICKET)) if (!S.items.some(i => i.id === Number(id) && i.active)) delete TICKET[id];
-  const gelato = sellables();
-  const groups = {};
-  SELL_CATS.forEach(c => { const list = gelato.filter(i => i.category === c); if (list.length) groups[c.toUpperCase()] = list; });
+  const all = sellables(), cats = SELL_CATS.filter(c => all.some(i => i.category === c));
+  if (!cats.includes(S.posCat)) S.posCat = cats[0] || null;
   $("#view").innerHTML = `
     <div class="pos-top">
       <div class="ticket-lbl">TICKET <span class="tk-count" id="tkCount">0</span></div>
       <div class="row"><button class="btn ghost sm caps" onclick="showHistory()">History</button>
         <button class="btn ghost sm caps" id="tkClear" onclick="clearTicket()">Clear</button></div>
     </div>
-    <button class="charge" id="chargeBtn" onclick="charge()">Charge <span id="chargeAmt">₱0</span></button>
     <div id="posOpen">${posOpenHtml()}</div>
-    <div class="menu">
-      ${gelato.length ? Object.entries(groups).map(([g, list]) => `<div class="menu-grp">${esc(g)}</div>` + list.map(i => `
-        <div class="menu-row" id="mr${i.id}" onclick="tapItem(${i.id})">
-          ${imgUrl(i) ? `<span class="menu-thumb has-img"><img src="${imgUrl(i)}" alt="" loading="lazy"></span>` : `<span class="menu-thumb">${esc(initials(i.name))}</span>`}
-          <span class="menu-name">${esc(i.name)}${i.variant ? `<small>${esc(i.variant)}</small>` : ""}</span>
-          <span class="menu-price">${money(i.selling_price)} <small>/ pc</small></span>
-          <span class="menu-q" id="mq${i.id}"></span>
-          <button type="button" class="menu-minus" id="mm${i.id}" onclick="event.stopPropagation(); tapItem(${i.id}, -1)" aria-label="Remove one">−</button>
-        </div>`).join("")).join("")
-      : `<div class="empty">No products yet. Add them in the web admin → Products (Mini, Pint or Cake).</div>`}
-    </div>`;
+    ${all.length ? `<div class="pos-k">
+      <nav class="kx-rail" id="posRail"></nav>
+      <div class="kx-grid" id="posGrid"></div></div>
+    <div class="kx-bar pos-bar"><div class="kx-sum"><span id="posBarLbl">Ticket · 0 items</span><b id="chargeAmt">₱0</b></div>
+      <button type="button" class="kx-go" id="chargeBtn" onclick="charge()">Charge ›</button></div>`
+    : `<div class="empty">No products yet. Add them in the web admin → Products (Mini, Pint or Cake).</div>`}`;
+  posDrawGrid();
   drawTicket();
 }
+function posDrawGrid() {
+  const grid = $("#posGrid"); if (!grid) return;
+  grid.innerHTML = sellables().filter(i => i.category === S.posCat).map(i => `<div class="kx-tile" id="mr${i.id}" onclick="tapItem(${i.id})">
+      <div class="kx-img">${imgUrl(i) ? `<img src="${imgUrl(i)}" alt="" loading="lazy">` : `<span>${esc(initials(i.name))}</span>`}<b class="kx-q" id="mq${i.id}"></b></div>
+      <div class="kx-name">${esc(i.name)}${i.variant ? `<small>${esc(i.variant)}</small>` : ""}</div>
+      <div class="kx-price">${money(i.selling_price)}</div>
+      <button type="button" class="kx-minus" id="mm${i.id}" onclick="event.stopPropagation(); tapItem(${i.id}, -1)" aria-label="Remove one">−</button></div>`).join("")
+    || `<div class="empty">No products here.</div>`;
+}
+function posPickCat(c) { S.posCat = c; posDrawGrid(); drawTicket(); }
 function drawTicket() {
   const { n, total } = ticketTotals();
   if (!$("#chargeBtn")) return;
   $("#tkCount").textContent = n; $("#tkCount").classList.toggle("on", n > 0);
   $("#chargeAmt").textContent = money(total);
+  $("#posBarLbl").textContent = `Ticket · ${n} item${n === 1 ? "" : "s"}`;
   $("#chargeBtn").disabled = !n; $("#tkClear").disabled = !n;
-  $$(".menu-row").forEach(r => {
+  const cats = SELL_CATS.filter(c => sellables().some(i => i.category === c));
+  $("#posRail").innerHTML = cats.map(c => { const cn = sellables().filter(i => i.category === c).reduce((s, i) => s + (TICKET[i.id] || 0), 0);
+    return `<button type="button" class="${c === S.posCat ? "on" : ""}" onclick="posPickCat('${c}')">${esc(c)}${cn ? `<i>${cn}</i>` : ""}</button>`; }).join("");
+  $$("#posGrid .kx-tile").forEach(r => {
     const id = Number(r.id.slice(2)), q = TICKET[id] || 0;
-    $("#mq" + id).textContent = q ? "×" + q : ""; r.classList.toggle("in", q > 0);
+    $("#mq" + id).textContent = q ? qty(q) : ""; r.classList.toggle("in", q > 0);
   });
 }
 function tapItem(id, delta = 1) {
