@@ -1440,9 +1440,9 @@ document.addEventListener("dblclick", e => {
 const ICON_PENCIL = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 013 3L8 18l-4 1 1-4z"/><path d="M14.5 5.5l3 3"/></svg>`;
 const ICON_TRASH = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 001 1h10a1 1 0 001-1l1-13M9 7V4h6v3"/></svg>`;
 const SEL = {};
-function selCard(key, onOpen, inner, hint = "Tap a row to see its details") {
+function selCard(key, onOpen, inner, hint = "") {
   SEL[key] = { onOpen };
-  return `<div class="card sel-card" data-table="${key}"><div class="sel-hint">${hint}</div>${inner}</div>`;
+  return `<div class="card sel-card" data-table="${key}">${hint ? `<div class="sel-hint">${hint}</div>` : ""}${inner}</div>`;
 }
 document.addEventListener("click", e => {
   const tr = e.target.closest("tr[data-row]"), card = tr && tr.closest(".sel-card");
@@ -1851,7 +1851,7 @@ function coDraw() {
       <div class="seg"><button type="button" class="${c.payment_status === "paid" ? "on" : ""}" onclick="S.co.payment_status='paid'; coDraw()">Paid</button>
         <button type="button" class="credit ${c.payment_status === "credit" ? "on" : ""}" onclick="S.co.payment_status='credit'; coDraw()">On credit / unpaid</button></div>
       ${c.payment_status === "paid" ? `<div class="seg">${SALE_METHODS.map(m => `<button type="button" class="${c.payment_method === m ? "on" : ""}" onclick="S.co.payment_method='${m}'; coDraw()">${m}</button>`).join("")}</div>`
-        : `<span class="small muted">goes to Receivables when the order closes</span>`}</div>`;
+        : ""}</div>`;
   const cust = S.customers.find(x => x.id === c.customer_id);
   $("#coLinked").innerHTML = cust ? `<span class="badge ${cust.tier === "Reseller" ? "b-blue" : "b-gray"}">${esc(cust.tier)} · saved client</span>
       ${cust.tier === "Reseller" ? `<span class="muted">reseller prices applied</span>` : ""} <button type="button" class="link" onclick="coLink(null)">unlink</button>`
@@ -1989,7 +1989,7 @@ function drawOrderCard(id) {
           <div class="seg"><button type="button" class="${o.payment_status === "paid" ? "on" : ""}" onclick="setPay(${id}, 'payment_status', 'paid')">Paid</button>
             <button type="button" class="credit ${o.payment_status === "credit" ? "on" : ""}" onclick="setPay(${id}, 'payment_status', 'credit')">On credit / unpaid</button></div>
           ${o.payment_status === "paid" ? `<div class="seg">${SALE_METHODS.map(m => `<button type="button" class="${o.payment_method === m ? "on" : ""}" onclick="setPay(${id}, 'payment_method', '${m}')">${m}</button>`).join("")}</div>`
-            : `<span class="small muted">goes to Receivables when finished</span>`}
+            : ""}
         </div></div>
       <div class="grid2">
         <label class="field"><span>Phone</span><input data-f="phone" type="tel" value="${esc(o.phone)}"></label>
@@ -2002,9 +2002,8 @@ function drawOrderCard(id) {
         <label class="field"><span>Rider name</span><input data-f="rider_name" value="${esc(o.rider_name)}"></label>
       </div>
       ${copyButtons(id)}
-      <p class="small muted" style="margin:4px 0 0">Closes automatically at the end of its delivery day.</p>
       <div class="row spread" style="margin-top:10px">
-        <span class="small muted">Saved automatically</span>
+        <span></span>
         <button type="button" class="link red" onclick="cancelOrder(${id})">🗑 Delete order</button>
       </div>
     </div></div></div>`;
@@ -2497,7 +2496,7 @@ async function viewSales() {
           <td>${v ? `<span class="badge b-red" title="${esc(o.void_reason || "")}">VOIDED</span>` : `<span class="badge b-gray">Completed</span>`}</td></tr>`; }).join("")
         || `<tr><td colspan="10" class="empty">No sales in this range.</td></tr>`}</tbody>
       ${h.orders.length ? `<tfoot><tr><td colspan="4">Totals (voided excluded)</td><td class="num">${money(t.items_subtotal)}</td><td class="num">${money(t.delivery_fees)}</td><td class="num">${money(t.grand_total)}</td><td colspan="3">${t.on_credit ? `<span class="small muted">${money(t.on_credit)} on credit</span>` : ""}</td></tr></tfoot>` : ""}
-    </table></div><p class="small muted">Select an order and tap the pencil to see full details, fix it, or delete it.</p>`);
+    </table></div>`);
   }
   $("#view").innerHTML = `<div class="section-title"><h2 class="serif">Sales history</h2></div>${hdr}${tiles}${body}`;
 }
@@ -2793,12 +2792,12 @@ async function ledgerTable(kind) {
     <div class="section-title"><h2 class="serif">${isP ? "Purchases" : "Expenses"}</h2>
       <button class="btn" onclick="openLedgerForm('${kind}')">+ New ${isP ? "purchase" : "expense"}</button></div>
     ${hdr}
-    ${isP ? "" : `<p class="small muted" style="margin-top:-4px">Overheads only (electricity, rent, marketing, internet, rider top-ups). Raw materials & packaging go in Purchases.</p>`}
+    
     ${selCard("ledger_" + kind, rid => editLedgerModal(kind, rid), `<div class="table-wrap"><table>
       <thead><tr><th>Date / time</th><th>${isP ? "Item" : "Particulars"}</th>${isP ? `<th class="num">Qty</th>` : ""}<th class="num">Amount</th><th>Proof</th></tr></thead>
       <tbody>${body || `<tr><td colspan="${cols}" class="empty">Nothing in this range.</td></tr>`}</tbody>
       ${data.entries.length ? `<tfoot><tr><td colspan="${isP ? 3 : 2}">Total</td><td class="num">${money(data.total)}</td><td></td></tr></tfoot>` : ""}
-    </table></div><p class="small muted">Select an entry and tap the pencil to edit its items, proof photos or payment method — or remove it.</p>`)}`;
+    </table></div>`)}`;
 }
 function openLedgerForm(kind) {
   openModal(`New ${LEDGER[kind].title.toLowerCase()}`, ledgerForm(kind));
@@ -2868,8 +2867,7 @@ async function viewProduction() {
         ${editable("td", esc(p.notes), { url: u, field: "notes", value: p.notes })}
         </tr>`; }).join("") || `<tr><td colspan="4" class="empty">Nothing in this range.</td></tr>`}</tbody>
     </table></div>`)}
-    <div class="card"><h3>Totals for this range</h3><table><tbody>${data.totals.map(t => `<tr><td>${esc(t.product)}</td><td class="num">${qty(t.qty)}</td></tr>`).join("") || `<tr><td class="empty">—</td></tr>`}</tbody></table>
-      <p class="small muted">Production is a record only — it doesn't change any stock or cost figures.</p></div></div>`;
+    <div class="card"><h3>Totals for this range</h3><table><tbody>${data.totals.map(t => `<tr><td>${esc(t.product)}</td><td class="num">${qty(t.qty)}</td></tr>`).join("") || `<tr><td class="empty">—</td></tr>`}</tbody></table></div></div>`;
 }
 function editProductionModal(id) {
   const p = (S.production || []).find(x => x.id === Number(id)); if (!p) return;
@@ -2907,7 +2905,6 @@ async function countChecklistHtml() {
   }
   return `<div class="card boxy">
     <label class="field"><span>Count date (the last day of the month you're counting)</span><input type="date" id="countDate" value="${draft.date || manilaToday()}" onchange="saveDraft()"></label>
-    <p class="hint">Count everything on hand: gelato in the freezer, raw materials, packaging. Your progress is kept on this device until you submit.</p>
     ${html}
     <div class="sticky-bottom">
       <button class="btn block big" onclick="submitCount()">Submit count</button></div></div>`;
@@ -2967,7 +2964,7 @@ async function viewCountDetail(id) {
       <thead><tr><th>Item</th><th class="num">Qty counted</th><th class="num">Unit cost</th><th class="num">Value</th></tr></thead>
       <tbody>${body}</tbody><tfoot><tr><td colspan="3">Ending inventory value</td><td class="num">${money(c.total_value)}</td></tr></tfoot>
     </table></div>
-    <p class="small muted">${c.notes ? `Notes: ${esc(c.notes)}. ` : ""}Unit costs are frozen at the time of the count — editing a product's cost later doesn't change this count. Select a line and tap the pencil to correct it.</p>`)}`;
+    <p class="small muted">${c.notes ? `Notes: ${esc(c.notes)}. ` : ""}</p>`)}`;
   S.countDetail = c;
 }
 function editCountModal() {
@@ -3029,7 +3026,7 @@ async function viewCatalog(kind) {
         <td class="num">${costView(i)}</td>
         ${C.sell ? `<td class="num">${money(i.selling_price)}</td><td class="num">${m}</td>` : ""}
         <td>${i.active ? "Yes" : "No"}</td></tr>`; }).join("") || `<tr><td colspan="8" class="empty">None yet — tap “+ Add ${C.one}”.</td></tr>`}</tbody>
-    </table></div><p class="small muted">${C.note}</p>`)}`;
+    </table></div>`)}`;
 }
 function photoEditor(i) {
   return `<div class="field"><span>Photo</span><div class="photo-edit">
@@ -3082,9 +3079,6 @@ function openProductModal(kind = "products") {
         <label class="field"><span>Unit cost (₱) · optional</span><input name="unit_cost" type="number" step="any" min="0" inputmode="decimal" placeholder="${C.sell ? "e.g. 85" : "fills in from your purchases"}"></label>
         ${C.sell ? `<label class="field"><span>Selling price (₱)</span><input name="selling_price" type="number" step="any" min="0" inputmode="decimal" placeholder="0"></label>` : ""}
       </div>
-      <p class="hint">${C.sell
-        ? "Shows up on the phone POS under its category."
-        : "Price is per buy unit (e.g. per 1 kg bag) and updates itself from your latest purchase. The recipe unit lets recipes use grams/ml while you buy by the bag."}</p>
       <div class="form-error" id="productError"></div>
       <div class="row" style="justify-content:flex-end">
         <span class="small muted" id="productAdded" style="margin-right:auto"></span>
@@ -3201,7 +3195,7 @@ async function viewRecipeDetail() {
         || `<tr><td colspan="5" class="empty">No ingredients yet — tap Edit.</td></tr>`}</tbody>
       <tfoot><tr class="tot"><td></td><td><b>Total</b></td><td class="num"><b data-g="${r.total_grams}">${grams(r.total_grams)} g</b></td><td class="num"><b>100%</b></td><td class="num"><b data-c="${r.batch_cost}">${money(r.batch_cost)}</b></td></tr></tfoot>
     </table></div>
-    <p class="small muted" style="margin-bottom:0">${r.cost_per_kg !== null ? `Cost per kg: <b>${money(r.cost_per_kg)}</b>. ` : ""}${r.missing_costs ? `${r.missing_costs} ingredient${r.missing_costs === 1 ? " has" : "s have"} no cost — link ${r.missing_costs === 1 ? "it" : "them"} to a Material in the Ingredients tab if you buy ${r.missing_costs === 1 ? "it" : "them"}.` : "Costs follow your latest purchase prices."}</p></div>`;
+    <p class="small muted" style="margin-bottom:0">${r.cost_per_kg !== null ? `Cost per kg: <b>${money(r.cost_per_kg)}</b>. ` : ""}${r.missing_costs ? `${r.missing_costs} without cost` : ""}</p></div>`;
   applyMult(S.recipeMult || 1);
 }
 // Phone: pick a recipe, multiply, read Ingredient | Weight.
@@ -3261,7 +3255,6 @@ function drawRecipeEditor() {
         <tfoot><tr class="tot"><td></td><td><b>Total</b></td><td class="num"><b id="rlTotG"></b></td><td class="num"><b>100%</b></td><td class="num"><b id="rlTotC"></b></td><td></td></tr></tfoot>
       </table></div>
       <button type="button" class="add-link" onclick="S.rlines.push({ name: '', grams: '' }); drawRecipeLines(true)">+ add ingredient</button>
-      <p class="small muted">Pick from your ingredient list, or type a new name — it's added to your list when you save.</p>
       <div class="form-error" id="recipeErr"></div>
       <div class="row edit-actions">
         ${r.id ? `<button type="button" class="icon-btn danger" title="Remove this recipe" onclick="removeRecipe()">${ICON_TRASH}</button>` : ""}
@@ -3340,8 +3333,7 @@ async function viewIngredients() {
           <td class="num">${i.cost_per_g !== null ? money4(i.cost_per_g) : `<span class="muted" title="${i.material_id ? "set the Material's recipe unit to grams / buy it once" : "not linked to a Material"}">—</span>`}</td>
           <td>${i.last_purchased_at ? fmtDate(manilaParts(new Date(i.last_purchased_at)).date, false) : `<span class="muted">—</span>`}</td></tr>`).join("")
         || `<tr><td colspan="4" class="empty">No ingredients yet — add them above.</td></tr>`}</tbody>
-    </table></div>
-    <p class="small muted" style="margin-bottom:0">Cost per gram comes from the linked Material's latest purchase price and its recipe unit (set the Material's recipe unit to grams, e.g. 1 kg bag = 1000 g).</p></div>`;
+    </table></div></div>`;
 }
 const MATERIAL_CATEGORIES_JS = ["Raw Material", "Packaging"];
 function addIngredientModal() {
@@ -3351,7 +3343,6 @@ function addIngredientModal() {
         <label class="field"><span>Product</span><input name="name" placeholder="e.g. Milk Powder, Water" required></label></div>
       <label class="field"><span>Linked material · optional (for cost)</span>
         <select name="material_id"><option value="">— none (e.g. water) —</option>${mats.map(m => `<option value="${m.id}">${esc(itemLabel(m.name, m.variant))}</option>`).join("")}</select></label>
-      <p class="hint">Link it to the Material you buy so Cost/g and Last date purchased fill in by themselves.</p>
       <div class="row edit-actions"><span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Add ingredient</button></div>
     </form>`);
   setTimeout(() => $("#ingForm [name=brand]")?.focus(), 250);
@@ -3437,8 +3428,6 @@ async function viewDashboard() {
       ${tile("Open orders now", d.open_orders)}
     </div>
     <div class="card"><h3>Profit by count period</h3>${periodTable(d.periods)}
-      <p class="small muted">COGS only exists between two inventory counts (periodic method), so it shows for a count period — click a row or use the dropdown.
-        Delivery fees are pass-through and excluded from profit; voided orders are excluded everywhere; wastage and freebies land in COGS automatically.</p>
       ${d.periods.some(p => p.cogs < 0) ? `<p class="small"><span class="badge b-amber">⚠ Negative COGS</span> means inventory grew more than you bought — usually a missed purchase, a count typo, or unit costs set too high.</p>` : ""}
     </div>`;
 }
@@ -3469,7 +3458,7 @@ async function viewClients(tier) {
         <td class="num">${c.order_count}</td><td class="num">${money(c.items_total)}</td><td>${c.last_order_at ? fmtDate(manilaParts(new Date(c.last_order_at)).date) : "—"}</td>
         <td class="num">${c.balance > 0 ? `<span class="badge b-amber">${money(c.balance)}</span>` : "—"}</td></tr>`; }).join("")
         || `<tr><td colspan="9" class="empty">None yet.</td></tr>`}</tbody>
-    </table></div><p class="small muted">Select a client and tap the pencil to edit, see their order history${isR ? ", or set their price list" : ""}. Changing the type to ${isR ? "Retail" : "Reseller"} moves them to the ${isR ? "Customers" : "Resellers"} page.</p>`)}`;
+    </table></div>`)}`;
 }
 function addClientModal(tier) {
   const isR = tier === "Reseller";
@@ -3479,7 +3468,7 @@ function addClientModal(tier) {
         <label class="field"><span>Phone 2 · optional</span><input name="phone2" type="tel"></label></div>
       <label class="field"><span>Delivery address</span><input name="address"></label>
       <label class="field"><span>Special notes</span><input name="notes"></label>
-      ${isR ? "" : `<p class="hint">New names typed on phone orders are added automatically too.</p>`}
+      
       <div class="row edit-actions"><span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Add</button></div>
     </form>`);
   setTimeout(() => $("#clientForm [name=name]")?.focus(), 250);
@@ -3521,7 +3510,6 @@ async function showClient(id) {
 async function editPrices(id) {
   const c = await api(`/customers/${id}`);
   openModal(`Price list — ${c.name}`, `
-    <p class="hint" style="margin-top:0">Set this reseller's price for each product. Leave blank to use the normal retail price. Saves when you click away.</p>
     <table><thead><tr><th>Product</th><th class="num">Retail</th><th class="num" style="width:140px">Their price</th><th class="num">Discount</th></tr></thead><tbody>
     ${c.prices.map(p => `<tr><td>${esc(itemLabel(p.name, p.variant))}</td><td class="num">${money(p.selling_price)}</td>
       <td><input type="number" step="any" min="0" inputmode="decimal" style="width:120px;text-align:right;padding:6px;border:1px solid var(--border);border-radius:6px"
@@ -3567,8 +3555,7 @@ async function viewReconciliation() {
       <div class="card"><h3>What the system counted (${r.lines.length})</h3>
         <table><thead><tr><th>Time</th><th>What</th><th>Account</th><th class="num">Amount</th></tr></thead><tbody>
         ${r.lines.map(l => `<tr><td>${fmtTime(l.time)}</td><td>${l.type === "sale" ? `Sale #${l.ref}` : `Payment on #${l.ref}`} · ${esc(l.who || "—")}</td><td>${l.method}</td><td class="num">${money(l.amount)}</td></tr>`).join("")
-          || `<tr><td colspan="4" class="empty">No paid sales or payments this day.</td></tr>`}</tbody></table>
-        <p class="small muted">Counts paid orders finished this day (including delivery fee, since the customer pays it to you) plus credit payments received this day. Credit sales count on the day they're paid.</p></div>
+          || `<tr><td colspan="4" class="empty">No paid sales or payments this day.</td></tr>`}</tbody></table></div>
     </div>
     <div class="card"><h3>Recent days</h3>
       ${days.map(x => `<div class="list-item" onclick="S.reconDate='${x.date}';refresh()" style="${x.date === S.reconDate ? "background:var(--cream);margin:0 -8px;padding:10px 8px;border-radius:8px" : ""}">
@@ -3641,7 +3628,7 @@ async function viewReceivables() {
         <td><span class="badge ${statusBadge(o)}">${o.receivable_status.toUpperCase()}</span></td>
         <td>${["unpaid", "partial"].includes(o.receivable_status) ? `<button class="btn sm" onclick="logPayment(${o.id})">LOG PAYMENT</button>` : ""}</td></tr>`; }).join("")
         || `<tr><td colspan="9" class="empty">${show === "open" ? "Nobody owes you anything right now." : "No credit sales yet."}</td></tr>`}</tbody>
-    </table></div><p class="small muted">Credit sales come from orders marked “On credit / unpaid”. Voiding the order cancels its receivable. Select a row and tap the pencil to see or correct its payments.</p>`)}`;
+    </table></div>`)}`;
 }
 function logPayment(id) {
   const o = S.receivables.find(x => x.id === id);
@@ -3678,7 +3665,7 @@ function receivableModal(id, editing = false) {
     ${o.payments.map(p => `<div class="list-item" style="cursor:default"><div>${fmtDateTime(p.paid_at)} · ${p.method}${p.notes ? `<br><span class="small muted">${esc(p.notes)}</span>` : ""}</div>
       <div class="row"><b>${money(p.amount)}</b>${editing ? `<button type="button" class="icon-btn sm danger" title="Remove this payment" onclick="deletePayment(${p.id})">${ICON_TRASH}</button>` : ""}</div></div>`).join("")
       || `<p class="muted small">No payments yet.</p>`}
-    ${editing ? `<p class="small muted">Tap the trash icon next to a payment that was logged by mistake.</p>` : ""}
+    
     <div class="row edit-actions"><span style="flex:1"></span>
       ${editing ? `<button class="btn ghost" onclick="receivableModal(${o.id})">Done</button>` : open ? `<button class="btn" onclick="logPayment(${o.id})">Log payment</button>` : ""}</div>`,
     !editing && o.payments.length ? pencilBtn(`receivableModal(${o.id}, true)`) : "");
@@ -3708,7 +3695,7 @@ async function viewLiabilities() {
         <td>${x.settled_at ? `<span class="badge b-green">SETTLED</span> <span class="small muted">${fmtDate(manilaParts(new Date(x.settled_at)).date)} via ${esc(x.settled_method)}</span>` : `<span class="badge b-red">UNPAID</span>`}</td>
         <td>${x.settled_at ? "" : `<button class="btn sm" onclick="reimburse(${i})">REIMBURSE</button>`}</td></tr>`).join("")
         || `<tr><td colspan="7" class="empty">${show === "unpaid" ? "Nothing owed." : "No Gino or credit card purchases/expenses yet."}</td></tr>`}</tbody>
-    </table></div><p class="small muted">Any purchase or expense paid by <b>Gino</b> or <b>Credit Card</b> shows up here as UNPAID until the business pays it back.</p>`)}`;
+    </table></div>`)}`;
 }
 function liabilityModal(i) {
   const x = S.liabilities[Number(i)]; if (!x) return;
@@ -3803,10 +3790,8 @@ async function viewSettings() {
   $("#view").innerHTML = `
     <div class="section-title"><h2 class="serif">Settings</h2><button class="btn ghost" onclick="logout()">Log out</button></div>
     <div class="card"><h3>Phone app — the 3 copy buttons</h3>
-      <p class="small muted" style="margin-top:0">These are the buttons on each order in the phone app's Schedule and order slip. Changes save when you click out of a box, and phones pick them up the next time the app is opened.</p>
       <div class="var-box"><div class="cs-head">Variables — click inside a message, then tap one to insert it</div>
-        <div class="var-chips">${MSG_VARS.map(([k, d]) => `<button type="button" class="var-chip" onmousedown="event.preventDefault()" onclick="insertVar('${k}')"><code>{${k}}</code> ${d}</button>`).join("")}</div>
-        <p class="small muted" style="margin:6px 0 0">Each one is replaced with that order's details when you copy. If the order doesn't have it yet (e.g. no rider), it's left blank.</p></div>
+        <div class="var-chips">${MSG_VARS.map(([k, d]) => `<button type="button" class="var-chip" onmousedown="event.preventDefault()" onclick="insertVar('${k}')"><code>{${k}}</code> ${d}</button>`).join("")}</div></div>
       <div class="copy-set">
         <div class="cs-col"><div class="cs-head">Button 1 · order total</div>
           ${nameBox("customer", "Total Info")}
@@ -3825,7 +3810,6 @@ async function viewSettings() {
       <div class="field" style="margin-top:6px"><span>How the buttons will look</span><div class="cs-buttons" id="pv_buttons"></div></div>
     </div>
     <div class="card" id="notifCard"><h3>Phone notifications</h3>
-      <p class="small muted" style="margin-top:0">Reminders sent to phones that turned notifications on (phone app → Menu → Notifs). Each phone can also mute any of these for itself.</p>
       <div id="ruleList"><div class="loading"><span class="spinner"></span></div></div>
       <div class="row" style="margin-top:10px;gap:8px">
         <button class="btn ghost sm" onclick="addRule('before')">+ Reminder before delivery</button>
@@ -3844,7 +3828,6 @@ async function viewSystem() {
     <div class="section-title"><h2 class="serif">System</h2><span class="muted">${me.is_owner ? "Owner" : "Setup"}</span></div>
     <div class="card" id="signinCard"><h3>Sign-in</h3><div id="signinBody"><div class="loading"><span class="spinner"></span></div></div></div>
     ${me.google_only ? "" : `<div class="card"><h3>Shared PIN</h3>
-      <p class="small muted" style="margin-top:0">Only used until Google sign-in is switched on — then it stops working by itself.</p>
       <form id="pinForm" class="grid3" onsubmit="changePin(event)">
         <label class="field"><span>Current PIN</span><input name="current_pin" type="password" inputmode="numeric" required></label>
         <label class="field"><span>New PIN (4–12 digits)</span><input name="new_pin" type="password" inputmode="numeric" required></label>
@@ -3883,7 +3866,6 @@ function addUserModal() {
   openModal("Add a person", `<form id="userForm" onsubmit="addUser(event)">
       <label class="field"><span>Google email</span><input name="email" type="email" required placeholder="name@gmail.com"></label>
       <label class="field"><span>Name · optional</span><input name="name"></label>
-      <p class="hint">An invite email with the links is sent to them. Only people on this list can get in.</p>
       <div class="row edit-actions"><span style="flex:1"></span><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn">Add</button></div>
     </form>`);
   setTimeout(() => $("#userForm [name=email]")?.focus(), 250);
@@ -4011,7 +3993,6 @@ async function viewNotifs() {
           <label class="switch"><input type="checkbox" ${r.on && !muted ? "checked" : ""} ${!on || !r.on ? "disabled" : ""} onchange="muteRule('${r.id}', !this.checked)"><span></span></label>
           <span class="rl-txt">${esc(r.label)}${!r.on ? ` <span class="small muted">· off for everyone (web admin)</span>` : ""}</span></div>`; }).join("")
         : `<p class="small muted">No notifications are set up yet — add them in the web admin → Settings.</p>`}
-      <p class="small muted" style="margin-bottom:0">These switches only affect this phone. To add or change reminders, use the web admin → Settings.</p>
     </div>`;
   }
   $("#view").innerHTML = `<div class="section-title"><h2 class="serif">Notifications</h2></div>${body}`;
