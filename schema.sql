@@ -517,3 +517,19 @@ END $$;
 
 -- v13: drop the "Base batch 500 g" note from the loaded recipes
 UPDATE batch_recipes SET notes = '' WHERE notes = 'Base batch 500 g';
+
+-- v14: Matcha Gelato updated (Marc, 20 Nov 2026) — runs once
+DO $$
+DECLARE rid INT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM app_secrets WHERE key = 'recipe_matcha_2026_11_20') THEN RETURN; END IF;
+  SELECT id INTO rid FROM batch_recipes WHERE lower(name) = 'matcha gelato' ORDER BY id LIMIT 1;
+  IF rid IS NOT NULL THEN
+    UPDATE batch_recipe_lines l SET grams = v.g
+      FROM recipe_ingredients ri, (VALUES ('water',212.21),('milk powder',35.05),('whipping cream',143.47),('sucrose',57.10),('dextrose',18.38),
+            ('skim milk powder',17.39),('inulin',5.90),('salt',0.30),('base6',2.50),('vanilla imitation flavor',0.20),('matcha',7.50)) AS v(n, g)
+     WHERE l.recipe_id = rid AND ri.id = l.ingredient_id AND lower(ri.name) = v.n;
+    UPDATE batch_recipes SET updated_at = now() WHERE id = rid;
+  END IF;
+  INSERT INTO app_secrets (key, value) VALUES ('recipe_matcha_2026_11_20', now()::text);
+END $$;
