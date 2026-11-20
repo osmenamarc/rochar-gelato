@@ -288,7 +288,7 @@
   .m-recipe-top select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
   .m-recipe-top .mult-bar { margin-bottom: 0; }
   .m-recipe { width: 100%; font-size: 16px; table-layout: fixed; }
-  .m-recipe th.m-w { width: 116px; }
+  .m-recipe th.m-w { width: 124px; }
   .ing-scroll { white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-right: 8px; }
   .ing-scroll::-webkit-scrollbar { display: none; }
   .m-recipe td, .m-recipe th { padding: 11px 4px; }
@@ -2897,7 +2897,7 @@ async function viewRecipeDetail() {
     <div class="card"><div class="row mult-bar">
       <span class="small muted">Multiply by</span>
       <input id="recipeMult" type="number" step="any" min="0" inputmode="decimal" value="${S.recipeMult || 1}" oninput="applyMult(this.value)">
-      ${[1, 2, 4, 8].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}
+      ${[1, 8, 20, 30].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}
     </div>
     <div class="table-wrap"><table class="recipe-table">
       <thead><tr><th class="num" style="width:36px">#</th><th>Ingredient</th><th class="num">Weight (g)</th><th class="num">W%</th><th class="num">Cost</th></tr></thead>
@@ -2923,7 +2923,7 @@ async function viewRecipeMobile() {
         <input id="recipeMult" type="number" step="any" min="0" inputmode="decimal" value="${S.recipeMult || 1}" oninput="applyMult(this.value)">
         <button type="button" class="step plus" onclick="stepMult(1)" aria-label="More">+</button>
         <span class="m-div"></span>
-        <div class="mult-bar">${[1, 2, 4, 8].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}</div>
+        <div class="mult-bar">${[1, 8, 20, 30].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}</div>
       </div>
     </div>
     <div class="card m-recipe-card" id="mRecipeBody"></div>`;
