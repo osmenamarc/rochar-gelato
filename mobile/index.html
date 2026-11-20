@@ -268,6 +268,11 @@
   .cs-head { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
   .mult-bar { gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
   .mult-bar input { width: 80px; text-align: right; }
+  .m-recipe-top select { width: 100%; font-size: 17px; font-weight: 600; margin-bottom: 10px; }
+  .m-recipe-top .mult-bar { margin-bottom: 0; }
+  .m-recipe { width: 100%; font-size: 15px; }
+  .m-recipe td, .m-recipe th { padding: 9px 4px; }
+  .m-recipe td.num { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
   .mult-bar .chip { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
   .mult-bar .chip.on { background: var(--ink, #222); color: #fff; border-color: transparent; }
   .cs-preview { margin: 0; white-space: pre-wrap; font: 13px/1.45 Inter, sans-serif; background: #fff; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
@@ -739,7 +744,7 @@ const NAV_GROUPS = [
   ["SYSTEM", [["settings", "Settings"], ["system", "System"]]],
 ];
 const TABS = MODE === "mobile"
-  ? [["schedule", "Schedule"], ["pos", "POS"], ["make", "Prod"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"], ["notifs", "Notifs"]]
+  ? [["schedule", "Schedule"], ["pos", "POS"], ["make", "Prod"], ["recipe", "Recipe"], ["buy", "Stock In"], ["expense", "Expense"], ["count", "Inventory"], ["notifs", "Notifs"]]
   : NAV_GROUPS.flatMap(g => g[1]);
 const SALE_METHODS = ["Cash", "GCash", "Bank"];
 // Phone bottom bar: 4 main tabs + a menu button for the rest
@@ -2882,6 +2887,32 @@ async function viewRecipeDetail() {
     <p class="small muted" style="margin-bottom:0">${r.cost_per_kg !== null ? `Cost per kg: <b>${money(r.cost_per_kg)}</b>. ` : ""}${r.missing_costs ? `${r.missing_costs} ingredient${r.missing_costs === 1 ? " has" : "s have"} no cost — link ${r.missing_costs === 1 ? "it" : "them"} to a Material in the Ingredients tab if you buy ${r.missing_costs === 1 ? "it" : "them"}.` : "Costs follow your latest purchase prices."}</p></div>`;
   applyMult(S.recipeMult || 1);
 }
+// Phone: pick a recipe, multiply, read Ingredient | Weight.
+async function viewRecipeMobile() {
+  const list = await api("/batch-recipes");
+  let id = S.mRecipe; try { id = id || Number(localStorage.getItem("rochar_mrecipe")) || null; } catch (e) {}
+  if (!list.some(r => r.id === id)) id = list.length ? list[0].id : null;
+  S.mRecipe = id;
+  $("#view").innerHTML = !list.length ? `<div class="card empty">No recipes yet — add them on the web admin.</div>` : `
+    <div class="card m-recipe-top">
+      <select id="mRecipeSel" onchange="pickMRecipe(this.value)">${list.map(r => `<option value="${r.id}" ${r.id === id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>
+      <div class="row mult-bar"><span class="small muted">×</span>
+        <input id="recipeMult" type="number" step="any" min="0" inputmode="decimal" value="${S.recipeMult || 1}" oninput="applyMult(this.value)">
+        ${[1, 2, 4, 8].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}</div>
+    </div>
+    <div class="card" id="mRecipeBody" style="padding:6px 12px"></div>`;
+  if (id) await drawMRecipe(id);
+}
+async function pickMRecipe(v) { S.mRecipe = Number(v); try { localStorage.setItem("rochar_mrecipe", v); } catch (e) {} await drawMRecipe(S.mRecipe); }
+async function drawMRecipe(id) {
+  const r = await api(`/batch-recipes/${id}`), box = $("#mRecipeBody"); if (!box) return;
+  box.innerHTML = `<table class="recipe-table m-recipe"><thead><tr><th>Ingredient</th><th class="num">Weight</th></tr></thead>
+    <tbody>${r.lines.map(l => `<tr><td>${l.brand ? `<span class="muted">${esc(l.brand)}</span> ` : ""}${esc(l.name)}</td><td class="num" data-g="${l.grams}" data-unit=" g"></td></tr>`).join("")
+      || `<tr><td colspan="2" class="empty">No ingredients yet.</td></tr>`}</tbody>
+    <tfoot><tr class="tot"><td><b>Total</b></td><td class="num"><b data-g="${r.total_grams}" data-unit=" g"></b></td></tr></tfoot></table>
+    ${r.notes ? `<p class="small muted" style="margin:6px 0 4px">📝 ${esc(r.notes)}</p>` : ""}`;
+  applyMult(S.recipeMult || 1);
+}
 // Show the batch scaled up/down (view only — the saved recipe stays at its base size).
 function applyMult(v, setInput = false) {
   const m = Number(v); S.recipeMult = m > 0 ? m : 1;
@@ -3737,7 +3768,7 @@ async function changePin(e) {
 
 // ---------------------------------------------------------------- boot
 const VIEWS = {
-  notifs: viewNotifs, pos: viewPOS, orders: viewSchedule, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
+  notifs: viewNotifs, recipe: viewRecipeMobile, pos: viewPOS, orders: viewSchedule, schedule: viewSchedule, sales: viewSales, buy: viewBuy, expense: viewExpense, make: viewMake, count: viewCount,
   dashboard: viewDashboard, customers: viewCustomers, resellers: viewResellers, reconciliation: viewReconciliation,
   receivables: viewReceivables, liabilities: viewLiabilities, inventory: viewInventory,
   products: viewProducts, recipes: viewRecipes, materials: viewMaterials, purchases: viewPurchases, expenses: viewExpenses, settings: viewSettings, system: viewSystem,
