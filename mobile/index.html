@@ -303,6 +303,54 @@
   .m-recipe td.num { font-weight: 600; }
   .mult-bar .chip { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
   .mult-bar .chip.on { background: var(--ink, #222); color: #fff; border-color: transparent; }
+  .oline.ro { grid-template-columns: 1fr auto; }
+  .kx-open { margin: 10px 0 14px; padding: 14px; font-size: 16px; }
+  body.kx-lock { overflow: hidden; }
+  #kiosk { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: none; background: var(--bg); display: none; flex-direction: column; }
+  #kiosk::backdrop { background: var(--bg); }
+  #kiosk.open { display: flex; animation: kxIn .18s ease-out; }
+  @keyframes kxIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .kx-head { display: grid; grid-template-columns: 96px 1fr 96px; align-items: center; padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); background: #fff; border-bottom: 1px solid var(--border); }
+  .kx-x { border: none; background: none; font: 600 15px Inter, sans-serif; color: var(--gold); text-align: left; cursor: pointer; padding: 8px 4px; }
+  .kx-title { text-align: center; font-weight: 700; font-size: 17px; line-height: 1.2; }
+  .kx-title small { display: block; font-weight: 500; font-size: 12.5px; color: var(--muted); }
+  .kx-main { flex: 1; display: flex; min-height: 0; }
+  .kx-rail { width: 84px; flex: none; background: #fff; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px 6px; display: flex; flex-direction: column; gap: 6px; }
+  .kx-rail button { position: relative; border: none; background: none; border-radius: 12px; padding: 16px 4px; font: 600 14px Inter, sans-serif; color: var(--muted); cursor: pointer; }
+  .kx-rail button.on { background: #7a4a2c; color: #fff; }
+  .kx-rail i { position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--gold-soft); color: var(--ink); font: 700 11px/18px Inter, sans-serif; font-style: normal; }
+  .kx-grid { flex: 1; overflow-y: auto; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; align-content: start; }
+  .kx-tile { position: relative; background: #fff; border-radius: 16px; padding: 10px; box-shadow: 0 1px 6px rgba(50,34,24,.07); cursor: pointer; border: 2px solid transparent; user-select: none; -webkit-user-select: none; }
+  .kx-tile.in { border-color: #7a4a2c; }
+  .kx-tile.tap { animation: kxTap .18s ease-out; }
+  @keyframes kxTap { 50% { transform: scale(.96); } }
+  .kx-img { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: #f6f2ee; display: flex; align-items: center; justify-content: center; font: 700 26px "Playfair Display", serif; color: var(--muted); }
+  .kx-img img { width: 100%; height: 100%; object-fit: cover; }
+  .kx-q { position: absolute; top: 6px; right: 6px; min-width: 30px; height: 30px; border-radius: 15px; background: #7a4a2c; color: #fff; font: 700 15px/30px Inter, sans-serif; text-align: center; padding: 0 6px; }
+  .kx-name { margin-top: 8px; font-weight: 600; font-size: 14.5px; line-height: 1.25; }
+  .kx-name small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); }
+  .kx-price { margin-top: 4px; font-weight: 700; font-size: 15px; }
+  .kx-minus { position: absolute; bottom: 10px; right: 10px; width: 34px; height: 34px; border-radius: 10px; border: none; background: #a3826d; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; }
+  .kx-bar { display: flex; align-items: center; gap: 12px; padding: 12px 14px; padding-bottom: max(12px, env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid var(--border); box-shadow: 0 -4px 14px rgba(50,34,24,.06); }
+  .kx-sum { flex: 1; display: flex; flex-direction: column; }
+  .kx-sum span { font-size: 13px; color: var(--muted); }
+  .kx-sum b { font-size: 21px; font-variant-numeric: tabular-nums; }
+  .kx-go { border: none; border-radius: 14px; background: #7a4a2c; color: #fff; font: 700 17px Inter, sans-serif; padding: 15px 26px; cursor: pointer; }
+  .kx-go:disabled { opacity: .45; cursor: default; }
+  .kx-review { flex: 1; overflow-y: auto; padding: 12px; }
+  .kx-line { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 12px; margin-bottom: 8px; box-shadow: 0 1px 6px rgba(50,34,24,.06); }
+  .kx-line.removed { grid-template-columns: 1fr auto; opacity: .6; }
+  .kx-ln b { display: block; font-size: 15px; }
+  .kx-ln span { font-size: 12.5px; color: var(--muted); }
+  .kx-ln em { font-style: normal; color: var(--gold); font-weight: 600; }
+  .kx-step { display: flex; align-items: center; gap: 6px; }
+  .kx-step button { width: 36px; height: 36px; border: none; border-radius: 10px; background: #7a4a2c; color: #fff; font-size: 20px; cursor: pointer; }
+  .kx-step button:first-child { background: #a3826d; }
+  .kx-step b { min-width: 26px; text-align: center; font-size: 17px; }
+  .kx-amt { min-width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
+  .kx-del { border: none; background: none; color: #b5483a; cursor: pointer; padding: 6px; }
+  .kx-del svg { width: 18px; height: 18px; }
+  @media (min-width: 900px) { .kx-rail { width: 120px; } .kx-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; padding: 18px; } }
   .cs-preview { margin: 0; white-space: pre-wrap; font: 13px/1.45 Inter, sans-serif; background: #fff; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
   .cs-buttons { max-width: 420px; }
   .var-box { border: 1px dashed #e2d2bf; border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; background: #fff; }
@@ -1428,6 +1476,95 @@ function replaceOrder(o) {
   drawOrderCard(o.id);
 }
 
+// ---- Edit an order's items, kiosk style: category rail · big tiles · "My order" bar → Review → Save.
+// Nothing is saved until "Save changes"; Cancel leaves the order as it was.
+let KX = null;   // { id, qty: {itemId: n}, orig: {itemId: n}, cat, review }
+function kioskOpen(id) {
+  const o = S.orders.find(x => x.id === id); if (!o) return;
+  const q = {}; o.items.forEach(i => q[i.item_id] = Number(i.qty));
+  const cats = SELL_CATS.filter(c => sellables().some(i => i.category === c));
+  KX = { id, qty: { ...q }, orig: q, cat: cats[0] || null, review: false };
+  // a <dialog> so it sits above the order sheet (which is also a dialog)
+  let el = $("#kiosk"); if (!el) { el = document.createElement("dialog"); el.id = "kiosk"; document.body.appendChild(el);
+    el.addEventListener("cancel", e => { e.preventDefault(); kioskClose(); }); }
+  el.classList.add("open"); document.body.classList.add("kx-lock"); if (!el.open) el.showModal();
+  kioskDraw();
+}
+function kioskClose(force) {
+  if (!force && kioskDirty() && !confirm("Discard your changes to this order?")) return;
+  KX = null; const el = $("#kiosk"); if (el) { el.classList.remove("open"); if (el.open) el.close(); } document.body.classList.remove("kx-lock");
+}
+function kioskDirty() {
+  if (!KX) return false;
+  const ids = new Set([...Object.keys(KX.qty), ...Object.keys(KX.orig)]);
+  return [...ids].some(k => (KX.qty[k] || 0) !== (KX.orig[k] || 0));
+}
+function kioskLines() {
+  const o = S.orders.find(x => x.id === KX.id);
+  return Object.entries(KX.qty).filter(([, n]) => n > 0).map(([id, n]) => {
+    const it = S.items.find(i => i.id === Number(id)), line = o.items.find(l => l.item_id === Number(id));
+    const price = line ? Number(line.unit_price) : it ? priceFor(o, it) : 0;
+    return { id: Number(id), n, it, name: it ? itemLabel(it.name, it.variant) : line ? itemLabel(line.name, line.variant) : "Item", price, amount: price * n };
+  });
+}
+function kioskDraw() {
+  const el = $("#kiosk"); if (!el || !KX) return;
+  const o = S.orders.find(x => x.id === KX.id); if (!o) return kioskClose(true);
+  const lines = kioskLines(), n = lines.reduce((s, l) => s + l.n, 0), total = lines.reduce((s, l) => s + l.amount, 0);
+  const head = `<div class="kx-head"><button type="button" class="kx-x" onclick="${KX.review ? "KX.review=false; kioskDraw()" : "kioskClose()"}">${KX.review ? "‹ Add more" : "Cancel"}</button>
+      <div class="kx-title">${KX.review ? "Review order" : "Edit items"}<small>#${o.id}${o.customer_name ? " · " + esc(o.customer_name) : ""}</small></div><span class="kx-sp"></span></div>`;
+  if (KX.review) {
+    el.innerHTML = head + `<div class="kx-review">
+      ${lines.length ? lines.map(l => { const was = KX.orig[l.id] || 0; return `<div class="kx-line">
+          <div class="kx-ln"><b>${esc(l.name)}</b><span>${money(l.price)} each${was !== l.n ? ` · <em>${was ? "was " + qty(was) : "new"}</em>` : ""}</span></div>
+          <div class="kx-step"><button type="button" onclick="kioskSet(${l.id}, -1)" aria-label="Less">−</button><b>${qty(l.n)}</b><button type="button" onclick="kioskSet(${l.id}, 1)" aria-label="More">+</button></div>
+          <b class="kx-amt">${money(l.amount)}</b>
+          <button type="button" class="kx-del" onclick="kioskSet(${l.id}, -${l.n})" aria-label="Remove">${ICON_TRASH}</button></div>`; }).join("")
+        : `<div class="empty">No items — tap ‹ Add more.</div>`}
+      ${Object.keys(KX.orig).filter(k => KX.orig[k] && !KX.qty[k]).map(k => { const line = o.items.find(l => l.item_id === Number(k));
+          return `<div class="kx-line removed"><div class="kx-ln"><b>${esc(line ? itemLabel(line.name, line.variant) : "Item")}</b><span><em>removed</em></span></div>
+            <button type="button" class="link" onclick="kioskSet(${k}, ${KX.orig[k]})">undo</button></div>`; }).join("")}
+      </div>
+      <div class="kx-bar"><div class="kx-sum"><span>${n} item${n === 1 ? "" : "s"}</span><b>${money(total)}</b></div>
+        <button type="button" class="kx-go" onclick="kioskSave()" ${kioskDirty() ? "" : "disabled"}>Save changes</button></div>`;
+    return;
+  }
+  const items = sellables().filter(i => !KX.cat || i.category === KX.cat);
+  const cats = SELL_CATS.filter(c => sellables().some(i => i.category === c));
+  el.innerHTML = head + `<div class="kx-main">
+      <nav class="kx-rail">${cats.map(c => { const cn = sellables().filter(i => i.category === c).reduce((s, i) => s + (KX.qty[i.id] || 0), 0);
+          return `<button type="button" class="${c === KX.cat ? "on" : ""}" onclick="KX.cat='${c}'; kioskDraw()">${esc(c)}${cn ? `<i>${cn}</i>` : ""}</button>`; }).join("")}</nav>
+      <div class="kx-grid">${items.map(i => { const q = KX.qty[i.id] || 0; return `<div class="kx-tile ${q ? "in" : ""}" id="kt${i.id}" onclick="kioskSet(${i.id}, 1)">
+          <div class="kx-img">${imgUrl(i) ? `<img src="${imgUrl(i)}" alt="" loading="lazy">` : `<span>${esc(initials(i.name))}</span>`}${q ? `<b class="kx-q">${qty(q)}</b>` : ""}</div>
+          <div class="kx-name">${esc(i.name)}${i.variant ? `<small>${esc(i.variant)}</small>` : ""}</div>
+          <div class="kx-price">${money(priceFor(o, i))}</div>
+          ${q ? `<button type="button" class="kx-minus" onclick="event.stopPropagation(); kioskSet(${i.id}, -1)" aria-label="Remove one">−</button>` : ""}</div>`; }).join("")
+        || `<div class="empty">No products here.</div>`}</div></div>
+    <div class="kx-bar"><div class="kx-sum"><span>My order · ${n} item${n === 1 ? "" : "s"}</span><b>${money(total)}</b></div>
+      <button type="button" class="kx-go" onclick="KX.review=true; kioskDraw()">Review ›</button></div>`;
+}
+function kioskSet(itemId, delta) {
+  if (!KX) return;
+  KX.qty[itemId] = Math.max(0, (KX.qty[itemId] || 0) + delta); if (!KX.qty[itemId]) delete KX.qty[itemId];
+  const g = $(".kx-grid"), st = g ? g.scrollTop : 0;
+  kioskDraw();
+  if ($(".kx-grid")) $(".kx-grid").scrollTop = st;
+  if (delta > 0) { const t = $("#kt" + itemId); if (t) { t.classList.remove("tap"); void t.offsetWidth; t.classList.add("tap"); } }
+  if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {}
+}
+async function kioskSave() {
+  if (!KX) return;
+  const id = KX.id, ids = new Set([...Object.keys(KX.qty), ...Object.keys(KX.orig)]);
+  const changes = [...ids].filter(k => (KX.qty[k] || 0) !== (KX.orig[k] || 0)).map(k => [Number(k), KX.qty[k] || 0]);
+  const btn = $(".kx-go"); if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  try {
+    let fresh = null;
+    for (const [itemId, q] of changes) fresh = await api(`/orders/${id}/items/${itemId}`, { method: "PUT", body: { qty: q } });
+    if (fresh) replaceOrder(fresh);
+    kioskClose(true); toast("Order updated");
+  } catch (e) { toast(e.message, true); if (btn) { btn.disabled = false; btn.textContent = "Save changes"; } reloadOrder(id); }
+}
+
 // ---- POS: tap products into a ticket → Charge → finish the order in a sheet
 let TICKET = {};
 try { TICKET = JSON.parse(localStorage.getItem("rochar_ticket") || "{}"); } catch (e) {}
@@ -1673,13 +1810,9 @@ function drawOrderCard(id) {
       <div class="row"><b class="oc-total">${money(o.total)}</b><span class="muted chev">▾</span></div>
     </div>
     <div class="ocard-body-wrap"><div><div class="ocard-body">
-      <details class="addmore" ${S.addMore[id] ? "open" : ""} ontoggle="S.addMore[${id}]=this.open"><summary>+ Add more items</summary>
-      <div class="pos">${sellables().map(i => `<button type="button" onclick="bump(${id}, ${i.id}, 1)">
-        <b>${esc(i.name)}</b><span>${esc(i.variant)}${i.variant ? " · " : ""}${money(priceFor(o, i))}</span>
-        ${qtyOf(i.id) ? `<span class="q">${qtyOf(i.id)}</span>` : ""}</button>`).join("")}</div></details>
-      ${o.items.length ? o.items.map(i => `<div class="oline"><div>${esc(itemLabel(i.name, i.variant))}<br><span class="small muted">${money(i.unit_price)} each</span></div>
-          <div class="stepper"><button type="button" onclick="bump(${id}, ${i.item_id}, -1)">−</button><span>${qty(i.qty)}</span><button type="button" onclick="bump(${id}, ${i.item_id}, 1)">+</button></div>
-          <b>${money(i.amount)}</b></div>`).join("") : `<p class="muted small">Tap the flavors above to add them.</p>`}
+      ${o.items.length ? o.items.map(i => `<div class="oline ro"><div><b>${qty(i.qty)}×</b> ${esc(itemLabel(i.name, i.variant))}</div><b>${money(i.amount)}</b></div>`).join("")
+        : `<p class="muted small">No items yet.</p>`}
+      <button type="button" class="btn block kx-open" onclick="kioskOpen(${id})">${o.items.length ? "✎ Edit items" : "+ Add items"}</button>
       <div class="sums">
         <div><span>Items</span><span>${money(o.subtotal)}</span></div>
         <div><span>Delivery fee</span><span class="oc-df">${money(o.delivery_fee)}</span></div>
