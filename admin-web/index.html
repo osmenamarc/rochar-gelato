@@ -268,14 +268,28 @@
   .cs-head { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
   .mult-bar { gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
   .mult-bar input { width: 72px; text-align: center; border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; font: inherit; font-weight: 600; background: #fff; }
-  .m-recipe-top select { width: 100%; margin-bottom: 12px; -webkit-appearance: none; appearance: none;
-    font-family: "Playfair Display", Georgia, serif; font-size: 21px; font-weight: 700; color: var(--ink);
-    background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23322218' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center;
-    border: 1px solid var(--border); border-radius: 14px; padding: 12px 44px 12px 16px; cursor: pointer; }
+  .m-recipe-top, .m-recipe-card { border-radius: 18px; box-shadow: 0 2px 10px rgba(50,34,24,.06); border: none; }
+  .m-recipe-top { padding: 14px; }
+  .m-recipe-card { padding: 6px 14px 14px; }
+  .m-recipe-top select { width: 100%; margin-bottom: 14px; -webkit-appearance: none; appearance: none;
+    font-family: Inter, sans-serif; font-size: 19px; font-weight: 700; color: var(--ink);
+    background: #f6f2ee url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23322218' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center;
+    border: 1px solid #ebe4dd; border-radius: 14px; padding: 13px 44px 13px 16px; cursor: pointer; }
+  .m-mult { display: flex; align-items: center; gap: 6px; }
+  .m-mult .step { width: 38px; height: 38px; flex: none; border: none; border-radius: 12px; color: #fff; font-size: 24px; line-height: 1; cursor: pointer; background: #7a4a2c; }
+  .m-mult .step.minus { background: #a3826d; }
+  .m-mult input { width: 48px; height: 38px; flex: none; text-align: center; border: 1px solid #ebe4dd; border-radius: 12px; font: 600 19px Inter, sans-serif; color: var(--ink); background: #fff; padding: 0; }
+  .m-mult .m-div { width: 1px; height: 28px; background: #e6ddd4; margin: 0 2px; flex: none; }
+  .m-mult .mult-bar { display: flex; flex-wrap: nowrap; gap: 5px; margin: 0; flex: 1; min-width: 0; }
+  .m-mult .mult-bar .chip { flex: 1; min-width: 0; padding: 9px 0; text-align: center; }
+  .m-mult .mult-bar .chip.on { background: #7a4a2c; color: #fff; }
+  .m-recipe tbody td { color: var(--ink); }
+  .m-total { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 13px 14px; border-radius: 12px; background: #f8ecdc; font-size: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
   .m-recipe-top select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
   .m-recipe-top .mult-bar { margin-bottom: 0; }
-  .m-recipe { width: 100%; font-size: 15px; }
-  .m-recipe td, .m-recipe th { padding: 9px 4px; }
+  .m-recipe { width: 100%; font-size: 16px; }
+  .m-recipe td, .m-recipe th { padding: 11px 4px; }
+  .m-recipe tbody tr:last-child td { border-bottom: none; }
   .recipe-table td.num, .recipe-table th.num { white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; text-align: right; }
   .m-recipe td.num { font-weight: 600; }
   .mult-bar .chip { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
@@ -2901,20 +2915,26 @@ async function viewRecipeMobile() {
   $("#view").innerHTML = !list.length ? `<div class="card empty">No recipes yet — add them on the web admin.</div>` : `
     <div class="card m-recipe-top">
       <select id="mRecipeSel" onchange="pickMRecipe(this.value)">${list.map(r => `<option value="${r.id}" ${r.id === id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>
-      <div class="row mult-bar"><span class="small muted">×</span>
+      <div class="m-mult">
+        <button type="button" class="step minus" onclick="stepMult(-1)" aria-label="Less">−</button>
         <input id="recipeMult" type="number" step="any" min="0" inputmode="decimal" value="${S.recipeMult || 1}" oninput="applyMult(this.value)">
-        ${[1, 2, 4, 8].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}</div>
+        <button type="button" class="step plus" onclick="stepMult(1)" aria-label="More">+</button>
+        <span class="m-div"></span>
+        <div class="mult-bar">${[1, 2, 4, 8].map(m => `<button type="button" class="chip" onclick="applyMult(${m}, true)">×${m}</button>`).join("")}</div>
+      </div>
     </div>
-    <div class="card" id="mRecipeBody" style="padding:6px 12px"></div>`;
+    <div class="card m-recipe-card" id="mRecipeBody"></div>`;
   if (id) await drawMRecipe(id);
 }
+function stepMult(d) { const m = S.recipeMult || 1; applyMult(d > 0 ? Math.floor(m) + 1 : Math.max(1, Math.ceil(m) - 1), true); }
 async function pickMRecipe(v) { S.mRecipe = Number(v); try { localStorage.setItem("rochar_mrecipe", v); } catch (e) {} await drawMRecipe(S.mRecipe); }
 async function drawMRecipe(id) {
   const r = await api(`/batch-recipes/${id}`), box = $("#mRecipeBody"); if (!box) return;
-  box.innerHTML = `<table class="recipe-table m-recipe"><thead><tr><th>Ingredient</th><th class="num">Weight (g)</th></tr></thead>
-    <tbody>${r.lines.map(l => `<tr><td>${l.brand ? `<span class="muted">${esc(l.brand)}</span> ` : ""}${esc(l.name)}</td><td class="num" data-g="${l.grams}"></td></tr>`).join("")
+  // (weights are filled in by applyMult so they follow the multiplier)
+  box.innerHTML = `<table class="recipe-table m-recipe"><thead><tr><th>Ingredient</th><th class="num">Weight</th></tr></thead>
+    <tbody>${r.lines.map(l => `<tr><td>${esc((l.brand ? l.brand + " " : "") + l.name)}</td><td class="num" data-g="${l.grams}" data-unit=" g"></td></tr>`).join("")
       || `<tr><td colspan="2" class="empty">No ingredients yet.</td></tr>`}</tbody>
-    <tfoot><tr class="tot"><td><b>Total</b></td><td class="num"><b data-g="${r.total_grams}"></b></td></tr></tfoot></table>
+    </table><div class="m-total"><span>Total</span><span data-g="${r.total_grams}" data-unit=" g"></span></div>
     ${r.notes ? `<p class="small muted" style="margin:6px 0 4px">📝 ${esc(r.notes)}</p>` : ""}`;
   applyMult(S.recipeMult || 1);
 }
@@ -2924,7 +2944,7 @@ const fixed2 = n => Number(n || 0).toLocaleString("en-US", { minimumFractionDigi
 function applyMult(v, setInput = false) {
   const m = Number(v); S.recipeMult = m > 0 ? m : 1;
   if (setInput) $("#recipeMult").value = S.recipeMult;
-  $$(".recipe-table [data-g]").forEach(el => el.textContent = fixed2(Number(el.dataset.g) * S.recipeMult) + (el.dataset.unit || ""));
+  $$(".recipe-table [data-g], .m-total [data-g]").forEach(el => el.textContent = fixed2(Number(el.dataset.g) * S.recipeMult) + (el.dataset.unit || ""));
   $$(".recipe-table [data-c]").forEach(el => el.textContent = money(Number(el.dataset.c) * S.recipeMult));
   $$(".mult-bar .chip").forEach(b => b.classList.toggle("on", b.textContent === "×" + S.recipeMult));
 }
