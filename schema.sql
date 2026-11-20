@@ -501,3 +501,16 @@ BEGIN
   END LOOP;
   INSERT INTO app_secrets (key, value) VALUES ('seed_recipes_2026_11', now()::text);
 END $$;
+
+-- v12: round the loaded batches to exactly 500 g (×8 = 4000 g) by nudging Water. Only touches a recipe whose total is still the off value.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM app_secrets WHERE key = 'seed_recipes_2026_11_round') THEN RETURN; END IF;
+  UPDATE batch_recipe_lines l SET grams = l.grams + (500 - t.total)
+    FROM (SELECT b.id, sum(x.grams) AS total FROM batch_recipes b JOIN batch_recipe_lines x ON x.recipe_id = b.id
+          WHERE lower(b.name) IN ('malted polvoron', 'cheesecake gelato', 'chocolate gelato', 'matcha gelato')
+          GROUP BY b.id HAVING sum(x.grams) IN (499.999, 500.010)) t,
+         recipe_ingredients ri
+   WHERE l.recipe_id = t.id AND ri.id = l.ingredient_id AND lower(ri.name) = 'water';
+  INSERT INTO app_secrets (key, value) VALUES ('seed_recipes_2026_11_round', now()::text);
+END $$;
